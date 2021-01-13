@@ -48,6 +48,9 @@ final class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
     
+    
+    public var savedData = String()
+    
     // The current viewport size
     private var viewportSize = CGSize()
     // The grid of sample points
@@ -85,6 +88,11 @@ final class Renderer {
     private lazy var viewToCamera = sampleFrame.displayTransform(for: orientation, viewportSize: viewportSize).inverted()
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
+    func getPointBuffer() -> MetalBuffer<ParticleUniforms> {
+//        return pointCloudUniformsBuffers[currentPointIndex]
+        return particlesBuffer
+    }
+    
     // interfaces
     var confidenceThreshold = 1 {
         didSet {
@@ -92,6 +100,8 @@ final class Renderer {
             pointCloudUniforms.confidenceThreshold = Int32(confidenceThreshold)
         }
     }
+    
+    
     
     var rgbRadius: Float = 0 {
         didSet {
@@ -216,6 +226,16 @@ final class Renderer {
         renderEncoder.setRenderPipelineState(particlePipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(particlesBuffer)
+        
+        for i in 0..<particlesBuffer.count {
+            let pos = particlesBuffer[i].position
+            if pos[0] != 0 && pos[1] != 0 && pos[2] != 0 {
+                savedData.append("v \(pos[0]) \(pos[1]) \(pos[2])\n")
+            }
+
+        }
+        
+        
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
         renderEncoder.endEncoding()
             
@@ -242,6 +262,9 @@ final class Renderer {
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(particlesBuffer)
+        
+        
+        
         renderEncoder.setVertexBuffer(gridPointsBuffer)
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))

@@ -13,6 +13,8 @@ import ARKit
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let confidenceControl = UISegmentedControl(items: ["Low", "Medium", "High"])
+    private let myButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
+    
     private let rgbRadiusSlider = UISlider()
     
     private let session = ARSession()
@@ -20,7 +22,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+        myButton.backgroundColor = .green
+        myButton.setTitle("---", for: .normal)
+        myButton.addTarget(self, action: #selector(buttonAction), for: .touchUpInside)
+        view.addSubview(myButton)
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("Metal is not supported on this device")
             return
@@ -65,6 +70,41 @@ final class ViewController: UIViewController, ARSessionDelegate {
             stackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             stackView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -50)
         ])
+    }
+    
+    @objc
+    func buttonAction(_ sender: UIButton!) {
+        
+        
+//        let file:FileHandle? = FileHandle(forWritingAtPath: )
+//        if file == nil {
+//            print("X      FAIL")
+//        } else {
+//            let obj = (renderer.savedData as NSString).data(using: String.Encoding.utf8.rawValue)
+//            file?.write(obj!)
+//            file?.closeFile()
+//            print("V      DONE!")
+//        }
+        
+        session.pause()
+        let file = "cloud.obj"
+        let text = renderer.savedData
+        
+        if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let fileURL = dir.appendingPathComponent(file)
+           
+            //writing
+            do {
+                try text.write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
+                
+            }
+            catch {/* error handling here */}
+            
+            let activity = UIActivityViewController(activityItems: ["Облако точек", fileURL],
+                                                    applicationActivities: .none)
+            activity.isModalInPresentation = true
+            present(activity, animated: true, completion: nil)
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -143,6 +183,13 @@ extension ViewController: MTKViewDelegate {
     // Called whenever the view needs to render
     func draw(in view: MTKView) {
         renderer.draw()
+    }
+    func share(url: URL) {
+        let docContr = UIDocumentInteractionController(url: url)
+        docContr.uti = "public.data, public.content"
+        docContr.name = url.lastPathComponent
+        docContr.presentPreview(animated: true)
+        
     }
 }
 
