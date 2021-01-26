@@ -49,6 +49,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         }
         
         // Confidence control
+        
+//        renderer.confidenceThreshold = 2
         confidenceControl.backgroundColor = .white
         confidenceControl.selectedSegmentIndex = renderer.confidenceThreshold
         confidenceControl.addTarget(self, action: #selector(viewValueChanged), for: .valueChanged)
@@ -74,33 +76,46 @@ final class ViewController: UIViewController, ARSessionDelegate {
     
     @objc
     func buttonAction(_ sender: UIButton!) {
+//        session.pause()
+
+        let radius:Float = 0.5
+        let dim:Int = 200
+        let dR:Float = 2*radius / Float(dim)
+        let cld = [SIMD3<Float>]()
+        let xS = Array(repeating: cld, count: dim)
+        var chunks = Array(repeating: xS, count: dim)
         
+        for p in renderer.getCloud() {
+            if (p.x*p.x + p.z*p.z < radius*radius) {
+                let i = Int(p.x/dR) + dim/2
+                let j = Int(p.z/dR) + dim/2
+                chunks[i][j].append(p)
+            }
+        }
         
-//        let file:FileHandle? = FileHandle(forWritingAtPath: )
-//        if file == nil {
-//            print("X      FAIL")
-//        } else {
-//            let obj = (renderer.savedData as NSString).data(using: String.Encoding.utf8.rawValue)
-//            file?.write(obj!)
-//            file?.closeFile()
-//            print("V      DONE!")
-//        }
+        let meanGrid = calcMeanGridInMm(grid: chunks, dim: dim)
+        let obj = exportToObjFormat(grid: meanGrid, dim:dim)
         
-        session.pause()
-        let file = "cloud.obj"
-        let text = renderer.savedData
+        let step:Float = 5
+        let gistro = calcHeightGisto(grid:meanGrid, step:step, dim:dim)
+        let floor = findFloor(gistro:gistro, step:step, grid:meanGrid, dim:dim)
+        let floorObj = exportToObjFormat(points: floor)
         
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let fileURL = dir.appendingPathComponent(file)
+            let file = "cloud.obj"
+            let fileGridURL = dir.appendingPathComponent(file)
+            
+            let floorFile = "floor.obj"
+            let fileFloorURL = dir.appendingPathComponent(floorFile)
            
             //writing
             do {
-                try text.write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
-                
+                try obj.write(to: fileGridURL, atomically: true, encoding: String.Encoding.utf8)
+                try floorObj.write(to: fileFloorURL, atomically: true, encoding: String.Encoding.utf8)
             }
             catch {/* error handling here */}
             
-            let activity = UIActivityViewController(activityItems: ["Облако точек", fileURL],
+            let activity = UIActivityViewController(activityItems: [fileFloorURL, fileGridURL],
                                                     applicationActivities: .none)
             activity.isModalInPresentation = true
             present(activity, animated: true, completion: nil)
@@ -169,6 +184,108 @@ final class ViewController: UIViewController, ARSessionDelegate {
             alertController.addAction(restartAction)
             self.present(alertController, animated: true, completion: nil)
         }
+    }
+    
+    func calcMeanGridInMm(grid: [[[SIMD3<Float>]]], dim: Int) -> [[SIMD3<Float>]] {
+        var res = [[SIMD3<Float>]]()
+        for i in 0..<dim {
+            var row = [SIMD3<Float>]()
+            for j in 0..<dim {
+                let statisticData = grid[i][j]
+                var pMean = SIMD3<Float>()
+                if (!statisticData.isEmpty) {
+                    for p in statisticData {
+                        pMean += p
+                    }
+                    pMean /= Float(statisticData.count)
+                }
+                row.append(1000*pMean) // also convert in mm
+            }
+            res.append(row)
+        }
+        return res
+    }
+    
+    func calcHeightGisto(grid: [[SIMD3<Float>]], step: Float, dim: Int) -> [Float:Int] {
+        var res = [Float:Int]()
+        for i in 0..<dim {
+            for j in 0..<dim {
+                let h = grid[i][j].y
+                let hDescr = floor(h/step)*step
+                if let cnt = res[hDescr] {
+                    res[hDescr] = cnt + 1
+                } else {
+                    res[hDescr] = 1
+                }
+            }
+        }
+        return res
+    }
+    
+    func findFloor(gistro: [Float:Int], step: Float, grid: [[SIMD3<Float>]], dim: Int) -> [SIMD3<Float>] {
+        var res = [SIMD3<Float>]()
+        
+        var maxCount:Int = 0
+        var floorHeight:Float = 0
+        for el in gistro {
+            if el.key != 0 {
+                if (el.value > maxCount) {
+                    floorHeight = el.key
+                    maxCount = el.value
+                }
+            }
+        }
+        
+        for i in 0..<dim {
+            for j in 0..<dim {
+                let p = grid[i][j]
+                let delta = p.y - floorHeight
+                if (delta < step && delta > 0) {
+                    res.append(p)
+                }
+            }
+        }
+        
+        return res
+    }
+    
+    func exportToObjFormat(grid: [[SIMD3<Float>]], dim: Int) -> String {
+//      vertexes
+        var text: String = ""
+        for i in 0..<dim {
+            for j in 0..<dim {
+                let p = grid[i][j]
+                text.append("v \(p.x) \(p.y) \(p.z)\n")
+            }
+        }
+        
+        let zero = SIMD3<Float>.zero
+        
+//      edges connecting vertex pair
+        for i in 1..<dim-1 {
+            for j in 1..<dim-1 {
+                if (grid[i][j] != zero) {
+                    let pos = i*dim + j + 1
+                    if (grid[i][j+1] != zero) {
+                        text.append("l \(pos) \(pos + 1)\n")
+                    }
+                    if (grid[i+1][j] != zero) {
+                        text.append("l \(pos) \(pos + dim)\n")
+                    }
+                }
+            }
+        }
+        return text
+    }
+    
+    func exportToObjFormat(points: [SIMD3<Float>]) -> String {
+//      vertexes
+        var text: String = ""
+        for p in points {
+            text.append("v \(p.x) \(p.y) \(p.z)\n")
+        }
+        
+        return text
     }
 }
 

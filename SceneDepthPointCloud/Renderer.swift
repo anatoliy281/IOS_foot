@@ -9,7 +9,7 @@ import Metal
 import MetalKit
 import ARKit
 
-final class Renderer {
+class Renderer {
     // Maximum number of points we store in the point cloud
     private let maxPoints = 500_000
     // Number of sample points on the grid
@@ -91,6 +91,18 @@ final class Renderer {
     func getPointBuffer() -> MetalBuffer<ParticleUniforms> {
 //        return pointCloudUniformsBuffers[currentPointIndex]
         return particlesBuffer
+    }
+    
+    
+    func getCloud() -> [simd_float3] {
+        var res = [simd_float3]()
+        for i in 0..<particlesBuffer.count {
+            let pos = particlesBuffer[i].position
+            if (pos[0] != 0 && pos[1] != 0 && pos[2] != 0){
+                res.append(pos)
+            }
+        }
+        return res
     }
     
     // interfaces
@@ -227,15 +239,6 @@ final class Renderer {
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(particlesBuffer)
         
-        for i in 0..<particlesBuffer.count {
-            let pos = particlesBuffer[i].position
-            if pos[0] != 0 && pos[1] != 0 && pos[2] != 0 {
-                savedData.append("v \(pos[0]) \(pos[1]) \(pos[2])\n")
-            }
-
-        }
-        
-        
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
         renderEncoder.endEncoding()
             
@@ -262,8 +265,6 @@ final class Renderer {
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(particlesBuffer)
-        
-        
         
         renderEncoder.setVertexBuffer(gridPointsBuffer)
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
