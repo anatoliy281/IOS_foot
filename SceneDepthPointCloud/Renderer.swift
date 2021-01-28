@@ -106,7 +106,7 @@ class Renderer {
     }
     
     // interfaces
-    var confidenceThreshold = 1 {
+    var confidenceThreshold = 2 {
         didSet {
             // apply the change for the shader
             pointCloudUniforms.confidenceThreshold = Int32(confidenceThreshold)

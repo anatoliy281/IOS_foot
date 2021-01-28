@@ -76,14 +76,12 @@ final class ViewController: UIViewController, ARSessionDelegate {
     
     @objc
     func buttonAction(_ sender: UIButton!) {
-//        session.pause()
 
         let radius:Float = 0.5
         let dim:Int = 200
         let dR:Float = 2*radius / Float(dim)
-        let cld = [SIMD3<Float>]()
-        let xS = Array(repeating: cld, count: dim)
-        var chunks = Array(repeating: xS, count: dim)
+        var chunks = Array(repeating:Array(repeating:[SIMD3<Float>](), count:dim),
+                           count:dim)
         
         for p in renderer.getCloud() {
             if (p.x*p.x + p.z*p.z < radius*radius) {
@@ -93,7 +91,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
             }
         }
         
-        let meanGrid = calcMeanGridInMm(grid: chunks, dim: dim)
+        let meanGrid = calcGridInMm(grid: chunks, dim: dim)
         let obj = exportToObjFormat(grid: meanGrid, dim:dim)
         
         let step:Float = 5
@@ -101,21 +99,32 @@ final class ViewController: UIViewController, ARSessionDelegate {
         let floor = findFloor(gistro:gistro, step:step, grid:meanGrid, dim:dim)
         let floorObj = exportToObjFormat(points: floor)
         
+        let ringParams = findFloorRing(points: floor)
+        let ring1Obj = exportToObjFormat(center: ringParams.0, radius: ringParams.1)
+        let ring2Obj = exportToObjFormat(center: ringParams.0, radius: ringParams.2)
+        
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             let file = "cloud.obj"
             let fileGridURL = dir.appendingPathComponent(file)
             
             let floorFile = "floor.obj"
             let fileFloorURL = dir.appendingPathComponent(floorFile)
-           
+            
+            let ring1File = "ring1.obj"
+            let fileRing1URL = dir.appendingPathComponent(ring1File)
+            let ring2File = "ring2.obj"
+            let fileRing2URL = dir.appendingPathComponent(ring2File)
+            
             //writing
             do {
                 try obj.write(to: fileGridURL, atomically: true, encoding: String.Encoding.utf8)
                 try floorObj.write(to: fileFloorURL, atomically: true, encoding: String.Encoding.utf8)
+                try ring1Obj.write(to: fileRing1URL, atomically: true, encoding: String.Encoding.utf8)
+                try ring2Obj.write(to: fileRing2URL, atomically: true, encoding: String.Encoding.utf8)
             }
             catch {/* error handling here */}
             
-            let activity = UIActivityViewController(activityItems: [fileFloorURL, fileGridURL],
+            let activity = UIActivityViewController(activityItems: [fileFloorURL, fileGridURL, fileRing1URL, fileRing2URL],
                                                     applicationActivities: .none)
             activity.isModalInPresentation = true
             present(activity, animated: true, completion: nil)
@@ -186,22 +195,20 @@ final class ViewController: UIViewController, ARSessionDelegate {
         }
     }
     
-    func calcMeanGridInMm(grid: [[[SIMD3<Float>]]], dim: Int) -> [[SIMD3<Float>]] {
-        var res = [[SIMD3<Float>]]()
+    func calcGridInMm(grid: [[[SIMD3<Float>]]], dim: Int) -> [[SIMD3<Float>]] {
+        var res = Array(repeating:Array(repeating:SIMD3<Float>(), count:dim), count:dim)
         for i in 0..<dim {
-            var row = [SIMD3<Float>]()
             for j in 0..<dim {
                 let statisticData = grid[i][j]
-                var pMean = SIMD3<Float>()
-                if (!statisticData.isEmpty) {
-                    for p in statisticData {
-                        pMean += p
+                var p = SIMD3<Float>()
+                if !statisticData.isEmpty {
+                    let gridSorted = statisticData.sorted {
+                        $0.y < $1.y
                     }
-                    pMean /= Float(statisticData.count)
+                    p = gridSorted[gridSorted.count/2]
                 }
-                row.append(1000*pMean) // also convert in mm
+                res[i][j] = 1000*p
             }
-            res.append(row)
         }
         return res
     }
@@ -249,6 +256,31 @@ final class ViewController: UIViewController, ARSessionDelegate {
         return res
     }
     
+    func findFloorRing(points: [SIMD3<Float>]) -> (SIMD3<Float>, Float, Float) {
+        let N = Float(points.count)
+        var xMean:Float = 0
+        var yMean:Float = 0
+        var zMean:Float = 0
+        for p in points {
+            xMean += p.x
+            yMean += p.y
+            zMean += p.z
+        }
+        xMean /= N
+        yMean /= N
+        zMean /= N
+        
+        var r1:Float = 0
+        var r2:Float = 0
+        for p in points {
+            let rho2 = (p.x - xMean)*(p.x - xMean) + (p.z - zMean)*(p.z - zMean)
+            r1 += rho2
+            r2 += sqrt(rho2)
+        }
+        
+        return (SIMD3<Float>(xMean, yMean, zMean), sqrt(r1/N), r2/N)
+    }
+    
     func exportToObjFormat(grid: [[SIMD3<Float>]], dim: Int) -> String {
 //      vertexes
         var text: String = ""
@@ -283,6 +315,26 @@ final class ViewController: UIViewController, ARSessionDelegate {
         var text: String = ""
         for p in points {
             text.append("v \(p.x) \(p.y) \(p.z)\n")
+        }
+        
+        return text
+    }
+    
+    func exportToObjFormat(center:SIMD3<Float>, radius:Float) -> String {
+//      vertexes
+        var text: String = ""
+        let xMean = center[0]
+        let yMean = center[1]
+        let zMean = center[2]
+
+        let n:Int = 12
+        let dx = 2*radius / Float(n)
+        for i in 0...n {
+            let x0 = Float(i)*dx - radius
+            let x = xMean + x0
+            let z0 = sqrt(radius*radius - x0*x0)
+            text.append("v \(x) \(yMean) \(zMean-z0)\n")
+            text.append("v \(x) \(yMean) \(zMean+z0)\n")
         }
         
         return text

@@ -360,7 +360,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = UR6DEMSJ84;
+				DEVELOPMENT_TEAM = 3V5K239FSK;
 				INFOPLIST_FILE = SceneDepthPointCloud/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
