@@ -23,7 +23,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         myButton.backgroundColor = .green
-        myButton.setTitle("---", for: .normal)
+        myButton.setTitle("Send", for: .normal)
         myButton.addTarget(self, action: #selector(buttonAction), for: .touchUpInside)
         view.addSubview(myButton)
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -77,9 +77,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
     @objc
     func buttonAction(_ sender: UIButton!) {
 
+        // в метрах
         let radius:Float = 0.5
-        let dim:Int = 200
-        let dR:Float = 2*radius / Float(dim)
+        let dim:Int = 500
+        let dR:Float = 2*radius / Float(dim)    // средний шаг сетки
         var chunks = Array(repeating:Array(repeating:[SIMD3<Float>](), count:dim),
                            count:dim)
         
@@ -94,37 +95,48 @@ final class ViewController: UIViewController, ARSessionDelegate {
         let meanGrid = calcGridInMm(grid: chunks, dim: dim)
         let obj = exportToObjFormat(grid: meanGrid, dim:dim)
         
-        let step:Float = 5
+        let step:Float = 5  // шаг гистограммы высот
         let gistro = calcHeightGisto(grid:meanGrid, step:step, dim:dim)
         let floor = findFloor(gistro:gistro, step:step, grid:meanGrid, dim:dim)
         let floorObj = exportToObjFormat(points: floor)
         
-        let ringParams = findFloorRing(points: floor)
-        let ring1Obj = exportToObjFormat(center: ringParams.0, radius: ringParams.1)
-        let ring2Obj = exportToObjFormat(center: ringParams.0, radius: ringParams.2)
+        let meanGridEven = calcGridInMmEven(grid: chunks, dim: dim, dR: dR)
+        let floorHeight = calcFloorHeight(floor)
+        let floorishMesh = setNullToFloorPoints(meanGridEven, dim, dR, floorHeight)
+        let floorishMedianFilteredMesh = filterMaskMedian(floorishMesh, dim)
+        
+        let objEven = exportToObjFormat(grid: floorishMedianFilteredMesh, dim:dim)
+        
+//        let ringParams = findFloorRing(points: floor)
+//        let ring1Obj = exportToObjFormat(center: ringParams.0, radius: ringParams.1)
+//        let ring2Obj = exportToObjFormat(center: ringParams.0, radius: ringParams.2)
         
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             let file = "cloud.obj"
             let fileGridURL = dir.appendingPathComponent(file)
             
+            let fileEven = "cloudEven.obj"
+            let fileGridEvenURL = dir.appendingPathComponent(fileEven)
+            
             let floorFile = "floor.obj"
             let fileFloorURL = dir.appendingPathComponent(floorFile)
             
-            let ring1File = "ring1.obj"
-            let fileRing1URL = dir.appendingPathComponent(ring1File)
-            let ring2File = "ring2.obj"
-            let fileRing2URL = dir.appendingPathComponent(ring2File)
+//            let ring1File = "ring1.obj"
+//            let fileRing1URL = dir.appendingPathComponent(ring1File)
+//            let ring2File = "ring2.obj"
+//            let fileRing2URL = dir.appendingPathComponent(ring2File)
             
             //writing
             do {
                 try obj.write(to: fileGridURL, atomically: true, encoding: String.Encoding.utf8)
+                try objEven.write(to: fileGridEvenURL, atomically: true, encoding: String.Encoding.utf8)
                 try floorObj.write(to: fileFloorURL, atomically: true, encoding: String.Encoding.utf8)
-                try ring1Obj.write(to: fileRing1URL, atomically: true, encoding: String.Encoding.utf8)
-                try ring2Obj.write(to: fileRing2URL, atomically: true, encoding: String.Encoding.utf8)
+//                try ring1Obj.write(to: fileRing1URL, atomically: true, encoding: String.Encoding.utf8)
+//                try ring2Obj.write(to: fileRing2URL, atomically: true, encoding: String.Encoding.utf8)
             }
             catch {/* error handling here */}
             
-            let activity = UIActivityViewController(activityItems: [fileFloorURL, fileGridURL, fileRing1URL, fileRing2URL],
+            let activity = UIActivityViewController(activityItems: [fileFloorURL, fileGridURL, fileGridEvenURL],
                                                     applicationActivities: .none)
             activity.isModalInPresentation = true
             present(activity, animated: true, completion: nil)
@@ -201,7 +213,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
             for j in 0..<dim {
                 let statisticData = grid[i][j]
                 var p = SIMD3<Float>()
-                if !statisticData.isEmpty {
+                if statisticData.count > 0 {
                     let gridSorted = statisticData.sorted {
                         $0.y < $1.y
                     }
@@ -210,6 +222,27 @@ final class ViewController: UIViewController, ARSessionDelegate {
                 res[i][j] = 1000*p
             }
         }
+        return res
+    }
+    
+    func calcGridInMmEven(grid: [[[SIMD3<Float>]]], dim: Int, dR: Float) -> [[SIMD3<Float>]] {
+        var res = Array(repeating:Array(repeating:SIMD3<Float>(), count:dim), count:dim)
+        for i in 0..<dim {
+            for j in 0..<dim {
+                let statisticData = grid[i][j]
+                var p = SIMD3<Float>()
+                if statisticData.count > 0 {
+                    let gridSorted = statisticData.sorted {
+                        $0.y < $1.y
+                    }
+                    p = gridSorted[gridSorted.count/2]
+                    p.x = indexToPos(i, dim, dR)
+                    p.z = indexToPos(j, dim, dR)
+                }
+                res[i][j] = 1000*p
+            }
+        }
+        
         return res
     }
     
@@ -255,6 +288,57 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         return res
     }
+    
+    func calcFloorHeight(_ floorPoints: [SIMD3<Float>]) -> Float {
+        let sortedPoints = floorPoints.sorted {
+            $0.y > $1.y
+        }
+        return sortedPoints[sortedPoints.count/2].y
+    }
+    
+    func setNullToFloorPoints(_ inMesh: [[SIMD3<Float>]], _ dim:Int, _ dR: Float, _ height: Float) ->[[SIMD3<Float>]] {
+        var res = inMesh
+        
+        for i in 0..<dim {
+            for j in 0..<dim {
+                if res[i][j] == SIMD3<Float>.zero {
+                    let xNode = 1000*indexToPos(i, dim, dR)
+                    let zNode = 1000*indexToPos(j, dim, dR)
+                    print(res[i][j])
+                    res[i][j].x = xNode
+                    res[i][j].y = height
+                    res[i][j].z = zNode
+                    print(res[i][j])
+                    print(xNode, height, zNode)
+                }
+            }
+        }
+        
+        return res
+    }
+    
+    func indexToPos(_ index:Int, _ dim:Int, _ dR:Float) -> Float {
+        return (Float(index) - Float(dim/2))*dR
+    }
+    
+    func filterMaskMedian(_ inMesh: [[SIMD3<Float>]], _ dim:Int) -> [[SIMD3<Float>]] {
+        var res = inMesh
+        
+        for i in 1..<dim-1 {
+            for j in 1..<dim-1{
+                var arr:[SIMD3<Float>] = [ res[i-1][j-1], res[i-1][j], res[i-1][j+1],
+                                           res[i][j-1],   res[i][j],   res[i][j+1],
+                                           res[i+1][j-1], res[i+1][j], res[i+1][j+1] ]
+                arr.sort(by: {
+                    $0.y < $1.y
+                })
+                res[i][j].y = arr[arr.count/2].y
+            }
+        }
+        
+        return res
+    }
+    
     
     func findFloorRing(points: [SIMD3<Float>]) -> (SIMD3<Float>, Float, Float) {
         let N = Float(points.count)
