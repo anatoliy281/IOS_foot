@@ -49,8 +49,6 @@ class Renderer {
     private var currentBufferIndex = 0
     
     
-    public var savedData = String()
-    
     // The current viewport size
     private var viewportSize = CGSize()
     // The grid of sample points
@@ -67,6 +65,7 @@ class Renderer {
         return uniforms
     }()
     private var rgbUniformsBuffers = [MetalBuffer<RGBUniforms>]()
+
     // Point Cloud buffer
     private lazy var pointCloudUniforms: PointCloudUniforms = {
         var uniforms = PointCloudUniforms()
@@ -77,6 +76,7 @@ class Renderer {
         return uniforms
     }()
     private var pointCloudUniformsBuffers = [MetalBuffer<PointCloudUniforms>]()
+
     // Particles buffer
     private var particlesBuffer: MetalBuffer<ParticleUniforms>
     private var currentPointIndex = 0
@@ -88,17 +88,12 @@ class Renderer {
     private lazy var viewToCamera = sampleFrame.displayTransform(for: orientation, viewportSize: viewportSize).inverted()
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
-    func getPointBuffer() -> MetalBuffer<ParticleUniforms> {
-//        return pointCloudUniformsBuffers[currentPointIndex]
-        return particlesBuffer
-    }
-    
-    
     func getCloud() -> [simd_float3] {
         var res = [simd_float3]()
         for i in 0..<particlesBuffer.count {
             let pos = particlesBuffer[i].position
-            if (pos[0] != 0 && pos[1] != 0 && pos[2] != 0){
+            if ((pos[0] != 0 && pos[1] != 0 && pos[2] != 0) &&
+                    (particlesBuffer[i].confidence == 2)){
                 res.append(pos)
             }
         }

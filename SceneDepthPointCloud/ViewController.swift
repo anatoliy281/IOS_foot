@@ -12,10 +12,9 @@ import ARKit
 
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
-    private let confidenceControl = UISegmentedControl(items: ["Low", "Medium", "High"])
     private let myButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     
-    private let rgbRadiusSlider = UISlider()
+//    private let rgbRadiusSlider = UISlider()
     
     private let session = ARSession()
     private var renderer: Renderer!
@@ -23,7 +22,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         myButton.backgroundColor = .green
-        myButton.setTitle("Send", for: .normal)
+        myButton.setTitle("Send!", for: .normal)
         myButton.addTarget(self, action: #selector(buttonAction), for: .touchUpInside)
         view.addSubview(myButton)
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -48,21 +47,14 @@ final class ViewController: UIViewController, ARSessionDelegate {
             renderer.drawRectResized(size: view.bounds.size)
         }
         
-        // Confidence control
-        
-//        renderer.confidenceThreshold = 2
-        confidenceControl.backgroundColor = .white
-        confidenceControl.selectedSegmentIndex = renderer.confidenceThreshold
-        confidenceControl.addTarget(self, action: #selector(viewValueChanged), for: .valueChanged)
-        
         // RGB Radius control
-        rgbRadiusSlider.minimumValue = 0
-        rgbRadiusSlider.maximumValue = 1.5
-        rgbRadiusSlider.isContinuous = true
-        rgbRadiusSlider.value = renderer.rgbRadius
-        rgbRadiusSlider.addTarget(self, action: #selector(viewValueChanged), for: .valueChanged)
+//        rgbRadiusSlider.minimumValue = 0
+//        rgbRadiusSlider.maximumValue = 1.5
+//        rgbRadiusSlider.isContinuous = true
+//        rgbRadiusSlider.value = renderer.rgbRadius
+//        rgbRadiusSlider.addTarget(self, action: #selector(viewValueChanged), for: .valueChanged)
         
-        let stackView = UIStackView(arrangedSubviews: [confidenceControl, rgbRadiusSlider])
+        let stackView = UIStackView(arrangedSubviews: [myButton])
         stackView.isHidden = !isUIEnabled
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
@@ -107,10 +99,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         let objEven = exportToObjFormat(grid: floorishMedianFilteredMesh, dim:dim)
         
-//        let ringParams = findFloorRing(points: floor)
-//        let ring1Obj = exportToObjFormat(center: ringParams.0, radius: ringParams.1)
-//        let ring2Obj = exportToObjFormat(center: ringParams.0, radius: ringParams.2)
-        
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             let file = "cloud.obj"
             let fileGridURL = dir.appendingPathComponent(file)
@@ -121,18 +109,12 @@ final class ViewController: UIViewController, ARSessionDelegate {
             let floorFile = "floor.obj"
             let fileFloorURL = dir.appendingPathComponent(floorFile)
             
-//            let ring1File = "ring1.obj"
-//            let fileRing1URL = dir.appendingPathComponent(ring1File)
-//            let ring2File = "ring2.obj"
-//            let fileRing2URL = dir.appendingPathComponent(ring2File)
             
             //writing
             do {
                 try obj.write(to: fileGridURL, atomically: true, encoding: String.Encoding.utf8)
                 try objEven.write(to: fileGridEvenURL, atomically: true, encoding: String.Encoding.utf8)
                 try floorObj.write(to: fileFloorURL, atomically: true, encoding: String.Encoding.utf8)
-//                try ring1Obj.write(to: fileRing1URL, atomically: true, encoding: String.Encoding.utf8)
-//                try ring2Obj.write(to: fileRing2URL, atomically: true, encoding: String.Encoding.utf8)
             }
             catch {/* error handling here */}
             
@@ -158,20 +140,17 @@ final class ViewController: UIViewController, ARSessionDelegate {
         UIApplication.shared.isIdleTimerDisabled = true
     }
     
-    @objc
-    private func viewValueChanged(view: UIView) {
-        switch view {
-            
-        case confidenceControl:
-            renderer.confidenceThreshold = confidenceControl.selectedSegmentIndex
-            
-        case rgbRadiusSlider:
-            renderer.rgbRadius = rgbRadiusSlider.value
-            
-        default:
-            break
-        }
-    }
+//    @objc
+//    private func viewValueChanged(view: UIView) {
+//        switch view {
+//
+//        case rgbRadiusSlider:
+//            renderer.rgbRadius = rgbRadiusSlider.value
+//
+//        default:
+//            break
+//        }
+//    }
     
     // Auto-hide the home indicator to maximize immersion in AR experiences.
     override var prefersHomeIndicatorAutoHidden: Bool {
@@ -304,12 +283,12 @@ final class ViewController: UIViewController, ARSessionDelegate {
                 if res[i][j] == SIMD3<Float>.zero {
                     let xNode = 1000*indexToPos(i, dim, dR)
                     let zNode = 1000*indexToPos(j, dim, dR)
-                    print(res[i][j])
+//                    print(res[i][j])
                     res[i][j].x = xNode
                     res[i][j].y = height
                     res[i][j].z = zNode
-                    print(res[i][j])
-                    print(xNode, height, zNode)
+//                    print(res[i][j])
+//                    print(xNode, height, zNode)
                 }
             }
         }
