@@ -35,7 +35,7 @@ class Renderer {
     private let depthStencilState: MTLDepthStencilState
     private let commandQueue: MTLCommandQueue
     private lazy var unprojectPipelineState = makeUnprojectionPipelineState()!
-    private lazy var rgbPipelineState = makeRGBPipelineState()!
+//    private lazy var rgbPipelineState = makeRGBPipelineState()!
     private lazy var particlePipelineState = makeParticlePipelineState()!
     // texture cache for captured image
     private lazy var textureCache = makeTextureCache()
@@ -57,14 +57,14 @@ class Renderer {
                                                             index: kGridPoints.rawValue, options: [])
     
     // RGB buffer
-    private lazy var rgbUniforms: RGBUniforms = {
-        var uniforms = RGBUniforms()
-        uniforms.radius = rgbRadius
-        uniforms.viewToCamera.copy(from: viewToCamera)
-        uniforms.viewRatio = Float(viewportSize.width / viewportSize.height)
-        return uniforms
-    }()
-    private var rgbUniformsBuffers = [MetalBuffer<RGBUniforms>]()
+//    private lazy var rgbUniforms: RGBUniforms = {
+//        var uniforms = RGBUniforms()
+//        uniforms.radius = rgbRadius
+//        uniforms.viewToCamera.copy(from: viewToCamera)
+//        uniforms.viewRatio = Float(viewportSize.width / viewportSize.height)
+//        return uniforms
+//    }()
+//    private var rgbUniformsBuffers = [MetalBuffer<RGBUniforms>]()
 
     // Point Cloud buffer
     private lazy var pointCloudUniforms: PointCloudUniforms = {
@@ -110,12 +110,12 @@ class Renderer {
     
     
     
-    var rgbRadius: Float = 0 {
-        didSet {
-            // apply the change for the shader
-            rgbUniforms.radius = rgbRadius
-        }
-    }
+//    var rgbRadius: Float = 0 {
+//        didSet {
+//            // apply the change for the shader
+//            rgbUniforms.radius = rgbRadius
+//        }
+//    }
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -127,7 +127,7 @@ class Renderer {
         
         // initialize our buffers
         for _ in 0 ..< maxInFlightBuffers {
-            rgbUniformsBuffers.append(.init(device: device, count: 1, index: 0))
+//            rgbUniformsBuffers.append(.init(device: device, count: 1, index: 0))
             pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
         }
         particlesBuffer = .init(device: device, count: maxPoints, index: kParticleUniforms.rawValue)
@@ -212,21 +212,21 @@ class Renderer {
         }
         
         // check and render rgb camera image
-        if rgbUniforms.radius > 0 {
-            var retainingTextures = [capturedImageTextureY, capturedImageTextureCbCr]
-            commandBuffer.addCompletedHandler { buffer in
-                retainingTextures.removeAll()
-            }
-            rgbUniformsBuffers[currentBufferIndex][0] = rgbUniforms
-            
-            renderEncoder.setDepthStencilState(relaxedStencilState)
-            renderEncoder.setRenderPipelineState(rgbPipelineState)
-            renderEncoder.setVertexBuffer(rgbUniformsBuffers[currentBufferIndex])
-            renderEncoder.setFragmentBuffer(rgbUniformsBuffers[currentBufferIndex])
-            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
-            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
-            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        }
+//        if rgbUniforms.radius > 0 {
+//            var retainingTextures = [capturedImageTextureY, capturedImageTextureCbCr]
+//            commandBuffer.addCompletedHandler { buffer in
+//                retainingTextures.removeAll()
+//            }
+//            rgbUniformsBuffers[currentBufferIndex][0] = rgbUniforms
+//
+//            renderEncoder.setDepthStencilState(relaxedStencilState)
+//            renderEncoder.setRenderPipelineState(rgbPipelineState)
+//            renderEncoder.setVertexBuffer(rgbUniformsBuffers[currentBufferIndex])
+//            renderEncoder.setFragmentBuffer(rgbUniformsBuffers[currentBufferIndex])
+//            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
+//            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
+//            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+//        }
        
         // render particles
         renderEncoder.setDepthStencilState(depthStencilState)
@@ -291,20 +291,20 @@ private extension Renderer {
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
     
-    func makeRGBPipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "rgbVertex"),
-            let fragmentFunction = library.makeFunction(name: "rgbFragment") else {
-                return nil
-        }
-        
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertexFunction
-        descriptor.fragmentFunction = fragmentFunction
-        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
-        
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }
+//    func makeRGBPipelineState() -> MTLRenderPipelineState? {
+//        guard let vertexFunction = library.makeFunction(name: "rgbVertex"),
+//            let fragmentFunction = library.makeFunction(name: "rgbFragment") else {
+//                return nil
+//        }
+//        
+//        let descriptor = MTLRenderPipelineDescriptor()
+//        descriptor.vertexFunction = vertexFunction
+//        descriptor.fragmentFunction = fragmentFunction
+//        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+//        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
+//        
+//        return try? device.makeRenderPipelineState(descriptor: descriptor)
+//    }
     
     func makeParticlePipelineState() -> MTLRenderPipelineState? {
         guard let vertexFunction = library.makeFunction(name: "particleVertex"),
