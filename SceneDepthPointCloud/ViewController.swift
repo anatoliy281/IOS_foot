@@ -14,8 +14,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let myButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     
-//    private let rgbRadiusSlider = UISlider()
-    
     private let session = ARSession()
     private var renderer: Renderer!
     
@@ -69,35 +67,19 @@ final class ViewController: UIViewController, ARSessionDelegate {
     @objc
     func buttonAction(_ sender: UIButton!) {
 
-        // в метрах
-        let radius:Float = 0.5
-        let dim:Int = 500
-        let dR:Float = 2*radius / Float(dim)    // средний шаг сетки
-        var chunks = Array(repeating:Array(repeating:[SIMD3<Float>](), count:dim),
-                           count:dim)
-        
-        for p in renderer.getCloud() {
-            if (p.x*p.x + p.z*p.z < radius*radius) {
-                let i = Int(p.x/dR) + dim/2
-                let j = Int(p.z/dR) + dim/2
-                chunks[i][j].append(p)
-            }
-        }
-        
-        let meanGrid = calcGridInMm(grid: chunks, dim: dim)
-        let obj = exportToObjFormat(grid: meanGrid, dim:dim)
+        let obj = exportToObjFormat(grid: renderer.tableData, dim:renderer.dim)
         
         let step:Float = 5  // шаг гистограммы высот
-        let gistro = calcHeightGisto(grid:meanGrid, step:step, dim:dim)
-        let floor = findFloor(gistro:gistro, step:step, grid:meanGrid, dim:dim)
+        let gistro = calcHeightGistro(grid: renderer.tableData, step:step, dim:renderer.dim)
+        let floor = findFloor(gistro:gistro, step:step, grid:renderer.tableData, dim:renderer.dim)
         let floorObj = exportToObjFormat(points: floor)
         
-        let meanGridEven = calcGridInMmEven(grid: chunks, dim: dim, dR: dR)
+        let meanGridEven = calcGridInMmEven(grid: renderer.chunks, dim: renderer.dim, dR: renderer.dR)
         let floorHeight = calcFloorHeight(floor)
-        let floorishMesh = setNullToFloorPoints(meanGridEven, dim, dR, floorHeight)
-        let floorishMedianFilteredMesh = filterMaskMedian(floorishMesh, dim)
+        let floorishMesh = setNullToFloorPoints(meanGridEven, renderer.dim, renderer.dR, floorHeight)
+        let floorishMedianFilteredMesh = filterMaskMedian(floorishMesh, renderer.dim)
         
-        let objEven = exportToObjFormat(grid: floorishMedianFilteredMesh, dim:dim)
+        let objEven = exportToObjFormat(grid: floorishMedianFilteredMesh, dim:renderer.dim)
         
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             let file = "cloud.obj"
@@ -186,24 +168,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
         }
     }
     
-    func calcGridInMm(grid: [[[SIMD3<Float>]]], dim: Int) -> [[SIMD3<Float>]] {
-        var res = Array(repeating:Array(repeating:SIMD3<Float>(), count:dim), count:dim)
-        for i in 0..<dim {
-            for j in 0..<dim {
-                let statisticData = grid[i][j]
-                var p = SIMD3<Float>()
-                if statisticData.count > 0 {
-                    let gridSorted = statisticData.sorted {
-                        $0.y < $1.y
-                    }
-                    p = gridSorted[gridSorted.count/2]
-                }
-                res[i][j] = 1000*p
-            }
-        }
-        return res
-    }
-    
     func calcGridInMmEven(grid: [[[SIMD3<Float>]]], dim: Int, dR: Float) -> [[SIMD3<Float>]] {
         var res = Array(repeating:Array(repeating:SIMD3<Float>(), count:dim), count:dim)
         for i in 0..<dim {
@@ -225,7 +189,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         return res
     }
     
-    func calcHeightGisto(grid: [[SIMD3<Float>]], step: Float, dim: Int) -> [Float:Int] {
+    func calcHeightGistro(grid: [[SIMD3<Float>]], step: Float, dim: Int) -> [Float:Int] {
         var res = [Float:Int]()
         for i in 0..<dim {
             for j in 0..<dim {
@@ -318,31 +282,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
         return res
     }
     
-    
-    func findFloorRing(points: [SIMD3<Float>]) -> (SIMD3<Float>, Float, Float) {
-        let N = Float(points.count)
-        var xMean:Float = 0
-        var yMean:Float = 0
-        var zMean:Float = 0
-        for p in points {
-            xMean += p.x
-            yMean += p.y
-            zMean += p.z
-        }
-        xMean /= N
-        yMean /= N
-        zMean /= N
-        
-        var r1:Float = 0
-        var r2:Float = 0
-        for p in points {
-            let rho2 = (p.x - xMean)*(p.x - xMean) + (p.z - zMean)*(p.z - zMean)
-            r1 += rho2
-            r2 += sqrt(rho2)
-        }
-        
-        return (SIMD3<Float>(xMean, yMean, zMean), sqrt(r1/N), r2/N)
-    }
     
     func exportToObjFormat(grid: [[SIMD3<Float>]], dim: Int) -> String {
 //      vertexes

@@ -70,30 +70,36 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     particleUniforms[currentPointIndex].confidence = confidence;
 }
 
-//vertex RGBVertexOut rgbVertex(uint vertexID [[vertex_id]],
-//                              constant RGBUniforms &uniforms [[buffer(0)]]) {
-//    const float3 texCoord = float3(viewTexCoords[vertexID], 1) * uniforms.viewToCamera;
-//    
-//    RGBVertexOut out;
-//    out.position = float4(viewVertices[vertexID], 0, 1);
-//    out.texCoord = texCoord.xy;
-//    
-//    return out;
-//}
-//
-//fragment float4 rgbFragment(RGBVertexOut in [[stage_in]],
-//                            constant RGBUniforms &uniforms [[buffer(0)]],
-//                            texture2d<float, access::sample> capturedImageTextureY [[texture(kTextureY)]],
-//                            texture2d<float, access::sample> capturedImageTextureCbCr [[texture(kTextureCbCr)]]) {
-//    
-//    const float2 offset = (in.texCoord - 0.5) * float2(1, 1 / uniforms.viewRatio) * 2;
-//    const float visibility = saturate(uniforms.radius * uniforms.radius - length_squared(offset));
-//    const float4 ycbcr = float4(capturedImageTextureY.sample(colorSampler, in.texCoord.xy).r, capturedImageTextureCbCr.sample(colorSampler, in.texCoord.xy).rg, 1);
-//    
-//    // convert and save the color back to the buffer
-//    const float3 sampledColor = (yCbCrToRGB * ycbcr).rgb;
-//    return float4(sampledColor, 1) * visibility;
-//}
+
+
+
+vertex RGBVertexOut rgbVertex(uint vertexID [[vertex_id]],
+                              constant RGBUniforms &uniforms [[buffer(0)]]) {
+    const float3 texCoord = float3(viewTexCoords[vertexID], 1) * uniforms.viewToCamera;
+    
+    RGBVertexOut out;
+    out.position = float4(viewVertices[vertexID], 0, 1);
+    out.texCoord = texCoord.xy;
+    
+    return out;
+}
+
+fragment float4 rgbFragment(RGBVertexOut in [[stage_in]],
+                            constant RGBUniforms &uniforms [[buffer(0)]],
+                            texture2d<float, access::sample> capturedImageTextureY [[texture(kTextureY)]],
+                            texture2d<float, access::sample> capturedImageTextureCbCr [[texture(kTextureCbCr)]]) {
+    
+    const float2 offset = (in.texCoord - 0.5) * float2(1, 1 / uniforms.viewRatio) * 2;
+    const float visibility = saturate(uniforms.radius * uniforms.radius - length_squared(offset));
+    const float4 ycbcr = float4(capturedImageTextureY.sample(colorSampler, in.texCoord.xy).r, capturedImageTextureCbCr.sample(colorSampler, in.texCoord.xy).rg, 1);
+    
+    // convert and save the color back to the buffer
+    const float3 sampledColor = (yCbCrToRGB * ycbcr).rgb;
+    return float4(sampledColor, 1) * visibility;
+}
+
+
+
 
 vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
                                         constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
@@ -129,4 +135,24 @@ fragment float4 particleFragment(ParticleVertexOut in [[stage_in]],
     }
     
     return in.color;
+}
+
+
+
+
+
+vertex float4 gridVertex( constant packed_float3* vertex_array [[ buffer(1) ]],
+                          constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
+                          unsigned int vid [[ vertex_id ]] )
+{
+    auto position = float4(vertex_array[vid], 1);
+    float4 projectedPosition = uniforms.viewProjectionMatrix * position;
+    projectedPosition /= projectedPosition.w;
+    return projectedPosition;
+//    return float4(vertex_array[vid], 1);
+}
+
+fragment float4 gridFragment()
+{
+    return float4(1,1,1,1);
 }

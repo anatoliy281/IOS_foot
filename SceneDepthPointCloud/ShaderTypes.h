@@ -23,11 +23,11 @@ enum BufferIndices {
     kGridPoints = 2,
 };
 
-//struct RGBUniforms {
-//    matrix_float3x3 viewToCamera;
-//    float viewRatio;
-//    float radius;
-//};
+struct RGBUniforms {
+    matrix_float3x3 viewToCamera;
+    float viewRatio;
+    float radius;
+};
 
 struct PointCloudUniforms {
     matrix_float4x4 viewProjectionMatrix;
