@@ -104,8 +104,9 @@ class Renderer {
     
     lazy var tableData = Array(repeating:Array(repeating:SIMD3<Float>(), count:dim), count:dim)
     var bufferSize: Int!
-    var vertexData:[Float]!
-    var vertexBuffer: MTLBuffer!
+    var vertexData:[MeshData]!
+//    var vertexBuffer: MTLBuffer!
+    var vertexBuffer: MetalBuffer<MeshData>?
     
     
     func accumulateChunks() {
@@ -166,25 +167,35 @@ class Renderer {
                 if ( node != SIMD3<Float>()
                         && rnode != SIMD3<Float>() )
                 {
-                    vertexData.append(node.x)
-                    vertexData.append(node.y)
-                    vertexData.append(node.z)
-                    
-                    vertexData.append(rnode.x)
-                    vertexData.append(rnode.y)
-                    vertexData.append(rnode.z)
+                    var md = MeshData()
+                    md.position = node
+                    vertexData.append(md)
+                    md.position = rnode
+                    vertexData.append(md)
+//                    vertexData.append(node.x)
+//                    vertexData.append(node.y)
+//                    vertexData.append(node.z)
+//
+//                    vertexData.append(rnode.x)
+//                    vertexData.append(rnode.y)
+//                    vertexData.append(rnode.z)
                 }
                 let dnode = tableData[i+1][j]
                 if ( node != SIMD3<Float>()
                         && dnode != SIMD3<Float>() )
                 {
-                    vertexData.append(node.x)
-                    vertexData.append(node.y)
-                    vertexData.append(node.z)
-                    
-                    vertexData.append(dnode.x)
-                    vertexData.append(dnode.y)
-                    vertexData.append(dnode.z)
+                    var md = MeshData()
+                    md.position = node
+                    vertexData.append(md)
+                    md.position = dnode
+                    vertexData.append(md)
+//                    vertexData.append(node.x)
+//                    vertexData.append(node.y)
+//                    vertexData.append(node.z)
+//
+//                    vertexData.append(dnode.x)
+//                    vertexData.append(dnode.y)
+//                    vertexData.append(dnode.z)
                 }
             }
         }
@@ -197,7 +208,9 @@ class Renderer {
                 print("pos:\(pos)")
                 pos = ""
             }
-            pos += (String(vertexData[i]) + " ")
+//            pos += (String(vertexData[i]) + " ")
+            let mdpos = vertexData[i].position
+            pos += (String(mdpos.x) + " " + String(mdpos.y) + " " + String(mdpos.z) + " ")
         }
     }
     
@@ -258,8 +271,8 @@ class Renderer {
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         
         
-        bufferSize = dim * dim  * 4 * 3 * MemoryLayout<Float>.size
-        vertexBuffer = device.makeBuffer(length: bufferSize, options: [])
+//        bufferSize = dim * dim  * 4 * 3 * MemoryLayout<Float>.size
+//        vertexBuffer = device.makeBuffer(length: bufferSize, options: [])
     }
     
     func drawRectResized(size: CGSize) {
@@ -364,18 +377,14 @@ class Renderer {
 //        debugTableNodes()
 //        debugMeshData()
         
-        let bufferSize = vertexData.count * MemoryLayout<Float>.size
+        let bufferSize = vertexData.count * MemoryLayout<MeshData>.stride
         if bufferSize > 0 {
-            print("NOT EMPTY!!! \(bufferSize)")
-            vertexBuffer = device.makeBuffer(bytes: vertexData, length: bufferSize, options: [])
+            vertexBuffer = .init(device: device, array: vertexData, index: kMesh.rawValue)
             renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-//            print(vertexBuffer.allocatedSize, vertexBuffer.length)
-//            print(vertexBuffer.contents())
-            renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 1)
-            renderEncoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: vertexData.count/3)
+            renderEncoder.setVertexBuffer(vertexBuffer!)
+            renderEncoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: vertexData.count)
         }
         renderEncoder.endEncoding()
-            
         commandBuffer.present(renderDestination.currentDrawable!)
         commandBuffer.commit()
     }

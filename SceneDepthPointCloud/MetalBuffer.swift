@@ -16,7 +16,8 @@ protocol Resource {
 struct MetalBuffer<Element>: Resource {
         
     /// The underlying MTLBuffer.
-    fileprivate let buffer: MTLBuffer
+//    fileprivate let buffer: MTLBuffer
+    let buffer: MTLBuffer
     
     /// The index that the buffer should be bound to during encoding.
     /// Should correspond with the index that the buffer is expected to be at in Metal shaders.

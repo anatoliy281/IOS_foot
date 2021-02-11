@@ -141,11 +141,11 @@ fragment float4 particleFragment(ParticleVertexOut in [[stage_in]],
 
 
 
-vertex float4 gridVertex( constant packed_float3* vertex_array [[ buffer(1) ]],
+vertex float4 gridVertex( constant MeshData* vertex_array [[ buffer(kMesh) ]],
                           constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                           unsigned int vid [[ vertex_id ]] )
 {
-    auto position = float4(vertex_array[vid], 1);
+    auto position = float4(vertex_array[vid].position, 1);
     float4 projectedPosition = uniforms.viewProjectionMatrix * position;
     projectedPosition /= projectedPosition.w;
     return projectedPosition;
