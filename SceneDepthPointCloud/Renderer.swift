@@ -12,10 +12,8 @@ import ARKit
 class Renderer {
     // Maximum number of points we store in the point cloud
     private let maxPoints = 500_000
-//    private let maxPoints = 500_000
     // Number of sample points on the grid
     private let numGridPoints = 500
-//    private let numGridPoints = 500
     // Particle's size in pixels
     private let particleSize: Float = 10
     // We only use landscape orientation in this app
@@ -37,8 +35,8 @@ class Renderer {
     private let depthStencilState: MTLDepthStencilState
     private let commandQueue: MTLCommandQueue
     private lazy var unprojectPipelineState = makeUnprojectionPipelineState()!
-    private lazy var rgbPipelineState = makeRGBPipelineState()!
-    private lazy var particlePipelineState = makeParticlePipelineState()!
+//    private lazy var rgbPipelineState = makeRGBPipelineState()!
+//    private lazy var particlePipelineState = makeParticlePipelineState()!
     
     private lazy var gridPipelineState = makeGridPipelineState()!
     
@@ -83,7 +81,7 @@ class Renderer {
     private var pointCloudUniformsBuffers = [MetalBuffer<PointCloudUniforms>]()
 
     // Particles buffer
-    private var particlesBuffer: MetalBuffer<ParticleUniforms>
+//    private var particlesBuffer: MetalBuffer<ParticleUniforms>
     private var currentPointIndex = 0
     private var currentPointCount = 0
     
@@ -94,136 +92,102 @@ class Renderer {
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
     
+    var myGridBuffer: MetalBuffer<MyMeshData>
+
     
-    let radius:Float = 0.5
-    let dim:Int = 20
-    lazy var dR:Float = 2*radius / Float(dim)    // средний шаг сетки
-    lazy var chunks = Array(repeating:Array(repeating:[SIMD3<Float>](), count:dim),
-                       count:dim)
+//    func generateMeshData(gridStep dR: Float, dimCount dim: Int) {
+//        var md = MeshData()
+//        var mdRight = MeshData()
+//        var mdDown = MeshData()
+//        for i in 1..<dim-1 {
+//            let x = Float(i - dim/2)*dR
+//            for j in 1..<dim-1 {
+//                let h = tableData[i][j]
+//                if (h == Float()) { continue }
+//                let z = Float(j - dim/2)*dR
+//                md.position = SIMD3<Float>(x, h, z)
+//                let rh = tableData[i][j+1]
+//                if (rh != Float())
+//                {
+//                    mdRight.position = SIMD3<Float>(x, rh, z+dR)
+//                    vertexData.append(md)
+//                    vertexData.append(mdRight)
+//                }
+//                let dh = tableData[i+1][j]
+//                if (dh != Float())
+//                {
+//                    mdDown.position = SIMD3<Float>(x+dR, dh, z)
+//                    vertexData.append(md)
+//                    vertexData.append(mdDown)
+//                }
+//            }
+//        }
+//    }
     
+//    func debugChunks(moreThan: Int) {
+//        for i in 0..<dim {
+//            for j in 0..<dim {
+//                let len = chunks[i][j].count
+//                if (len > moreThan) {
+//                    print("[\(i),\(j): \(len)")
+//                }
+//            }
+//        }
+//    }
     
-    lazy var tableData = Array(repeating:Array(repeating:SIMD3<Float>(), count:dim), count:dim)
-    var bufferSize: Int!
-    var vertexData:[MeshData]!
-//    var vertexBuffer: MTLBuffer!
-    var vertexBuffer: MetalBuffer<MeshData>?
+//    func debugTableNodes() {
+//        for i in 0..<dim{
+//            for j in 0..<dim{
+//                if (tableData[i][j] != Float()) {
+//                    print("[\(i),\(j): \(tableData[i][j])")
+//                }
+//            }
+//        }
+//    }
     
+//    func debugMeshData() {
+//        var pos = String()
+//        for i in 0..<vertexData.count {
+//            if i%3 == 0 {
+//                print("pos:\(pos)")
+//                pos = ""
+//            }
+////            pos += (String(vertexData[i]) + " ")
+//            let mdpos = vertexData[i].position
+//            pos += (String(mdpos.x) + " " + String(mdpos.y) + " " + String(mdpos.z) + " ")
+//        }
+//    }
     
-    func accumulateChunks() {
-        for p in getCloud() {
-            if (p.x*p.x + p.z*p.z < radius*radius) {
-                let i = Int(p.x/dR) + dim/2
-                let j = Int(p.z/dR) + dim/2
-                chunks[i][j].append(p)
-            }
-        }
-    }
+//    func getCloud() -> [simd_float3] {
+//        var res = [simd_float3]()
+//        for i in 0..<particlesBuffer.count {
+//            let pos = particlesBuffer[i].position
+//            if ((pos[0] != 0 && pos[1] != 0 && pos[2] != 0) &&
+//                    (particlesBuffer[i].confidence == 2)){
+//                res.append(pos)
+//            }
+//        }
+//        return res
+//    }
     
-    func debugChunks(moreThan: Int) {
-        for i in 0..<dim{
-            for j in 0..<dim{
-                let len = chunks[i][j].count
-                if (len > moreThan) {
-                    print("[\(i),\(j): \(len)")
-                }
-            }
-        }
-    }
-    
-    func generateTableNodes() {
-        for i in 0..<dim {
-            for j in 0..<dim {
-                let statisticData = chunks[i][j]
-                var p = SIMD3<Float>()
-                if statisticData.count > 0 {
-                    let gridSorted = statisticData.sorted {
-                        $0.y < $1.y
-                    }
-                    p = gridSorted[gridSorted.count/2]
-                }
-                tableData[i][j] = p
-            }
-        }
-    }
-    
-    
-    func debugTableNodes() {
-        for i in 0..<dim{
-            for j in 0..<dim{
-                if (tableData[i][j] != SIMD3<Float>()) {
-                    print("[\(i),\(j): \(tableData[i][j])")
-                }
-            }
-        }
-    }
-    
-    func generateMeshData() {
-        vertexData = []
-        for i in 1..<dim-1 {
-            for j in 1..<dim-1 {
-                let node = tableData[i][j]
-                let rnode = tableData[i][j+1]
-                
-                if ( node != SIMD3<Float>()
-                        && rnode != SIMD3<Float>() )
-                {
-                    var md = MeshData()
-                    md.position = node
-                    vertexData.append(md)
-                    md.position = rnode
-                    vertexData.append(md)
-//                    vertexData.append(node.x)
-//                    vertexData.append(node.y)
-//                    vertexData.append(node.z)
-//
-//                    vertexData.append(rnode.x)
-//                    vertexData.append(rnode.y)
-//                    vertexData.append(rnode.z)
-                }
-                let dnode = tableData[i+1][j]
-                if ( node != SIMD3<Float>()
-                        && dnode != SIMD3<Float>() )
-                {
-                    var md = MeshData()
-                    md.position = node
-                    vertexData.append(md)
-                    md.position = dnode
-                    vertexData.append(md)
-//                    vertexData.append(node.x)
-//                    vertexData.append(node.y)
-//                    vertexData.append(node.z)
-//
-//                    vertexData.append(dnode.x)
-//                    vertexData.append(dnode.y)
-//                    vertexData.append(dnode.z)
-                }
-            }
-        }
-    }
-    
-    func debugMeshData() {
-        var pos = String()
-        for i in 0..<vertexData.count {
-            if i%3 == 0 {
-                print("pos:\(pos)")
-                pos = ""
-            }
-//            pos += (String(vertexData[i]) + " ")
-            let mdpos = vertexData[i].position
-            pos += (String(mdpos.x) + " " + String(mdpos.y) + " " + String(mdpos.z) + " ")
-        }
-    }
-    
-    func getCloud() -> [simd_float3] {
-        var res = [simd_float3]()
-        for i in 0..<particlesBuffer.count {
-            let pos = particlesBuffer[i].position
-            if ((pos[0] != 0 && pos[1] != 0 && pos[2] != 0) &&
-                    (particlesBuffer[i].confidence == 2)){
-                res.append(pos)
+    func totalCloudCount() -> Int {
+        var res:Int = 0
+        for i in 0..<myGridBuffer.count {
+            let pointCount = myGridBuffer[i].length
+            if pointCount > 0 {
+                res += 1;
             }
         }
         return res
+    }
+    
+    func debugCloud() {
+        for i in 0..<myGridBuffer.count {
+            let pointCount = myGridBuffer[i].length
+            if pointCount > 0 {
+                print("pos:\(i) count:\(pointCount)")
+            }
+        }
     }
     
     // interfaces
@@ -256,7 +220,7 @@ class Renderer {
 //            rgbUniformsBuffers.append(.init(device: device, count: 1, index: 0))
             pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
         }
-        particlesBuffer = .init(device: device, count: maxPoints, index: kParticleUniforms.rawValue)
+//        particlesBuffer = .init(device: device, count: maxPoints, index: kParticleUniforms.rawValue)
         
         // rbg does not need to read/write depth
         let relaxedStateDescriptor = MTLDepthStencilDescriptor()
@@ -270,9 +234,7 @@ class Renderer {
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         
-        
-//        bufferSize = dim * dim  * 4 * 3 * MemoryLayout<Float>.size
-//        vertexBuffer = device.makeBuffer(length: bufferSize, options: [])
+        myGridBuffer = .init(device: device, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT), index: kMyMesh.rawValue)
     }
     
     func drawRectResized(size: CGSize) {
@@ -337,53 +299,45 @@ class Renderer {
         currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
         pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
         
+        
         if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
         }
         
         // check and render rgb camera image
-        if rgbUniforms.radius > 0 {
-            var retainingTextures = [capturedImageTextureY, capturedImageTextureCbCr]
-            commandBuffer.addCompletedHandler { buffer in
-                retainingTextures.removeAll()
-            }
-            rgbUniformsBuffers[currentBufferIndex][0] = rgbUniforms
-
-            renderEncoder.setDepthStencilState(relaxedStencilState)
-            renderEncoder.setRenderPipelineState(rgbPipelineState)
-            renderEncoder.setVertexBuffer(rgbUniformsBuffers[currentBufferIndex])
-            renderEncoder.setFragmentBuffer(rgbUniformsBuffers[currentBufferIndex])
-            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
-            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
-            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        }
+//        if rgbUniforms.radius > 0 {
+//            var retainingTextures = [capturedImageTextureY, capturedImageTextureCbCr]
+//            commandBuffer.addCompletedHandler { buffer in
+//                retainingTextures.removeAll()
+//            }
+//            rgbUniformsBuffers[currentBufferIndex][0] = rgbUniforms
+//
+//            renderEncoder.setDepthStencilState(relaxedStencilState)
+//            renderEncoder.setRenderPipelineState(rgbPipelineState)
+//            renderEncoder.setVertexBuffer(rgbUniformsBuffers[currentBufferIndex])
+//            renderEncoder.setFragmentBuffer(rgbUniformsBuffers[currentBufferIndex])
+//            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
+//            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
+//            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+//        }
        
         // render particles
-        renderEncoder.setDepthStencilState(depthStencilState)
-        renderEncoder.setRenderPipelineState(particlePipelineState)
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        renderEncoder.setVertexBuffer(particlesBuffer)
+//        renderEncoder.setDepthStencilState(depthStencilState)
+//        renderEncoder.setRenderPipelineState(particlePipelineState)
+//        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//        renderEncoder.setVertexBuffer(particlesBuffer)
+//        renderEncoder.setVertexBuffer(myGridBuffer)
 //        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
         
 //        renderEncoder.setDepthStencilState(relaxedStencilState)
-//        print("*********************** ****")
+        
+        
         renderEncoder.setRenderPipelineState(gridPipelineState)
-        accumulateChunks()
-
-        generateTableNodes()
-        generateMeshData()
+        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+        renderEncoder.setVertexBuffer(myGridBuffer)
+        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount:
+                                     Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
         
-//        debugChunks(moreThan: 5)
-//        debugTableNodes()
-//        debugMeshData()
-        
-        let bufferSize = vertexData.count * MemoryLayout<MeshData>.stride
-        if bufferSize > 0 {
-            vertexBuffer = .init(device: device, array: vertexData, index: kMesh.rawValue)
-            renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-            renderEncoder.setVertexBuffer(vertexBuffer!)
-            renderEncoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: vertexData.count)
-        }
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
         commandBuffer.commit()
@@ -407,14 +361,14 @@ class Renderer {
         renderEncoder.setDepthStencilState(relaxedStencilState)
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        renderEncoder.setVertexBuffer(particlesBuffer)
-        
         renderEncoder.setVertexBuffer(gridPointsBuffer)
+        renderEncoder.setVertexBuffer(myGridBuffer)
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
+        
         
         currentPointIndex = (currentPointIndex + gridPointsBuffer.count) % maxPoints
         currentPointCount = min(currentPointCount + gridPointsBuffer.count, maxPoints)
@@ -439,38 +393,38 @@ private extension Renderer {
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
     
-    func makeRGBPipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "rgbVertex"),
-            let fragmentFunction = library.makeFunction(name: "rgbFragment") else {
-                return nil
-        }
-        
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertexFunction
-        descriptor.fragmentFunction = fragmentFunction
-        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-        
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }
+//    func makeRGBPipelineState() -> MTLRenderPipelineState? {
+//        guard let vertexFunction = library.makeFunction(name: "rgbVertex"),
+//            let fragmentFunction = library.makeFunction(name: "rgbFragment") else {
+//                return nil
+//        }
+//
+//        let descriptor = MTLRenderPipelineDescriptor()
+//        descriptor.vertexFunction = vertexFunction
+//        descriptor.fragmentFunction = fragmentFunction
+//        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+//
+//        return try? device.makeRenderPipelineState(descriptor: descriptor)
+//    }
     
-    func makeParticlePipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "particleVertex"),
-            let fragmentFunction = library.makeFunction(name: "particleFragment") else {
-                return nil
-        }
-        
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertexFunction
-        descriptor.fragmentFunction = fragmentFunction
-        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
-        descriptor.colorAttachments[0].isBlendingEnabled = true
-        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
-        
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }
+//    func makeParticlePipelineState() -> MTLRenderPipelineState? {
+//        guard let vertexFunction = library.makeFunction(name: "particleVertex"),
+//            let fragmentFunction = library.makeFunction(name: "particleFragment") else {
+//                return nil
+//        }
+//
+//        let descriptor = MTLRenderPipelineDescriptor()
+//        descriptor.vertexFunction = vertexFunction
+//        descriptor.fragmentFunction = fragmentFunction
+//        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+//        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
+//        descriptor.colorAttachments[0].isBlendingEnabled = true
+//        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+//        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+//        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+//
+//        return try? device.makeRenderPipelineState(descriptor: descriptor)
+//    }
     
     func makeGridPipelineState() -> MTLRenderPipelineState? {
         guard let vertexFunction = library.makeFunction(name: "gridVertex"),

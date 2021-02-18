@@ -67,19 +67,19 @@ final class ViewController: UIViewController, ARSessionDelegate {
     @objc
     func buttonAction(_ sender: UIButton!) {
 
-        let obj = exportToObjFormat(grid: renderer.tableData, dim:renderer.dim)
+//        let obj = exportToObjFormat(grid: renderer.tableData, dim:renderer.dim)
         
-        let step:Float = 5  // шаг гистограммы высот
-        let gistro = calcHeightGistro(grid: renderer.tableData, step:step, dim:renderer.dim)
-        let floor = findFloor(gistro:gistro, step:step, grid:renderer.tableData, dim:renderer.dim)
-        let floorObj = exportToObjFormat(points: floor)
+//        let step:Float = 5  // шаг гистограммы высот
+//        let gistro = calcHeightGistro(grid: renderer.tableData, step:step, dim:renderer.dim)
+//        let floor = findFloor(gistro:gistro, step:step, grid:renderer.tableData, dim:renderer.dim)
+//        let floorObj = exportToObjFormat(points: floor)
         
-        let meanGridEven = calcGridInMmEven(grid: renderer.chunks, dim: renderer.dim, dR: renderer.dR)
-        let floorHeight = calcFloorHeight(floor)
-        let floorishMesh = setNullToFloorPoints(meanGridEven, renderer.dim, renderer.dR, floorHeight)
-        let floorishMedianFilteredMesh = filterMaskMedian(floorishMesh, renderer.dim)
+//        let meanGridEven = calcGridInMmEven(grid: renderer.chunks, dim: renderer.dim, dR: renderer.dR)
+//        let floorHeight = calcFloorHeight(floor)
+//        let floorishMesh = setNullToFloorPoints(meanGridEven, renderer.dim, renderer.dR, floorHeight)
+//        let floorishMedianFilteredMesh = filterMaskMedian(floorishMesh, renderer.dim)
         
-        let objEven = exportToObjFormat(grid: floorishMedianFilteredMesh, dim:renderer.dim)
+//        let objEven = exportToObjFormat(grid: floorishMedianFilteredMesh, dim:renderer.dim)
         
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             let file = "cloud.obj"
@@ -94,9 +94,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
             
             //writing
             do {
-                try obj.write(to: fileGridURL, atomically: true, encoding: String.Encoding.utf8)
-                try objEven.write(to: fileGridEvenURL, atomically: true, encoding: String.Encoding.utf8)
-                try floorObj.write(to: fileFloorURL, atomically: true, encoding: String.Encoding.utf8)
+//                try obj.write(to: fileGridURL, atomically: true, encoding: String.Encoding.utf8)
+//                try objEven.write(to: fileGridEvenURL, atomically: true, encoding: String.Encoding.utf8)
+//                try floorObj.write(to: fileFloorURL, atomically: true, encoding: String.Encoding.utf8)
             }
             catch {/* error handling here */}
             
