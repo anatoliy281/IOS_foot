@@ -9,6 +9,8 @@ import Metal
 import MetalKit
 import ARKit
 
+//#import "../MyMeshData.h";
+
 class Renderer {
     // Maximum number of points we store in the point cloud
     private let maxPoints = 500_000
@@ -93,7 +95,24 @@ class Renderer {
     
     
     var myGridBuffer: MetalBuffer<MyMeshData>
+    
+//    func meshIsReady(threshold maxCount: Int = ) {
+//        var count: Int = 0
+//        for n in 0..<myGridBuffer.count {
+//            isCulculated(myGridBuffer[n])
+//        }
+//    }
 
+//    func getMedian(_ data: MyMeshData) -> Float? {
+//        let len = data.length
+//        if (len > 0) {
+//            let pos: UInt = 0;
+//            let h: [Float]
+//            return h.capacity
+//        } else {
+//            return nil
+//        }
+//    }
     
 //    func generateMeshData(gridStep dR: Float, dimCount dim: Int) {
 //        var md = MeshData()

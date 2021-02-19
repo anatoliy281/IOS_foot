@@ -25,7 +25,7 @@ using namespace metal;
 struct ParticleVertexOut {
     float4 position [[position]];
     float pointSize [[point_size]];
-//    float4 color;
+    float4 color;
 };
 //
 constexpr sampler colorSampler(mip_filter::linear, mag_filter::linear, min_filter::linear);
@@ -179,20 +179,35 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
 {
     constant auto &md = myMeshData[vid];
 
-    const auto x = (vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-    const auto z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-    const auto y = md.heights[md.length/2];
+    const auto x = gridXCoord(vid);
+    const auto z = gridZCoord(vid);
+//    const auto y = md.heights[md.length/2];
+    const auto y = getMedian(md);
     float4 projectedPosition = uniforms.viewProjectionMatrix * float4(x, y, z, 1);
     projectedPosition /= projectedPosition.w;
     
     ParticleVertexOut pOut;
     pOut.position = projectedPosition;
     pOut.pointSize = 5;
+    float4 color(1,1,1,1);
+    if (md.group == Group::Unknown) {
+        color.a = 0.5;
+    } else if (md.group == Group::Floor) {
+        color.r = 0.5;
+        color.g = 0;
+        color.b = 0.5;
+    } else {
+        color.r = 0.1;
+        color.g = 0.3;
+        color.b = 0.1;
+    }
+    
+    pOut.color = color;
     return pOut;
 }
 
-fragment float4 gridFragment()
+fragment float4 gridFragment(ParticleVertexOut in[[stage_in]])
 {
-    return float4(1,1,1,1);
+    return in.color;
 }
 

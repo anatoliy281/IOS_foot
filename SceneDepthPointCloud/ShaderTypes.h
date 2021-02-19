@@ -9,6 +9,7 @@ Types and enums that are shared between shaders and the host app code.
 #define ShaderTypes_h
 
 #include <simd/simd.h>
+#include "MyMeshData.h"
 
 enum TextureIndices {
     kTextureY = 0,
@@ -50,22 +51,20 @@ struct ParticleUniforms {
     float confidence;
 };
 
-struct MeshData {
-    simd_float3 position;
-};
+//#define MAX_MESH_STATISTIC 40
+//
+//#define RADIUS 0.5
+//#define GRID_NODE_COUNT 500
+//
+//#define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
+//
+//
+//
+//struct MyMeshData {
+//    float heights[MAX_MESH_STATISTIC];
+//    int length;
+//};
 
-#define MAX_MESH_STATISTIC 40
 
-#define RADIUS 0.5
-#define GRID_NODE_COUNT 500
-
-#define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
-
-struct MyMeshData {
-    float heights[MAX_MESH_STATISTIC];
-//    float heights;
-//    metal::array<float, MAX_MESH_STATISTIC> heights;
-    int length;
-};
 
 #endif /* ShaderTypes_h */
