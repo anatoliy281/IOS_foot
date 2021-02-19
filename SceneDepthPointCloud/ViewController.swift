@@ -9,6 +9,7 @@ import UIKit
 import Metal
 import MetalKit
 import ARKit
+//import "MyMeshData.h"
 
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
@@ -78,7 +79,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("SEND!!!")
         
-        let objects = exportToObjFormat()
+        
+        let data = separateData()
+        let objects = convertToObj(separated: data)
+//        let objects = exportToObjFormat()
         
         
         let fNames = [Int(Unknown.rawValue): "Unknown",
@@ -91,10 +95,12 @@ final class ViewController: UIViewController, ARSessionDelegate {
                 let fileName = fNames[id]! + ".obj"
                 let url = dir.appendingPathComponent(fileName)
                 urls.append(url)
-//                do {
-                try! str.write(to: url, atomically: true, encoding: String.Encoding.utf8)
-//                }
-//                catch {/* error handling here */}
+                do {
+                    try str.write(to: url, atomically: true, encoding: String.Encoding.utf8)
+                }
+                catch {
+                    print("Error!")
+                }
                 
             }
             
@@ -131,7 +137,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
         }
         
         
-        
         func findFloor(_ gistro: [Float:Int]) {
             
             var floor = (height: Float(), count:Int())
@@ -143,12 +148,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
                     }
                 }
             }
-            
-            for (h, n) in gistro {
-                print("h:\(h) n:\(n)")
-            }
-            
-            print("-------\(floor)")
             
             var grid = renderer.myGridBuffer
             for i in 0..<grid.count {
@@ -181,18 +180,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
         // The screen shouldn't dim during AR experiences.
         UIApplication.shared.isIdleTimerDisabled = true
     }
-    
-//    @objc
-//    private func viewValueChanged(view: UIView) {
-//        switch view {
-//
-//        case rgbRadiusSlider:
-//            renderer.rgbRadius = rgbRadiusSlider.value
-//
-//        default:
-//            break
-//        }
-//    }
     
     // Auto-hide the home indicator to maximize immersion in AR experiences.
     override var prefersHomeIndicatorAutoHidden: Bool {
@@ -228,77 +215,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         }
     }
     
-    func calcGridInMmEven(grid: [[[SIMD3<Float>]]], dim: Int, dR: Float) -> [[SIMD3<Float>]] {
-        var res = Array(repeating:Array(repeating:SIMD3<Float>(), count:dim), count:dim)
-        for i in 0..<dim {
-            for j in 0..<dim {
-                let statisticData = grid[i][j]
-                var p = SIMD3<Float>()
-                if statisticData.count > 0 {
-                    let gridSorted = statisticData.sorted {
-                        $0.y < $1.y
-                    }
-                    p = gridSorted[gridSorted.count/2]
-                    p.x = indexToPos(i, dim, dR)
-                    p.z = indexToPos(j, dim, dR)
-                }
-                res[i][j] = 1000*p
-            }
-        }
-        
-        return res
-    }
     
-//    func calcHeightGistro(grid: [[SIMD3<Float>]], step: Float, dim: Int) -> [Float:Int] {
-//        var res = [Float:Int]()
-//        for i in 0..<dim {
-//            for j in 0..<dim {
-//                let h = grid[i][j].y
-//                let hDescr = floor(h/step)*step
-//                if let cnt = res[hDescr] {
-//                    res[hDescr] = cnt + 1
-//                } else {
-//                    res[hDescr] = 1
-//                }
-//            }
-//        }
-//        return res
-//    }
-//
-//    func findFloor(gistro: [Float:Int], step: Float, grid: [[SIMD3<Float>]], dim: Int) -> [SIMD3<Float>] {
-//        var res = [SIMD3<Float>]()
-//
-//        var maxCount:Int = 0
-//        var floorHeight:Float = 0
-//        for el in gistro {
-//            if el.key != 0 {
-//                if (el.value > maxCount) {
-//                    floorHeight = el.key
-//                    maxCount = el.value
-//                }
-//            }
-//        }
-//
-//        for i in 0..<dim {
-//            for j in 0..<dim {
-//                let p = grid[i][j]
-//                let delta = p.y - floorHeight
-//                if (delta < step && delta > 0) {
-//                    res.append(p)
-//                }
-//            }
-//        }
-//
-//        return res
-//    }
-//
-//    func calcFloorHeight(_ floorPoints: [SIMD3<Float>]) -> Float {
-//        let sortedPoints = floorPoints.sorted {
-//            $0.y > $1.y
-//        }
-//        return sortedPoints[sortedPoints.count/2].y
-//    }
-//
     func setNullToFloorPoints(_ inMesh: [[SIMD3<Float>]], _ dim:Int, _ dR: Float, _ height: Float) ->[[SIMD3<Float>]] {
         var res = inMesh
         
@@ -343,85 +260,81 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     
-    func exportToObjFormat() -> [Int:String] {
-
-//        let acceptDist = Float(3*RADIUS) / Float(GRID_NODE_COUNT)
+    func separateData() -> [Int:[SIMD3<Float>]] {
+        var res = [ Int(Unknown.rawValue):[SIMD3<Float>](),
+                    Int(Foot.rawValue):[SIMD3<Float>](),
+                    Int(Floor.rawValue):[SIMD3<Float>]() ]
         
-        var res = [Int:String]()
         for i in 0..<renderer.myGridBuffer.count {
             let node = renderer.myGridBuffer[i]
             let x = gridXCoord(Int32(i))
             let z = gridZCoord(Int32(i))
             let y = getMedian(node)
             
-            res[Int(node.group.rawValue)]?
-                .append("v \(1000*x) \(1000*z) \(1000*y)\n")
+            res[Int(node.group.rawValue)]!
+.append( SIMD3<Float>(1000*x, 1000*z, 1000*y) )
         }
-            
-        
-//        for i in 0..<(renderer.myGridBuffer.count) {
-//            let node = renderer.myGridBuffer[i]
-//            if (i+1 < renderer.myGridBuffer.count) {
-//                if gridXCoord(Int32(i+1)) - gridXCoord(Int32(i)) < acceptDist {
-//
-//                }
-//            }
-//            let x = gridXCoord(Int32(i))
-//            let z = gridZCoord(Int32(i))
-//            let y = getMedian(node)
-//
-//            res[Int(node.group.rawValue)]?
-//                .append("v \(1000*x) \(1000*z) \(1000*y)\n")
-//        }
-//        let zero = SIMD3<Float>.zero
-////      edges connecting vertex pair
-//        for i in 1..<dim-1 {
-//            for j in 1..<dim-1 {
-//                if (grid[i][j] != zero) {
-//                    let pos = i*dim + j + 1
-//                    if (grid[i][j+1] != zero) {
-//                        text.append("l \(pos) \(pos + 1)\n")
-//                    }
-//                    if (grid[i+1][j] != zero) {
-//                        text.append("l \(pos) \(pos + dim)\n")
-//                    }
-//                }
-//            }
-//        }
-//        }
         
         return res
+        
     }
     
-//    func exportToObjFormat(points: [SIMD3<Float>]) -> String {
-////      vertexes
-//        var text: String = ""
-//        for p in points {
-//            text.append("v \(p.x) \(p.y) \(p.z)\n")
+//    func separateData() -> [Int:[[Float]]] {
+//
+//        var emptyGrid = Array( repeating:
+//                                Array(repeating: Float(), count: Int(GRID_NODE_COUNT)),
+//                               count: Int(GRID_NODE_COUNT) )
+//
+//        var res = [ Int(Unknown.rawValue): emptyGrid,
+//                    Int(Foot.rawValue): emptyGrid,
+//                    Int(Floor.rawValue): emptyGrid ]
+//
+//        for i in 0..<renderer.myGridBuffer.count {
+//            let node = renderer.myGridBuffer[i]
+//            let row = i/Int(GRID_NODE_COUNT) - Int(GRID_NODE_COUNT)/2
+//            let col = i%Int(GRID_NODE_COUNT) - Int(GRID_NODE_COUNT)/2
+//            let val = getMedian(node)
+//
+//            res[Int(node.group.rawValue)]![row][col] = val
 //        }
 //
-//        return text
+//        return res
+//
 //    }
     
-//    func exportToObjFormat(center:SIMD3<Float>, radius:Float) -> String {
-////      vertexes
-//        var text: String = ""
-//        let xMean = center[0]
-//        let yMean = center[1]
-//        let zMean = center[2]
+    func convertToObj(separated data:[Int:[SIMD3<Float>]]) -> [Int:String] {
+        
+        var res = [Int:String]()
+        for (key, val) in data {
+            res[key] = ""
+            for p in val {
+                res[key]!.append("v \(p.x) \(p.y) \(p.z)\n")
+            }
+        }
+        return res
+        
+    }
+    
+    
+    
+//    func exportToObjFormat() -> [Int:String] {
 //
-//        let n:Int = 12
-//        let dx = 2*radius / Float(n)
-//        for i in 0...n {
-//            let x0 = Float(i)*dx - radius
-//            let x = xMean + x0
-//            let z0 = sqrt(radius*radius - x0*x0)
-//            text.append("v \(x) \(yMean) \(zMean-z0)\n")
-//            text.append("v \(x) \(yMean) \(zMean+z0)\n")
-//        }
+////        let acceptDist = Float(3*RADIUS) / Float(GRID_NODE_COUNT)
 //
-//        return text
+////        var res = [Int(Unknown.rawValue):"", Int(Foot.rawValue):"", Int(Floor.rawValue):""]
+////        for i in 0..<renderer.myGridBuffer.count {
+////            let node = renderer.myGridBuffer[i]
+////            let x = gridXCoord(Int32(i))
+////            let z = gridZCoord(Int32(i))
+////            let y = getMedian(node)
+////
+////            res[Int(node.group.rawValue)]!
+////                .append("v \(1000*x) \(1000*z) \(1000*y)\n")
+////        }
+////        return res
+//
 //    }
+
 }
 
 // MARK: - MTKViewDelegate

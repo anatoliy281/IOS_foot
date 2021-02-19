@@ -10,6 +10,7 @@ The sample app's shaders.
 #include <metal_stdlib>
 #include <simd/simd.h>
 #import "ShaderTypes.h"
+#include "MyMeshData.h"
 #include <metal_array>
 
 using namespace metal;
@@ -179,10 +180,13 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
 {
     constant auto &md = myMeshData[vid];
 
-    const auto x = gridXCoord(vid);
-    const auto z = gridZCoord(vid);
-//    const auto y = md.heights[md.length/2];
-    const auto y = getMedian(md);
+//    const auto x = gridXCoord(vid);
+//    const auto z = gridZCoord(vid);
+//    const auto y = getMedian(md);
+    const auto x = (vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
+    const auto z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
+    const auto y = md.heights[md.length/2];
+
     float4 projectedPosition = uniforms.viewProjectionMatrix * float4(x, y, z, 1);
     projectedPosition /= projectedPosition.w;
     

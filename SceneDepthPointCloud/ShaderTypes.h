@@ -51,20 +51,4 @@ struct ParticleUniforms {
     float confidence;
 };
 
-//#define MAX_MESH_STATISTIC 40
-//
-//#define RADIUS 0.5
-//#define GRID_NODE_COUNT 500
-//
-//#define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
-//
-//
-//
-//struct MyMeshData {
-//    float heights[MAX_MESH_STATISTIC];
-//    int length;
-//};
-
-
-
 #endif /* ShaderTypes_h */
