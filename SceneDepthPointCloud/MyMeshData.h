@@ -34,14 +34,18 @@ extern "C" {
         enum Group group;
     };
     
-
+    struct MyMeshData initMyMeshData();
    
     void setGroup(struct MyMeshData md, enum Group group);
 
     float getMedian(struct MyMeshData md);
-    float gridXCoord(int index);
-    float gridZCoord(int index);
+//    float gridXCoord(int index);
+//    float gridZCoord(int index);
 
+    int gridRow(int index);
+    int gridColumn(int index);
+    float toCoordinate(int pos);
+    int indexPos(int row, int column);
 //float getMedian(struct MyMeshData md) {
 //    return md.heights[md.length/2];
 //}

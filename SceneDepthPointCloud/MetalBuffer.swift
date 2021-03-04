@@ -79,6 +79,15 @@ struct MetalBuffer<Element>: Resource {
         }
     }
     
+    func slice(startIndex: Int, endIndex: Int) -> [Element] {
+        precondition( startIndex <= endIndex, "\(startIndex) must be <= \(endIndex)")
+        var res: [Element] = []
+        for i in startIndex..<endIndex {
+            res.append(self[i])
+        }
+        return res
+    }
+    
 }
 
 // Note: This extension is in this file because access to Buffer<T>.buffer is fileprivate.

@@ -79,6 +79,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("SEND!!!")
         
+        separate()
+        
         
         let data = separateData()
         let objects = convertToObj(separated: data)
@@ -110,12 +112,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         }
     }
     
-    @objc
-    func colorAction(_ sender: UIButton!) {
-        
-        print("PAINT!!!")
-        
-        let dH:Float = 0.005
+    
+    func separate()  {
+        let dH:Float = 0.0075
         
         func calcHeightGistro() -> [Float:Int] {
             
@@ -163,6 +162,14 @@ final class ViewController: UIViewController, ARSessionDelegate {
         let gistro = calcHeightGistro()
         
         findFloor( gistro )
+    }
+    
+    @objc
+    func colorAction(_ sender: UIButton!) {
+        
+        print("PAINT!!!")
+        
+       separate()
         
     }
     
@@ -260,56 +267,87 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     
-    func separateData() -> [Int:[SIMD3<Float>]] {
-        var res = [ Int(Unknown.rawValue):[SIMD3<Float>](),
-                    Int(Foot.rawValue):[SIMD3<Float>](),
-                    Int(Floor.rawValue):[SIMD3<Float>]() ]
+    func separateData() -> [Int:[(Int,Int,Float)]] {
+        var res = [ Int(Unknown.rawValue):[(Int,Int,Float)](),
+                    Int(Foot.rawValue):[(Int,Int,Float)](),
+                    Int(Floor.rawValue):[(Int,Int,Float)]() ]
         
         for i in 0..<renderer.myGridBuffer.count {
             let node = renderer.myGridBuffer[i]
-            let x = gridXCoord(Int32(i))
-            let z = gridZCoord(Int32(i))
-            let y = getMedian(node)
+            let row = Int(gridRow(Int32(i)))
+            let col = Int(gridColumn(Int32(i)))
+            let val = getMedian(node)
             
-            res[Int(node.group.rawValue)]!
-.append( SIMD3<Float>(1000*x, 1000*z, 1000*y) )
+            res[Int(node.group.rawValue)]!.append( (row, col, val) )
         }
         
         return res
         
     }
     
-//    func separateData() -> [Int:[[Float]]] {
+    
+//    func separate(in slice: [MyMeshData]) -> [Int:[Float?]] {
+//        let dim = slice.count
+//        var res = [ Int(Unknown.rawValue): Array<Float?>(repeating: nil, count: dim),
+//                    Int(Foot.rawValue): Array<Float?>(repeating: nil, count: dim),
+//                    Int(Floor.rawValue): Array<Float?>(repeating: nil, count: dim) ]
+//        for i in 0..<dim {
+//            let value = getMedian(slice[i])
+//            let groupId = slice[i].group.rawValue
 //
-//        var emptyGrid = Array( repeating:
-//                                Array(repeating: Float(), count: Int(GRID_NODE_COUNT)),
-//                               count: Int(GRID_NODE_COUNT) )
-//
-//        var res = [ Int(Unknown.rawValue): emptyGrid,
-//                    Int(Foot.rawValue): emptyGrid,
-//                    Int(Floor.rawValue): emptyGrid ]
-//
-//        for i in 0..<renderer.myGridBuffer.count {
-//            let node = renderer.myGridBuffer[i]
-//            let row = i/Int(GRID_NODE_COUNT) - Int(GRID_NODE_COUNT)/2
-//            let col = i%Int(GRID_NODE_COUNT) - Int(GRID_NODE_COUNT)/2
-//            let val = getMedian(node)
-//
-//            res[Int(node.group.rawValue)]![row][col] = val
 //        }
-//
-//        return res
-//
 //    }
     
-    func convertToObj(separated data:[Int:[SIMD3<Float>]]) -> [Int:String] {
+    func convertToObj(separated data:[Int:[(Int,Int,Float)]]) -> [Int:String] {
+        
+        func writeEdges(input data: [(Int,Int,Float)]) -> String {
+            
+            let dim = Int(GRID_NODE_COUNT)
+            
+            func flagTable(_ data:[(Int,Int,Float)]) -> [[Float]] {
+                var res = Array(repeating:Array(repeating: Float(), count: dim), count: dim)
+                for ( i, j, val ) in data {
+                    res[i][j] = val
+                }
+                return res
+            }
+            
+            var res = ""
+            let table = flagTable(data)
+            for i in 0..<dim {
+                for j in 0..<dim {
+                    var str = ""
+                    if table[i][j] != Float() {
+                        str = "v \(1000*toCoordinate(Int32(i))) \(1000*toCoordinate(Int32(j))) \(1000*table[i][j])\n"
+                    } else {
+                        str = "v 0 0 0\n"
+                    }
+                    res.append(str)
+                }
+            }
+            
+            for i in 0..<dim {
+                for j in 0..<dim {
+                    if (table[i][j] != Float()) {
+                        if (j+1 != dim && table[i][j+1] != Float()) {
+                            let index = i*dim + j
+                            res.append("l \(index+1) \(index+2)\n")
+                        }
+                        if (i+1 != dim && table[i+1][j] != Float()) {
+                            let index = (i+1)*dim + j
+                            res.append("l \(index-dim+1) \(index+1)\n")
+                        }
+                    }
+                }
+            }
+            
+            return res
+        }
+        
         
         var res = [Int:String]()
         for (key, val) in data {
-            res[key] = ""
-            for p in val {
-                res[key]!.append("v \(p.x) \(p.y) \(p.z)\n")
-            }
+            res[key] = writeEdges(input: val)
         }
         return res
         

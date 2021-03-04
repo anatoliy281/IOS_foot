@@ -92,10 +92,12 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         const auto val = position.y;
         device auto& len = md.length;
         auto pos = find_greater(val, md.heights, len);
-        if (pos < MAX_MESH_STATISTIC) {
+        if (pos < MAX_MESH_STATISTIC && len < MAX_MESH_STATISTIC) {
             shift_right(pos, md.heights, len);
             md.heights[pos] = val;
-            ++len;
+            if (len != MAX_MESH_STATISTIC) {
+                ++len;
+            }
         }
     }
 }
@@ -193,9 +195,9 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
     ParticleVertexOut pOut;
     pOut.position = projectedPosition;
     pOut.pointSize = 5;
-    float4 color(1,1,1,1);
+    float4 color(1, 1, 1, 0.85);
     if (md.group == Group::Unknown) {
-        color.a = 0.5;
+        color.a = 0.0;
     } else if (md.group == Group::Floor) {
         color.r = 0.5;
         color.g = 0;

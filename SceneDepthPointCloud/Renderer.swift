@@ -94,7 +94,9 @@ class Renderer {
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
     
-    var myGridBuffer: MetalBuffer<MyMeshData>
+    lazy var myGridBuffer: MetalBuffer<MyMeshData> = initializeGridNodes()
+    lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
+    
     
 //    func meshIsReady(threshold maxCount: Int = ) {
 //        var count: Int = 0
@@ -253,7 +255,72 @@ class Renderer {
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         
-        myGridBuffer = .init(device: device, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT), index: kMyMesh.rawValue)
+    }
+    
+    func initializeGridNodes() -> MetalBuffer<MyMeshData> {
+//        let initVal = MyMeshData()
+        let initVal = initMyMeshData()
+        let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
+        myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+        
+//        myGridBuffer = .init(device: device, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT), index: kMyMesh.rawValue)
+        
+        return myGridBuffer
+    }
+    
+    func initializeGridIndeces() -> MetalBuffer<UInt32> {
+        
+        var indecesData = [UInt32]()
+        let nodeCount = UInt32(GRID_NODE_COUNT)
+
+        func index(_ i:UInt32, _ j:UInt32) -> UInt32 {
+            return i*nodeCount + j
+        }
+
+        func UpDown(_ j: UInt32) -> [UInt32] {
+
+            var res = [UInt32]()
+            for i in 0..<nodeCount-1 {
+                res.append(contentsOf: [index(i,j), index(i,j+1)])
+            }
+            res.append(index(nodeCount-1,j))
+
+            return res
+
+        }
+
+        func DownUp(_ j: UInt32) -> [UInt32] {
+
+            var res = [UInt32]()
+            for i in (1..<nodeCount).reversed() {
+                res.append(contentsOf: [index(i,j), index(i,j+1)])
+            }
+            res.append(index(0,j))
+
+            return res
+
+        }
+
+        func bottomRight() -> UInt32 {
+            return index(nodeCount-1, nodeCount-1)
+        }
+
+        func upRight() -> UInt32 {
+            return index(0, nodeCount-1)
+        }
+
+
+        let endPoint:()->UInt32 = (nodeCount%2 == 0) ? bottomRight : upRight
+
+        for j in 0..<nodeCount-1 {
+            let move:(UInt32)->[UInt32] = (j%2 == 0) ? UpDown : DownUp
+            indecesData.append(contentsOf: move(j))
+        }
+        indecesData.append(endPoint())
+        myIndecesBuffer = .init(device: device, array: indecesData, index: 0)
+        
+        return myIndecesBuffer
+        
     }
     
     func drawRectResized(size: CGSize) {
@@ -354,8 +421,15 @@ class Renderer {
         renderEncoder.setRenderPipelineState(gridPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(myGridBuffer)
-        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount:
-                                     Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
+//        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount:
+//                                     Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
+        
+        
+        renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+                                            indexCount: myIndecesBuffer.count,
+                                            indexType: .uint32,
+                                            indexBuffer: myIndecesBuffer.buffer,
+                                            indexBufferOffset: 0)
         
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
