@@ -9,12 +9,12 @@ import UIKit
 import Metal
 import MetalKit
 import ARKit
-//import "MyMeshData.h"
 
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let sendButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     private let colorMeshButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
+    private let smoothMeshButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     
     private let session = ARSession()
     private var renderer: Renderer!
@@ -22,13 +22,17 @@ final class ViewController: UIViewController, ARSessionDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        sendButton.backgroundColor = .green
-        sendButton.setTitle("Send!", for: .normal)
+        sendButton.backgroundColor = .orange
+        sendButton.setTitle("Отправить", for: .normal)
         sendButton.addTarget(self, action: #selector(sendAction), for: .touchUpInside)
         
         colorMeshButton.backgroundColor = .green
         colorMeshButton.setTitle("Раскрасить", for: .normal)
         colorMeshButton.addTarget(self, action: #selector(colorAction), for: .touchUpInside)
+        
+        smoothMeshButton.backgroundColor = .blue
+        smoothMeshButton.setTitle("Сгладить", for: .normal)
+        smoothMeshButton.addTarget(self, action: #selector(smoothAction), for: .touchUpInside)
         
         
 //        view.addSubview(sendButton)
@@ -62,7 +66,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
 //        rgbRadiusSlider.value = renderer.rgbRadius
 //        rgbRadiusSlider.addTarget(self, action: #selector(viewValueChanged), for: .valueChanged)
         
-        let stackView = UIStackView(arrangedSubviews: [sendButton, colorMeshButton])
+        let stackView = UIStackView(arrangedSubviews: [sendButton, colorMeshButton, smoothMeshButton])
         stackView.isHidden = !isUIEnabled
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
@@ -79,6 +83,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("SEND!!!")
         
+        smooth()
         separate()
         
         
@@ -87,13 +92,15 @@ final class ViewController: UIViewController, ARSessionDelegate {
 //        let objects = exportToObjFormat()
         
         
-        let fNames = [Int(Unknown.rawValue): "Unknown",
+        let fNames = [
+            Int(Unknown.rawValue): "Unknown",
                                   Int(Floor.rawValue): "Floor",
                                   Int(Foot.rawValue): "Foot"]
         
         var urls:[URL] = []
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             for (id, str) in objects {
+                if id == Int(Unknown.rawValue) { continue }
                 let fileName = fNames[id]! + ".obj"
                 let url = dir.appendingPathComponent(fileName)
                 urls.append(url)
@@ -112,6 +119,15 @@ final class ViewController: UIViewController, ARSessionDelegate {
         }
     }
     
+    
+    @objc
+    func colorAction(_ sender: UIButton!) {
+        
+        print("PAINT!!!")
+        
+       separate()
+        
+    }
     
     func separate()  {
         let dH:Float = 0.0075
@@ -165,11 +181,82 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     @objc
-    func colorAction(_ sender: UIButton!) {
+    func smoothAction(_ sender: UIButton!) {
         
-        print("PAINT!!!")
+        print("SMOOTH!")
         
-       separate()
+       smooth()
+        
+    }
+    
+    func smooth() {
+        print("smooth data")
+        
+        func filterMaskMedian() {
+            let dim = Int(GRID_NODE_COUNT)
+            var node = renderer.myGridBuffer
+            
+            func flatIndex(_ i:Int, _ j:Int) -> Int {
+                return i*dim + j
+            }
+            
+            func calcMedian(_ i:Int, _ j:Int) -> Float {
+                let mask = [
+                    flatIndex(i, j), flatIndex(i, j+1), flatIndex(i, j+2),
+                    flatIndex(i+1, j), flatIndex(i+1, j+1), flatIndex(i+1, j+2),
+                    flatIndex(i+2, j), flatIndex(i+2, j+1), flatIndex(i+2, j+2)
+                ]
+                var vals = mask.map({ getMedian(node[$0]) })
+                vals.sort(by: {$0 < $1})
+                return vals[mask.count/2]
+            }
+            
+            for i in 0..<dim-2 {
+                for j in 0..<dim-2 {
+                    let medianValue = calcMedian(i, j)
+                    let medianIndex = flatIndex(i+1, j+1)
+//                    let medianGroup = node[medianIndex].group
+//                    node[medianIndex] = setAll(medianValue, 1, medianGroup)
+                    node[medianIndex].heights.0 = medianValue
+                    node[medianIndex].length = 1
+                }
+            }
+        }
+        
+        func getFloorHeight() -> Float {
+            var heights = [Double]()
+            
+            for i in 0..<renderer.myGridBuffer.count {
+                let node = renderer.myGridBuffer[i]
+                if (node.group == Floor) {
+                    heights.append(Double(getMedian(node)))
+                }
+                
+            }
+            
+            var total:Double = 0
+            for h in heights {
+                total += h
+            }
+            return Float( total / Double(heights.count) )
+        }
+        
+        func setUnknownToFloor(_ floorHeight:Float) {
+            for i in 0..<renderer.myGridBuffer.count {
+                if (renderer.myGridBuffer[i].group == Unknown) {
+                    renderer.myGridBuffer[i] = setAll(floorHeight, 1, Floor)
+//                    renderer.myGridBuffer[i].heights.0 = floorHeight
+//                    renderer.myGridBuffer[i].length = 1
+//                    renderer.myGridBuffer[i].group = Floor
+                }
+            }
+        }
+        
+        let floorHeight = getFloorHeight()
+        setUnknownToFloor(floorHeight)
+        filterMaskMedian()
+        renderer.maxHeight = floorHeight + 0.1
+        
         
     }
     
@@ -223,52 +310,14 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     
-    func setNullToFloorPoints(_ inMesh: [[SIMD3<Float>]], _ dim:Int, _ dR: Float, _ height: Float) ->[[SIMD3<Float>]] {
-        var res = inMesh
-        
-        for i in 0..<dim {
-            for j in 0..<dim {
-                if res[i][j] == SIMD3<Float>.zero {
-                    let xNode = 1000*indexToPos(i, dim, dR)
-                    let zNode = 1000*indexToPos(j, dim, dR)
-//                    print(res[i][j])
-                    res[i][j].x = xNode
-                    res[i][j].y = height
-                    res[i][j].z = zNode
-//                    print(res[i][j])
-//                    print(xNode, height, zNode)
-                }
-            }
-        }
-        
-        return res
-    }
-    
-    func indexToPos(_ index:Int, _ dim:Int, _ dR:Float) -> Float {
-        return (Float(index) - Float(dim/2))*dR
-    }
-    
-    func filterMaskMedian(_ inMesh: [[SIMD3<Float>]], _ dim:Int) -> [[SIMD3<Float>]] {
-        var res = inMesh
-        
-        for i in 1..<dim-1 {
-            for j in 1..<dim-1{
-                var arr:[SIMD3<Float>] = [ res[i-1][j-1], res[i-1][j], res[i-1][j+1],
-                                           res[i][j-1],   res[i][j],   res[i][j+1],
-                                           res[i+1][j-1], res[i+1][j], res[i+1][j+1] ]
-                arr.sort(by: {
-                    $0.y < $1.y
-                })
-                res[i][j].y = arr[arr.count/2].y
-            }
-        }
-        
-        return res
-    }
+//    func indexToPos(_ index:Int, _ dim:Int, _ dR:Float) -> Float {
+//        return (Float(index) - Float(dim/2))*dR
+//    }
     
     
     func separateData() -> [Int:[(Int,Int,Float)]] {
-        var res = [ Int(Unknown.rawValue):[(Int,Int,Float)](),
+        var res = [
+            Int(Unknown.rawValue):[(Int,Int,Float)](),
                     Int(Foot.rawValue):[(Int,Int,Float)](),
                     Int(Floor.rawValue):[(Int,Int,Float)]() ]
         
@@ -304,7 +353,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
             
             let dim = Int(GRID_NODE_COUNT)
             
-            func flagTable(_ data:[(Int,Int,Float)]) -> [[Float]] {
+            func fullTable(_ data:[(Int,Int,Float)]) -> [[Float]] {
                 var res = Array(repeating:Array(repeating: Float(), count: dim), count: dim)
                 for ( i, j, val ) in data {
                     res[i][j] = val
@@ -313,7 +362,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
             }
             
             var res = ""
-            let table = flagTable(data)
+            let table = fullTable(data)
             for i in 0..<dim {
                 for j in 0..<dim {
                     var str = ""

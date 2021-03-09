@@ -37,21 +37,21 @@ class Renderer {
     private let depthStencilState: MTLDepthStencilState
     private let commandQueue: MTLCommandQueue
     private lazy var unprojectPipelineState = makeUnprojectionPipelineState()!
-//    private lazy var rgbPipelineState = makeRGBPipelineState()!
-//    private lazy var particlePipelineState = makeParticlePipelineState()!
     
     private lazy var gridPipelineState = makeGridPipelineState()!
     
     // texture cache for captured image
     private lazy var textureCache = makeTextureCache()
-    private var capturedImageTextureY: CVMetalTexture?
-    private var capturedImageTextureCbCr: CVMetalTexture?
+//    private var capturedImageTextureY: CVMetalTexture?
+//    private var capturedImageTextureCbCr: CVMetalTexture?
     private var depthTexture: CVMetalTexture?
     private var confidenceTexture: CVMetalTexture?
     
     // Multi-buffer rendering pipeline
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
+    
+    var maxHeight:Float = 2;
     
     
     // The current viewport size
@@ -98,24 +98,6 @@ class Renderer {
     lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
     
-//    func meshIsReady(threshold maxCount: Int = ) {
-//        var count: Int = 0
-//        for n in 0..<myGridBuffer.count {
-//            isCulculated(myGridBuffer[n])
-//        }
-//    }
-
-//    func getMedian(_ data: MyMeshData) -> Float? {
-//        let len = data.length
-//        if (len > 0) {
-//            let pos: UInt = 0;
-//            let h: [Float]
-//            return h.capacity
-//        } else {
-//            return nil
-//        }
-//    }
-    
 //    func generateMeshData(gridStep dR: Float, dimCount dim: Int) {
 //        var md = MeshData()
 //        var mdRight = MeshData()
@@ -145,40 +127,6 @@ class Renderer {
 //        }
 //    }
     
-//    func debugChunks(moreThan: Int) {
-//        for i in 0..<dim {
-//            for j in 0..<dim {
-//                let len = chunks[i][j].count
-//                if (len > moreThan) {
-//                    print("[\(i),\(j): \(len)")
-//                }
-//            }
-//        }
-//    }
-    
-//    func debugTableNodes() {
-//        for i in 0..<dim{
-//            for j in 0..<dim{
-//                if (tableData[i][j] != Float()) {
-//                    print("[\(i),\(j): \(tableData[i][j])")
-//                }
-//            }
-//        }
-//    }
-    
-//    func debugMeshData() {
-//        var pos = String()
-//        for i in 0..<vertexData.count {
-//            if i%3 == 0 {
-//                print("pos:\(pos)")
-//                pos = ""
-//            }
-////            pos += (String(vertexData[i]) + " ")
-//            let mdpos = vertexData[i].position
-//            pos += (String(mdpos.x) + " " + String(mdpos.y) + " " + String(mdpos.z) + " ")
-//        }
-//    }
-    
 //    func getCloud() -> [simd_float3] {
 //        var res = [simd_float3]()
 //        for i in 0..<particlesBuffer.count {
@@ -190,26 +138,6 @@ class Renderer {
 //        }
 //        return res
 //    }
-    
-    func totalCloudCount() -> Int {
-        var res:Int = 0
-        for i in 0..<myGridBuffer.count {
-            let pointCount = myGridBuffer[i].length
-            if pointCount > 0 {
-                res += 1;
-            }
-        }
-        return res
-    }
-    
-    func debugCloud() {
-        for i in 0..<myGridBuffer.count {
-            let pointCount = myGridBuffer[i].length
-            if pointCount > 0 {
-                print("pos:\(i) count:\(pointCount)")
-            }
-        }
-    }
     
     // interfaces
     var confidenceThreshold = 2 {
@@ -327,16 +255,6 @@ class Renderer {
         viewportSize = size
     }
    
-    private func updateCapturedImageTextures(frame: ARFrame) {
-        // Create two textures (Y and CbCr) from the provided frame's captured image
-        let pixelBuffer = frame.capturedImage
-        guard CVPixelBufferGetPlaneCount(pixelBuffer) >= 2 else {
-            return
-        }
-        
-        capturedImageTextureY = makeTexture(fromPixelBuffer: pixelBuffer, pixelFormat: .r8Unorm, planeIndex: 0)
-        capturedImageTextureCbCr = makeTexture(fromPixelBuffer: pixelBuffer, pixelFormat: .rg8Unorm, planeIndex: 1)
-    }
     
     private func updateDepthTextures(frame: ARFrame) -> Bool {
         guard let depthMap = frame.sceneDepth?.depthMap,
@@ -379,7 +297,7 @@ class Renderer {
         
         // update frame data
         update(frame: currentFrame)
-        updateCapturedImageTextures(frame: currentFrame)
+//        updateCapturedImageTextures(frame: currentFrame)
         
         // handle buffer rotating
         currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
@@ -425,7 +343,7 @@ class Renderer {
 //                                     Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
         
         
-        renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+        renderEncoder.drawIndexedPrimitives(type: .lineStrip,
                                             indexCount: myIndecesBuffer.count,
                                             indexType: .uint32,
                                             indexBuffer: myIndecesBuffer.buffer,
@@ -446,7 +364,9 @@ class Renderer {
     private func accumulatePoints(frame: ARFrame, commandBuffer: MTLCommandBuffer, renderEncoder: MTLRenderCommandEncoder) {
         pointCloudUniforms.pointCloudCurrentIndex = Int32(currentPointIndex)
         
-        var retainingTextures = [capturedImageTextureY, capturedImageTextureCbCr, depthTexture, confidenceTexture]
+        var retainingTextures = [
+            depthTexture,
+            confidenceTexture]
         commandBuffer.addCompletedHandler { buffer in
             retainingTextures.removeAll()
         }
@@ -456,8 +376,8 @@ class Renderer {
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
         renderEncoder.setVertexBuffer(myGridBuffer)
-        renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
-        renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
+        renderEncoder.setVertexBytes(&maxHeight, length: MemoryLayout<Float>.stride, index: 7)
+
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
@@ -468,8 +388,6 @@ class Renderer {
         lastCameraTransform = frame.camera.transform
     }
 }
-
-// MARK: - Metal Helpers
 
 private extension Renderer {
     func makeUnprojectionPipelineState() -> MTLRenderPipelineState? {
@@ -485,39 +403,6 @@ private extension Renderer {
         
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
-    
-//    func makeRGBPipelineState() -> MTLRenderPipelineState? {
-//        guard let vertexFunction = library.makeFunction(name: "rgbVertex"),
-//            let fragmentFunction = library.makeFunction(name: "rgbFragment") else {
-//                return nil
-//        }
-//
-//        let descriptor = MTLRenderPipelineDescriptor()
-//        descriptor.vertexFunction = vertexFunction
-//        descriptor.fragmentFunction = fragmentFunction
-//        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-//
-//        return try? device.makeRenderPipelineState(descriptor: descriptor)
-//    }
-    
-//    func makeParticlePipelineState() -> MTLRenderPipelineState? {
-//        guard let vertexFunction = library.makeFunction(name: "particleVertex"),
-//            let fragmentFunction = library.makeFunction(name: "particleFragment") else {
-//                return nil
-//        }
-//
-//        let descriptor = MTLRenderPipelineDescriptor()
-//        descriptor.vertexFunction = vertexFunction
-//        descriptor.fragmentFunction = fragmentFunction
-//        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-//        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
-//        descriptor.colorAttachments[0].isBlendingEnabled = true
-//        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-//        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-//        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
-//
-//        return try? device.makeRenderPipelineState(descriptor: descriptor)
-//    }
     
     func makeGridPipelineState() -> MTLRenderPipelineState? {
         guard let vertexFunction = library.makeFunction(name: "gridVertex"),

@@ -8,6 +8,7 @@
 
 #include "MyMeshData.h"
 #include <stdio.h>
+#include <assert.h>
 
 float getMedian(struct MyMeshData md) {
     return md.heights[md.length/2];
@@ -18,12 +19,25 @@ int isCulculated(struct MyMeshData md) {
 }
 
 struct MyMeshData initMyMeshData() {
+//    struct MyMeshData md;
+//    for (int i=0; i < MAX_MESH_STATISTIC; ++i) {
+//        md.heights[i] = -0.5;
+//    }
+//    md.group = Unknown;
+//    md.length = 0;
+//    return md;
+    
+    return setAll(-0.5, 0, Unknown);
+}
+
+struct MyMeshData setAll(float value, int len, enum Group group) {
+    assert(len < MAX_MESH_STATISTIC);
     struct MyMeshData md;
+    md.group = group;
+    md.length = len;
     for (int i=0; i < MAX_MESH_STATISTIC; ++i) {
-        md.heights[i] = -0.5;
+        md.heights[i] = value;
     }
-    md.group = Unknown;
-    md.length = 0;
     return md;
 }
 

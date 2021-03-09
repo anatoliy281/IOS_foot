@@ -27,14 +27,16 @@ extern "C" {
         Floor,
         Foot
     };
-    
+
     struct MyMeshData {
         float heights[MAX_MESH_STATISTIC];
         int length;
         enum Group group;
     };
     
-    struct MyMeshData initMyMeshData();
+    struct MyMeshData initMyMeshData(void);
+
+    struct MyMeshData setAll(float value, int len, enum Group group);
    
     void setGroup(struct MyMeshData md, enum Group group);
 
@@ -46,6 +48,7 @@ extern "C" {
     int gridColumn(int index);
     float toCoordinate(int pos);
     int indexPos(int row, int column);
+
 //float getMedian(struct MyMeshData md) {
 //    return md.heights[md.length/2];
 //}

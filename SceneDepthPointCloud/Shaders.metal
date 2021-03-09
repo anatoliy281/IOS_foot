@@ -15,13 +15,6 @@ The sample app's shaders.
 
 using namespace metal;
 
-
-// Camera's RGB vertex shader outputs
-//struct RGBVertexOut {
-//    float4 position [[position]];
-//    float2 texCoord;
-//};
-
 //// Particle vertex shader outputs and fragment shader inputs
 struct ParticleVertexOut {
     float4 position [[position]];
@@ -30,12 +23,6 @@ struct ParticleVertexOut {
 };
 //
 constexpr sampler colorSampler(mip_filter::linear, mag_filter::linear, min_filter::linear);
-//constant auto yCbCrToRGB = float4x4(float4(+1.0000f, +1.0000f, +1.0000f, +0.0000f),
-//                                    float4(+0.0000f, -0.3441f, +1.7720f, +0.0000f),
-//                                    float4(+1.4020f, -0.7141f, +0.0000f, +0.0000f),
-//                                    float4(-0.7010f, +0.5291f, -0.8860f, +1.0000f));
-//constant float2 viewVertices[] = { float2(-1, 1), float2(-1, -1), float2(1, 1), float2(1, -1) };
-//constant float2 viewTexCoords[] = { float2(0, 0), float2(0, 1), float2(1, 0), float2(1, 1) };
 
 /// Retrieves the world position of a specified camera point with depth
 static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float3x3 cameraIntrinsicsInversed, matrix_float4x4 localToWorld) {
@@ -65,9 +52,8 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-
-                            texture2d<float, access::sample> capturedImageTextureY [[texture(kTextureY)]],
-                            texture2d<float, access::sample> capturedImageTextureCbCr [[texture(kTextureCbCr)]],
+                            
+                            constant float& maxHeight[[ buffer(7) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
@@ -89,15 +75,17 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         auto j = int(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
         
-        const auto val = position.y;
+        const auto val = min(position.y, maxHeight);
+        
+        
         device auto& len = md.length;
         auto pos = find_greater(val, md.heights, len);
         if (pos < MAX_MESH_STATISTIC && len < MAX_MESH_STATISTIC) {
             shift_right(pos, md.heights, len);
             md.heights[pos] = val;
-            if (len != MAX_MESH_STATISTIC) {
+//            if (len != MAX_MESH_STATISTIC) {
                 ++len;
-            }
+//            }
         }
     }
 }
