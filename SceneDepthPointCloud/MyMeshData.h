@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-    #define MAX_MESH_STATISTIC 40
+    #define MAX_MESH_STATISTIC 200
 
     #define RADIUS 0.5
     #define GRID_NODE_COUNT 500

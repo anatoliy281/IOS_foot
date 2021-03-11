@@ -18,8 +18,9 @@ enum TextureIndices {
 
 enum BufferIndices {
     kPointCloudUniforms = 0,
-    kGridPoints = 2,
-    kMyMesh = 5
+    kGridPoints = 1,
+    kMyMesh = 2,
+    kHeight = 3
 };
 
 struct PointCloudUniforms {
@@ -28,5 +29,11 @@ struct PointCloudUniforms {
     matrix_float3x3 cameraIntrinsicsInversed;
     simd_float2 cameraResolution;
 };
+
+typedef struct {
+    float floor;
+    float delta;
+} Heights;
+
 
 #endif /* ShaderTypes_h */

@@ -18,7 +18,7 @@ using namespace metal;
 //// Particle vertex shader outputs and fragment shader inputs
 struct ParticleVertexOut {
     float4 position [[position]];
-    float pointSize [[point_size]];
+    float pointSize [[point_size]] = 12;
     float4 color;
 };
 //
@@ -63,9 +63,8 @@ int new_cicle(device float* ar, float medianValue) {
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
+                            constant Heights& heights[[ buffer(kHeight) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-//
-                            constant float& maxHeight[[ buffer(7) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
@@ -87,8 +86,8 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         auto j = int(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
         
+        const auto maxHeight = heights.floor + heights.delta;
         const auto val = min(position.y, maxHeight);
-        
         
         device auto& len = md.length;
         auto pos = find_greater(val, md.heights, len);
@@ -97,11 +96,18 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
             md.heights[pos] = val;
             ++len;
         }
-        if (len == MAX_MESH_STATISTIC) {
-//            md.heights[0] = md.heights[md.length/2];
-//            len = 1;
-            auto median = md.heights[md.length/2];
-            len = new_cicle(md.heights, median);
+//        if (len == MAX_MESH_STATISTIC) {
+////            md.heights[0] = md.heights[md.length/2];
+////            len = 1;
+//            auto median = md.heights[md.length/2];
+//            len = new_cicle(md.heights, median);
+//        }
+        
+        auto h = md.heights[md.length/2];
+        if ( abs(h - heights.floor) < 3e-3 ) {
+            md.group = Floor;
+        } else {
+            md.group = Foot;
         }
     }
 }
@@ -125,10 +131,10 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
     
     ParticleVertexOut pOut;
     pOut.position = projectedPosition;
-    pOut.pointSize = 5;
+//    pOut.pointSize = 25;
     float4 color(1, 1, 1, 0.85);
     if (md.group == Group::Unknown) {
-        color.a = 0.0;
+//        color.a = 0.0;
     } else if (md.group == Group::Floor) {
         color.r = 0.5;
         color.g = 0;
@@ -138,6 +144,7 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
         color.g = 0.3;
         color.b = 0.1;
     }
+    color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
     
     pOut.color = color;
     return pOut;

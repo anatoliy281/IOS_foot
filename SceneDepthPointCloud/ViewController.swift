@@ -26,7 +26,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         sendButton.addTarget(self, action: #selector(sendAction), for: .touchUpInside)
         
         colorMeshButton.backgroundColor = .green
-        colorMeshButton.setTitle("Раскрасить", for: .normal)
+        colorMeshButton.setTitle("Определить пол", for: .normal)
         colorMeshButton.addTarget(self, action: #selector(colorAction), for: .touchUpInside)
         
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -119,10 +119,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     func separate()  {
-        let dH:Float = 0.0075
+        let dH:Float = 2e-3;
         
         func calcHeightGistro() -> [Float:Int] {
-            
             var res = [Float:Int]()
             let grid = renderer.myGridBuffer
             for i in 0..<grid.count {
@@ -140,7 +139,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         }
         
         
-        func findFloor(_ gistro: [Float:Int]) {
+        func findFloor(_ gistro: [Float:Int]) -> Float {
             
             var floor = (height: Float(), count:Int())
             for (h, n) in gistro {
@@ -152,21 +151,20 @@ final class ViewController: UIViewController, ARSessionDelegate {
                 }
             }
             
-            
-            var grid = renderer.myGridBuffer
-            for i in 0..<grid.count {
-                var group = Unknown
-                if grid[i].length > 0 {
-                    let delta = abs( getMedian(grid[i]) - floor.height )
-                    group = (delta < dH) ? Floor : Foot
-                }
-                grid[i].group = group
-            }
+            return floor.height
+//            var grid = renderer.myGridBuffer
+//            for i in 0..<grid.count {
+//                var group = Unknown
+//                if grid[i].length > 0 {
+//                    let delta = abs( getMedian(grid[i]) - floor.height )
+//                    group = (delta < dH) ? Floor : Foot
+//                }
+//                grid[i].group = group
+//            }
         }
         
         let gistro = calcHeightGistro()
-        
-        findFloor( gistro )
+        renderer.heights.floor = findFloor( gistro )
         
     }
     
@@ -240,9 +238,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         let floorHeight = getFloorHeight()
         setUnknownToFloor(floorHeight)
         filterMaskMedian()
-        renderer.maxHeight = floorHeight + 0.1
-
-
+        renderer.heights.floor = floorHeight
     }
     
     override func viewWillAppear(_ animated: Bool) {

@@ -44,7 +44,12 @@ class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
     
-    var maxHeight:Float = 2;
+    lazy var heights:Heights = {
+        var h = Heights()
+        h.delta = 75e-3
+        h.floor = 0
+        return h
+    }()
     
     
     // The current viewport size
@@ -222,7 +227,7 @@ class Renderer {
         renderEncoder.setRenderPipelineState(gridPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(myGridBuffer)
-        renderEncoder.drawIndexedPrimitives(type: .lineStrip,
+        renderEncoder.drawIndexedPrimitives(type: .point,
                                             indexCount: myIndecesBuffer.count,
                                             indexType: .uint32,
                                             indexBuffer: myIndecesBuffer.buffer,
@@ -255,7 +260,7 @@ class Renderer {
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
         renderEncoder.setVertexBuffer(myGridBuffer)
-        renderEncoder.setVertexBytes(&maxHeight, length: MemoryLayout<Float>.stride, index: 7)
+        renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
 
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
