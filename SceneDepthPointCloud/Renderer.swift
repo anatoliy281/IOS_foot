@@ -12,13 +12,6 @@ import ARKit
 //#import "../MyMeshData.h";
 
 class Renderer {
-    // Maximum number of points we store in the point cloud
-    private let maxPoints = 500_000
-    // Number of sample points on the grid
-    private let numGridPoints = 500
-    // Particle's size in pixels
-    private let particleSize: Float = 10
-    // We only use landscape orientation in this app
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
     private let cameraRotationThreshold = cos(2 * .degreesToRadian)
@@ -60,36 +53,18 @@ class Renderer {
     private lazy var gridPointsBuffer = MetalBuffer<Float2>(device: device,
                                                             array: makeGridPoints(),
                                                             index: kGridPoints.rawValue, options: [])
-    
-    // RGB buffer
-    private lazy var rgbUniforms: RGBUniforms = {
-        var uniforms = RGBUniforms()
-        uniforms.radius = rgbRadius
-        uniforms.viewToCamera.copy(from: viewToCamera)
-        uniforms.viewRatio = Float(viewportSize.width / viewportSize.height)
-        return uniforms
-    }()
-    private var rgbUniformsBuffers = [MetalBuffer<RGBUniforms>]()
-
     // Point Cloud buffer
     private lazy var pointCloudUniforms: PointCloudUniforms = {
         var uniforms = PointCloudUniforms()
-        uniforms.maxPoints = Int32(maxPoints)
-        uniforms.confidenceThreshold = Int32(confidenceThreshold)
-        uniforms.particleSize = particleSize
         uniforms.cameraResolution = cameraResolution
         return uniforms
     }()
     private var pointCloudUniformsBuffers = [MetalBuffer<PointCloudUniforms>]()
-
-    // Particles buffer
-//    private var particlesBuffer: MetalBuffer<ParticleUniforms>
-    private var currentPointIndex = 0
-    private var currentPointCount = 0
     
     // Camera data
     private var sampleFrame: ARFrame { session.currentFrame! }
     private lazy var cameraResolution = Float2(Float(sampleFrame.camera.imageResolution.width), Float(sampleFrame.camera.imageResolution.height))
+    
     private lazy var viewToCamera = sampleFrame.displayTransform(for: orientation, viewportSize: viewportSize).inverted()
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
@@ -97,64 +72,6 @@ class Renderer {
     lazy var myGridBuffer: MetalBuffer<MyMeshData> = initializeGridNodes()
     lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
-    
-//    func generateMeshData(gridStep dR: Float, dimCount dim: Int) {
-//        var md = MeshData()
-//        var mdRight = MeshData()
-//        var mdDown = MeshData()
-//        for i in 1..<dim-1 {
-//            let x = Float(i - dim/2)*dR
-//            for j in 1..<dim-1 {
-//                let h = tableData[i][j]
-//                if (h == Float()) { continue }
-//                let z = Float(j - dim/2)*dR
-//                md.position = SIMD3<Float>(x, h, z)
-//                let rh = tableData[i][j+1]
-//                if (rh != Float())
-//                {
-//                    mdRight.position = SIMD3<Float>(x, rh, z+dR)
-//                    vertexData.append(md)
-//                    vertexData.append(mdRight)
-//                }
-//                let dh = tableData[i+1][j]
-//                if (dh != Float())
-//                {
-//                    mdDown.position = SIMD3<Float>(x+dR, dh, z)
-//                    vertexData.append(md)
-//                    vertexData.append(mdDown)
-//                }
-//            }
-//        }
-//    }
-    
-//    func getCloud() -> [simd_float3] {
-//        var res = [simd_float3]()
-//        for i in 0..<particlesBuffer.count {
-//            let pos = particlesBuffer[i].position
-//            if ((pos[0] != 0 && pos[1] != 0 && pos[2] != 0) &&
-//                    (particlesBuffer[i].confidence == 2)){
-//                res.append(pos)
-//            }
-//        }
-//        return res
-//    }
-    
-    // interfaces
-    var confidenceThreshold = 2 {
-        didSet {
-            // apply the change for the shader
-            pointCloudUniforms.confidenceThreshold = Int32(confidenceThreshold)
-        }
-    }
-    
-    
-    
-    var rgbRadius: Float = 0 {
-        didSet {
-            // apply the change for the shader
-            rgbUniforms.radius = rgbRadius
-        }
-    }
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -166,10 +83,8 @@ class Renderer {
         
         // initialize our buffers
         for _ in 0 ..< maxInFlightBuffers {
-//            rgbUniformsBuffers.append(.init(device: device, count: 1, index: 0))
             pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
         }
-//        particlesBuffer = .init(device: device, count: maxPoints, index: kParticleUniforms.rawValue)
         
         // rbg does not need to read/write depth
         let relaxedStateDescriptor = MTLDepthStencilDescriptor()
@@ -186,13 +101,9 @@ class Renderer {
     }
     
     func initializeGridNodes() -> MetalBuffer<MyMeshData> {
-//        let initVal = MyMeshData()
         let initVal = initMyMeshData()
         let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
         myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
-        
-//        myGridBuffer = .init(device: device, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT), index: kMyMesh.rawValue)
-        
         return myGridBuffer
     }
     
@@ -297,7 +208,6 @@ class Renderer {
         
         // update frame data
         update(frame: currentFrame)
-//        updateCapturedImageTextures(frame: currentFrame)
         
         // handle buffer rotating
         currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
@@ -308,41 +218,10 @@ class Renderer {
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
         }
         
-        // check and render rgb camera image
-//        if rgbUniforms.radius > 0 {
-//            var retainingTextures = [capturedImageTextureY, capturedImageTextureCbCr]
-//            commandBuffer.addCompletedHandler { buffer in
-//                retainingTextures.removeAll()
-//            }
-//            rgbUniformsBuffers[currentBufferIndex][0] = rgbUniforms
-//
-//            renderEncoder.setDepthStencilState(relaxedStencilState)
-//            renderEncoder.setRenderPipelineState(rgbPipelineState)
-//            renderEncoder.setVertexBuffer(rgbUniformsBuffers[currentBufferIndex])
-//            renderEncoder.setFragmentBuffer(rgbUniformsBuffers[currentBufferIndex])
-//            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
-//            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
-//            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-//        }
-       
-        // render particles
-//        renderEncoder.setDepthStencilState(depthStencilState)
-//        renderEncoder.setRenderPipelineState(particlePipelineState)
-//        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-//        renderEncoder.setVertexBuffer(particlesBuffer)
-//        renderEncoder.setVertexBuffer(myGridBuffer)
-//        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
-        
-//        renderEncoder.setDepthStencilState(relaxedStencilState)
-        
         
         renderEncoder.setRenderPipelineState(gridPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(myGridBuffer)
-//        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount:
-//                                     Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
-        
-        
         renderEncoder.drawIndexedPrimitives(type: .lineStrip,
                                             indexCount: myIndecesBuffer.count,
                                             indexType: .uint32,
@@ -356,14 +235,14 @@ class Renderer {
     
     private func shouldAccumulate(frame: ARFrame) -> Bool {
         let cameraTransform = frame.camera.transform
-        return currentPointCount == 0
-            || dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
+        return
+//            currentPointCount == 0 ||
+            dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
             || distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) >= cameraTranslationThreshold
     }
     
     private func accumulatePoints(frame: ARFrame, commandBuffer: MTLCommandBuffer, renderEncoder: MTLRenderCommandEncoder) {
-        pointCloudUniforms.pointCloudCurrentIndex = Int32(currentPointIndex)
-        
+
         var retainingTextures = [
             depthTexture,
             confidenceTexture]
@@ -382,9 +261,6 @@ class Renderer {
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
         
-        
-        currentPointIndex = (currentPointIndex + gridPointsBuffer.count) % maxPoints
-        currentPointCount = min(currentPointCount + gridPointsBuffer.count, maxPoints)
         lastCameraTransform = frame.camera.transform
     }
 }
@@ -422,18 +298,36 @@ private extension Renderer {
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
     
+    func makePointCloudState() -> MTLRenderPipelineState? {
+        guard let vertexFunction = library.makeFunction(name: "particleVertex"),
+              let fragmentFunction = library.makeFunction(name: "particleFragment") else { return nil }
+        
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = vertexFunction
+        descriptor.fragmentFunction = fragmentFunction
+        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+
+        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
+        descriptor.colorAttachments[0].isBlendingEnabled = true
+        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+
+        return try? device.makeRenderPipelineState(descriptor: descriptor)
+    }
+    
     /// Makes sample points on camera image, also precompute the anchor point for animation
     func makeGridPoints() -> [Float2] {
-        let gridArea = cameraResolution.x * cameraResolution.y
-        let spacing = sqrt(gridArea / Float(numGridPoints))
-        let deltaX = Int(round(cameraResolution.x / spacing))
-        let deltaY = Int(round(cameraResolution.y / spacing))
+        let deltaX = Int(round(cameraResolution.x))
+        let deltaY = Int(round(cameraResolution.y))
         
         var points = [Float2]()
         for gridY in 0 ..< deltaY {
-            let alternatingOffsetX = Float(gridY % 2) * spacing / 2
+//            let alternatingOffsetX = Float(gridY % 2) * spacing / 2
+            let alternatingOffsetX = Float(gridY % 2) / 2
             for gridX in 0 ..< deltaX {
-                let cameraPoint = Float2(alternatingOffsetX + (Float(gridX) + 0.5) * spacing, (Float(gridY) + 0.5) * spacing)
+//                let cameraPoint = Float2(alternatingOffsetX + (Float(gridX) + 0.5) * spacing, (Float(gridY) + 0.5) * spacing)
+                let cameraPoint = Float2(alternatingOffsetX + (Float(gridX) + 0.5), (Float(gridY) + 0.5))
                 
                 points.append(cameraPoint)
             }

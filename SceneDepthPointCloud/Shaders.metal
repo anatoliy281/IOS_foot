@@ -47,12 +47,24 @@ void shift_right(int pos, device float* ar, int len) {
     }
 }
 
+
+int new_cicle(device float* ar, float medianValue) {
+    
+    auto halflen = MAX_MESH_STATISTIC/2;
+    for (int i=0; i < halflen; ++i) {
+        ar[i] = medianValue;
+    }
+    
+    return halflen;
+}
+
+
 ///  Vertex shader that takes in a 2D grid-point and infers its 3D position in world-space, along with RGB and confidence
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-                            
+//
                             constant float& maxHeight[[ buffer(7) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
@@ -83,85 +95,16 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         if (pos < MAX_MESH_STATISTIC && len < MAX_MESH_STATISTIC) {
             shift_right(pos, md.heights, len);
             md.heights[pos] = val;
-//            if (len != MAX_MESH_STATISTIC) {
-                ++len;
-//            }
+            ++len;
+        }
+        if (len == MAX_MESH_STATISTIC) {
+//            md.heights[0] = md.heights[md.length/2];
+//            len = 1;
+            auto median = md.heights[md.length/2];
+            len = new_cicle(md.heights, median);
         }
     }
 }
-
-
-
-
-//vertex RGBVertexOut rgbVertex(uint vertexID [[vertex_id]],
-//                              constant RGBUniforms &uniforms [[buffer(0)]]) {
-//    const float3 texCoord = float3(viewTexCoords[vertexID], 1) * uniforms.viewToCamera;
-//
-//    RGBVertexOut out;
-//    out.position = float4(viewVertices[vertexID], 0, 1);
-//    out.texCoord = texCoord.xy;
-//
-//    return out;
-//}
-//
-//fragment float4 rgbFragment(RGBVertexOut in [[stage_in]],
-//                            constant RGBUniforms &uniforms [[buffer(0)]],
-//                            texture2d<float, access::sample> capturedImageTextureY [[texture(kTextureY)]],
-//                            texture2d<float, access::sample> capturedImageTextureCbCr [[texture(kTextureCbCr)]]) {
-//
-//    const float2 offset = (in.texCoord - 0.5) * float2(1, 1 / uniforms.viewRatio) * 2;
-//    const float visibility = saturate(uniforms.radius * uniforms.radius - length_squared(offset));
-//    const float4 ycbcr = float4(capturedImageTextureY.sample(colorSampler, in.texCoord.xy).r, capturedImageTextureCbCr.sample(colorSampler, in.texCoord.xy).rg, 1);
-//
-//    // convert and save the color back to the buffer
-//    const float3 sampledColor = (yCbCrToRGB * ycbcr).rgb;
-//    return float4(sampledColor, 1) * visibility;
-//}
-
-
-
-
-//vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
-//                                        constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
-//                                        constant ParticleUniforms *particleUniforms [[buffer(kParticleUniforms)]]) {
-//
-//    // get point data
-//    const auto particleData = particleUniforms[vertexID];
-//    const auto position = particleData.position;
-//    const auto confidence = particleData.confidence;
-//    const auto sampledColor = particleData.color;
-//    const auto visibility = confidence >= uniforms.confidenceThreshold;
-//
-//    // animate and project the point
-//    float4 projectedPosition = uniforms.viewProjectionMatrix * float4(position, 1.0);
-//    const float pointSize = max(uniforms.particleSize / max(1.0, projectedPosition.z), 2.0);
-//    projectedPosition /= projectedPosition.w;
-//
-//    // prepare for output
-//    ParticleVertexOut out;
-//    out.position = projectedPosition;
-//    out.pointSize = pointSize;
-//    out.color = float4(sampledColor, visibility);
-//
-//    return out;
-//}
-
-
-
-
-//fragment float4 particleFragment(ParticleVertexOut in [[stage_in]],
-//                                 const float2 coords [[point_coord]]) {
-//    // we draw within a circle
-//    const float distSquared = length_squared(coords - float2(0.5));
-//    if (in.color.a == 0 || distSquared > 0.25) {
-//        discard_fragment();
-//    }
-//
-//    return in.color;
-//}
-
-
-
 
 
 vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
