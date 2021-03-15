@@ -9,8 +9,6 @@ import Metal
 import MetalKit
 import ARKit
 
-//#import "../MyMeshData.h";
-
 class Renderer {
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
@@ -35,8 +33,6 @@ class Renderer {
     
     // texture cache for captured image
     private lazy var textureCache = makeTextureCache()
-//    private var capturedImageTextureY: CVMetalTexture?
-//    private var capturedImageTextureCbCr: CVMetalTexture?
     private var depthTexture: CVMetalTexture?
     private var confidenceTexture: CVMetalTexture?
     
@@ -77,6 +73,8 @@ class Renderer {
     lazy var myGridBuffer: MetalBuffer<MyMeshData> = initializeGridNodes()
     lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
+    var frameAccumulated:UInt = 0;
+    var frameAccumulatedIntervals:[UInt] = [10, 25, 50, 100, 400, 1000];
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -196,6 +194,41 @@ class Renderer {
         pointCloudUniforms.cameraIntrinsicsInversed = cameraIntrinsicsInversed
     }
     
+    func separate()  {
+        let dH:Float = 2e-3;
+        
+        func calcHeightGistro() -> [Float:Int] {
+            var res = [Float:Int]()
+            let grid = myGridBuffer
+            for i in 0..<grid.count {
+                let nodeStat = grid[i]
+                if nodeStat.length == 0 { continue }
+                let h = getMedian(nodeStat)
+                let hDescr = floor(h/dH)*dH
+                if let cnt = res[hDescr] {
+                    res[hDescr] = cnt + 1
+                } else {
+                    res[hDescr] = 1
+                }
+            }
+            return res
+        }
+        
+        
+        func findFloor(_ gistro: [Float:Int]) -> Float {
+            let floorHeight = gistro.max {
+                return $0.1 < $1.1
+            }
+            return floorHeight!.0
+        }
+        
+//        var gistro =
+        heights.floor = findFloor( calcHeightGistro() )
+        
+    }
+    
+    
+    
     func draw() {
         guard let currentFrame = session.currentFrame,
             let renderDescriptor = renderDestination.currentRenderPassDescriptor,
@@ -220,7 +253,12 @@ class Renderer {
         
         
         if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
+            frameAccumulated += 1
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
+        }
+        
+        if (frameAccumulatedIntervals.contains(frameAccumulated)) {
+            separate()
         }
         
         
@@ -340,6 +378,7 @@ private extension Renderer {
         
         return points
     }
+    
     
     func makeTextureCache() -> CVMetalTextureCache {
         // Create captured image texture cache

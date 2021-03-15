@@ -18,7 +18,7 @@ using namespace metal;
 //// Particle vertex shader outputs and fragment shader inputs
 struct ParticleVertexOut {
     float4 position [[position]];
-    float pointSize [[point_size]] = 12;
+    float pointSize [[point_size]] = POINT_SIZE;
     float4 color;
 };
 //
@@ -79,16 +79,18 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
 
-    if (position.x*position.x + position.z*position.z < RADIUS*RADIUS
-        && confidence == 2
+    if (
+        position.x*position.x + position.z*position.z < RADIUS*RADIUS
+        &&
+        confidence == 2
         ) {
         auto i = int(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
         auto j = int(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
         
-        const auto maxHeight = heights.floor + heights.delta;
-        const auto val = min(position.y, maxHeight);
-        
+//        const auto maxHeight = heights.floor + heights.delta;
+//        const auto val = min(position.y, maxHeight);
+        const auto val = position.y;
         device auto& len = md.length;
         auto pos = find_greater(val, md.heights, len);
         if (pos < MAX_MESH_STATISTIC && len < MAX_MESH_STATISTIC) {
@@ -96,15 +98,15 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
             md.heights[pos] = val;
             ++len;
         }
-//        if (len == MAX_MESH_STATISTIC) {
-////            md.heights[0] = md.heights[md.length/2];
-////            len = 1;
-//            auto median = md.heights[md.length/2];
-//            len = new_cicle(md.heights, median);
-//        }
         
         auto h = md.heights[md.length/2];
-        if ( abs(h - heights.floor) < 3e-3 ) {
+        const auto heightDeviation = abs(h - heights.floor);
+        if ( heightDeviation > MAX_GRAD_H ) {
+            md.gradient = 1;
+        } else {
+            md.gradient = static_cast<float>(heightDeviation) / MAX_GRAD_H;
+        }
+        if ( heightDeviation < EPS_H ) {
             md.group = Floor;
         } else {
             md.group = Foot;
@@ -118,6 +120,9 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
                          unsigned int vid [[ vertex_id ]] )
 {
     constant auto &md = myMeshData[vid];
+    
+    const float4 purple(0.5, 0, 0.5, 0);
+    const float4 green(0.1, 0.3, 0.1, 0);
 
 //    const auto x = gridXCoord(vid);
 //    const auto z = gridZCoord(vid);
@@ -131,19 +136,7 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
     
     ParticleVertexOut pOut;
     pOut.position = projectedPosition;
-//    pOut.pointSize = 25;
-    float4 color(1, 1, 1, 0.85);
-    if (md.group == Group::Unknown) {
-//        color.a = 0.0;
-    } else if (md.group == Group::Floor) {
-        color.r = 0.5;
-        color.g = 0;
-        color.b = 0.5;
-    } else {
-        color.r = 0.1;
-        color.g = 0.3;
-        color.b = 0.1;
-    }
+    float4 color = purple + (green - purple)*md.gradient;
     color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
     
     pOut.color = color;

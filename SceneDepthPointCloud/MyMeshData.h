@@ -16,7 +16,10 @@ extern "C" {
     #define MAX_MESH_STATISTIC 200
 
     #define RADIUS 0.5
-    #define GRID_NODE_COUNT 500
+    #define GRID_NODE_COUNT 1000
+    #define POINT_SIZE 12
+    #define EPS_H 3e-3
+    #define MAX_GRAD_H 7e-3
 
     #define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
 
@@ -32,6 +35,7 @@ extern "C" {
         float heights[MAX_MESH_STATISTIC];
         int length;
         enum Group group;
+        float gradient;
     };
     
     struct MyMeshData initMyMeshData(void);

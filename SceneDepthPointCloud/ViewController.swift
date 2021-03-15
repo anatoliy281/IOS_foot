@@ -13,7 +13,7 @@ import ARKit
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let sendButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
-    private let colorMeshButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
+//    private let colorMeshButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     
     private let session = ARSession()
     private var renderer: Renderer!
@@ -25,9 +25,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         sendButton.setTitle("Отправить", for: .normal)
         sendButton.addTarget(self, action: #selector(sendAction), for: .touchUpInside)
         
-        colorMeshButton.backgroundColor = .green
-        colorMeshButton.setTitle("Определить пол", for: .normal)
-        colorMeshButton.addTarget(self, action: #selector(colorAction), for: .touchUpInside)
+//        colorMeshButton.backgroundColor = .green
+//        colorMeshButton.setTitle("Определить пол", for: .normal)
+//        colorMeshButton.addTarget(self, action: #selector(colorAction), for: .touchUpInside)
         
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("Metal is not supported on this device")
@@ -53,7 +53,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         let stackView = UIStackView(arrangedSubviews: [
             sendButton,
-            colorMeshButton,
+//            colorMeshButton,
 //            smoothMeshButton
         ])
         stackView.isHidden = !isUIEnabled
@@ -73,7 +73,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         print("SEND!!!")
         
 //        smooth()
-        separate()
+        renderer.separate()
         
         
         let data = separateData()
@@ -114,57 +114,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("PAINT!!!")
         
-       separate()
+        renderer.separate()
         
-    }
-    
-    func separate()  {
-        let dH:Float = 2e-3;
-        
-        func calcHeightGistro() -> [Float:Int] {
-            var res = [Float:Int]()
-            let grid = renderer.myGridBuffer
-            for i in 0..<grid.count {
-                let nodeStat = grid[i]
-                if nodeStat.length == 0 { continue }
-                let h = getMedian(nodeStat)
-                let hDescr = floor(h/dH)*dH
-                if let cnt = res[hDescr] {
-                    res[hDescr] = cnt + 1
-                } else {
-                    res[hDescr] = 1
-                }
-            }
-            return res
-        }
-        
-        
-        func findFloor(_ gistro: [Float:Int]) -> Float {
-            
-            var floor = (height: Float(), count:Int())
-            for (h, n) in gistro {
-                if h != 0 {
-                    if (n > floor.count) {
-                        floor.height = h
-                        floor.count = n
-                    }
-                }
-            }
-            
-            return floor.height
-//            var grid = renderer.myGridBuffer
-//            for i in 0..<grid.count {
-//                var group = Unknown
-//                if grid[i].length > 0 {
-//                    let delta = abs( getMedian(grid[i]) - floor.height )
-//                    group = (delta < dH) ? Floor : Foot
-//                }
-//                grid[i].group = group
-//            }
-        }
-        
-        let gistro = calcHeightGistro()
-        renderer.heights.floor = findFloor( gistro )
+//        separate()
         
     }
     
