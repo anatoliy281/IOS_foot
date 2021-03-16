@@ -20,7 +20,8 @@ enum BufferIndices {
     kPointCloudUniforms = 0,
     kGridPoints = 1,
     kMyMesh = 2,
-    kHeight = 3
+    kHeight = 3,
+    kLayer = 4
 };
 
 struct PointCloudUniforms {
