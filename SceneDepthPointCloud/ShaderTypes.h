@@ -20,7 +20,8 @@ enum BufferIndices {
     kPointCloudUniforms = 0,
     kGridPoints = 1,
     kMyMesh = 2,
-    kHeight = 3
+    kHeight = 3,
+    kVerteces = 4
 };
 
 struct PointCloudUniforms {
@@ -35,5 +36,9 @@ typedef struct {
     float delta;
 } Heights;
 
+struct ColoredPoint {
+    simd_float3 position;
+    simd_int4 color;
+};
 
 #endif /* ShaderTypes_h */

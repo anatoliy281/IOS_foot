@@ -148,3 +148,20 @@ fragment float4 gridFragment(ParticleVertexOut in[[stage_in]])
     return in.color;
 }
 
+
+
+vertex ParticleVertexOut axisVertex( constant ColoredPoint* axis [[buffer(kVerteces)]],
+                         constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
+                         unsigned int vid [[ vertex_id ]]
+                         )
+{
+    ParticleVertexOut outPnt;
+    outPnt.position = uniforms.viewProjectionMatrix * float4(axis[vid].position, 1);
+    outPnt.color = ceil(float4(axis[vid].position, 1));
+    return outPnt;
+}
+
+fragment float4 axisFragment(ParticleVertexOut in[[stage_in]])
+{
+    return in.color;
+}

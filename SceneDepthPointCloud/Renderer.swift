@@ -30,6 +30,7 @@ class Renderer {
     private lazy var unprojectPipelineState = makeUnprojectionPipelineState()!
     
     private lazy var gridPipelineState = makeGridPipelineState()!
+    private lazy var axisPipelineState = makeAxisPipelineState()!
     
     // texture cache for captured image
     private lazy var textureCache = makeTextureCache()
@@ -54,6 +55,11 @@ class Renderer {
     private lazy var gridPointsBuffer = MetalBuffer<Float2>(device: device,
                                                             array: makeGridPoints(),
                                                             index: kGridPoints.rawValue, options: [])
+    
+    private lazy var axisBuffer = MetalBuffer<ColoredPoint>(device: device, array: makeAxisVerteces(), index: kVerteces.rawValue)
+    private lazy var axisIndeces = MetalBuffer<UInt16>(device: device, array: makeAxisIndeces(), index: 0)
+    
+    
     // Point Cloud buffer
     private lazy var pointCloudUniforms: PointCloudUniforms = {
         var uniforms = PointCloudUniforms()
@@ -261,9 +267,18 @@ class Renderer {
             separate()
         }
         
+        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+        
+        renderEncoder.setRenderPipelineState(axisPipelineState)
+        renderEncoder.setVertexBuffer(axisBuffer)
+        renderEncoder.drawIndexedPrimitives(type: .line,
+                                            indexCount: axisIndeces.count,
+                                            indexType: .uint16,
+                                            indexBuffer: axisIndeces.buffer,
+                                            indexBufferOffset: 0)
         
         renderEncoder.setRenderPipelineState(gridPipelineState)
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+        
         renderEncoder.setVertexBuffer(myGridBuffer)
         renderEncoder.drawIndexedPrimitives(type: .point,
                                             indexCount: myIndecesBuffer.count,
@@ -341,6 +356,22 @@ private extension Renderer {
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
     
+    func makeAxisPipelineState() -> MTLRenderPipelineState? {
+        guard let vertexFunction = library.makeFunction(name: "axisVertex"),
+              let fragmentFunction = library.makeFunction(name: "axisFragment") else { return nil }
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = vertexFunction
+        descriptor.fragmentFunction = fragmentFunction
+//        descriptor.depthAttachment
+        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
+        descriptor.colorAttachments[0].isBlendingEnabled = true
+        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        
+        return try? device.makeRenderPipelineState(descriptor: descriptor)
+    }
+    
     func makePointCloudState() -> MTLRenderPipelineState? {
         guard let vertexFunction = library.makeFunction(name: "particleVertex"),
               let fragmentFunction = library.makeFunction(name: "particleFragment") else { return nil }
@@ -379,6 +410,22 @@ private extension Renderer {
         return points
     }
     
+    
+    func makeAxisVerteces() -> [ColoredPoint] {
+        return [ColoredPoint(position: [0,0,0], color: [1,1,1,1]),          // O
+                ColoredPoint(position: [0.5,0,0], color: [1,0,0,1]),        // X
+                ColoredPoint(position: [0,0.5,0], color: [0,1,0,1]),        // Y
+                ColoredPoint(position: [0,0,-1], color: [0,0,1,1])          // Z
+        ]
+    }
+    
+    func makeAxisIndeces() -> [UInt16] {
+        let zero = UInt16(0)
+        return [zero, UInt16(1),
+                zero, UInt16(2),
+                zero, UInt16(3),
+        ]
+    }
     
     func makeTextureCache() -> CVMetalTextureCache {
         // Create captured image texture cache
