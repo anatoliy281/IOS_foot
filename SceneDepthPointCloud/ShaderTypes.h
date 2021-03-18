@@ -12,6 +12,8 @@ Types and enums that are shared between shaders and the host app code.
 #include "MyMeshData.h"
 
 enum TextureIndices {
+    kTextureY = 0,
+    kTextureCbCr = 1,
     kTextureDepth = 2,
     kTextureConfidence = 3
 };
@@ -21,7 +23,8 @@ enum BufferIndices {
     kGridPoints = 1,
     kMyMesh = 2,
     kHeight = 3,
-    kVerteces = 4
+    kVerteces = 4,
+    kViewCorner = 5
 };
 
 struct PointCloudUniforms {

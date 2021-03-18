@@ -150,6 +150,27 @@ fragment float4 gridFragment(ParticleVertexOut in[[stage_in]])
 
 
 
+constant auto yCbCrToRGB = float4x4(
+                                    float4(1, 1, 1, 0),
+                                    float4(0, -0.3441f, 1.7720f, 0),
+                                    float4(1.4020f, -0.7141f, 0, 0),
+                                    float4(-0.7010f, 0.5291f, -0.8860f, 1)
+                                    );
+
+vertex float4 cameraImageVertex( uint vid [[vertex_id]],
+                                 constant float2* image [[buffer(kViewCorner)]] ) {
+    return float4(image[vid], 0, 1);
+}
+
+fragment float4 cameraImageFragment(texture2d<float, access::sample> capturedImageTextureY[[ texture(kTextureY) ]],
+                                  texture2d<float, access::sample> capturedImageTextureCbCr[[ texture(kTextureCbCr) ]]
+                                  ) {
+    
+//    const auto sampleColor = ()
+    return float4();
+}
+
+
 vertex ParticleVertexOut axisVertex( constant ColoredPoint* axis [[buffer(kVerteces)]],
                          constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
                          unsigned int vid [[ vertex_id ]]

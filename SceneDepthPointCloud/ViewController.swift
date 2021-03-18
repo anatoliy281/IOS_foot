@@ -13,8 +13,9 @@ import ARKit
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let sendButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
-//    private let colorMeshButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
-    
+    private let startButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
+    private var stackView: UIStackView!
+
     private let session = ARSession()
     private var renderer: Renderer!
     
@@ -25,14 +26,16 @@ final class ViewController: UIViewController, ARSessionDelegate {
         sendButton.setTitle("Отправить", for: .normal)
         sendButton.addTarget(self, action: #selector(sendAction), for: .touchUpInside)
         
-//        colorMeshButton.backgroundColor = .green
-//        colorMeshButton.setTitle("Определить пол", for: .normal)
-//        colorMeshButton.addTarget(self, action: #selector(colorAction), for: .touchUpInside)
+        startButton.backgroundColor = .green
+        startButton.setTitle("Начать сканирование", for: .normal)
+        startButton.addTarget(self, action: #selector(startAction), for: .touchUpInside)
         
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("Metal is not supported on this device")
             return
         }
+        
+//        let orientation = UIDevice.current.orientation.isLandscape
         
         session.delegate = self
         
@@ -51,11 +54,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
             renderer.drawRectResized(size: view.bounds.size)
         }
         
-        let stackView = UIStackView(arrangedSubviews: [
-            sendButton,
-//            colorMeshButton,
-//            smoothMeshButton
-        ])
+        stackView = UIStackView(arrangedSubviews: [])
+        stackView.addArrangedSubview(startButton)
         stackView.isHidden = !isUIEnabled
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
@@ -106,92 +106,25 @@ final class ViewController: UIViewController, ARSessionDelegate {
             activity.isModalInPresentation = true
             present(activity, animated: true, completion: nil)
         }
+        
+        
+        renderer.setState(state: .findFootArea)
+        stackView.removeArrangedSubview(sendButton)
+        stackView.addArrangedSubview(startButton)
     }
     
     
     @objc
-    func colorAction(_ sender: UIButton!) {
+    func startAction(_ sender: UIButton!) {
         
-        print("PAINT!!!")
+        print("START!!!")
         
-        renderer.separate()
-        
-//        separate()
-        
+        renderer.setState(state: .scanning)
+        renderer.initializeGridNodes()
+        stackView.removeArrangedSubview(startButton)
+        stackView.addArrangedSubview(sendButton)
     }
     
-    @objc
-    func smoothAction(_ sender: UIButton!) {
-        
-        print("SMOOTH!")
-        
-       smooth()
-        
-    }
-    
-    func smooth() {
-        print("smooth data")
-
-        func filterMaskMedian() {
-            let dim = Int(GRID_NODE_COUNT)
-            var node = renderer.myGridBuffer
-
-            func flatIndex(_ i:Int, _ j:Int) -> Int {
-                return i*dim + j
-            }
-
-            func calcMedian(_ i:Int, _ j:Int) -> Float {
-                let mask = [
-                    flatIndex(i, j), flatIndex(i, j+1), flatIndex(i, j+2),
-                    flatIndex(i+1, j), flatIndex(i+1, j+1), flatIndex(i+1, j+2),
-                    flatIndex(i+2, j), flatIndex(i+2, j+1), flatIndex(i+2, j+2)
-                ]
-                var vals = mask.map({ getMedian(node[$0]) })
-                vals.sort(by: {$0 < $1})
-                return vals[mask.count/2]
-            }
-
-            for i in 0..<dim-2 {
-                for j in 0..<dim-2 {
-                    let medianValue = calcMedian(i, j)
-                    let medianIndex = flatIndex(i+1, j+1)
-                    node[medianIndex].heights.0 = medianValue
-                    node[medianIndex].length = 1
-                }
-            }
-        }
-
-        func getFloorHeight() -> Float {
-            var heights = [Double]()
-
-            for i in 0..<renderer.myGridBuffer.count {
-                let node = renderer.myGridBuffer[i]
-                if (node.group == Floor) {
-                    heights.append(Double(getMedian(node)))
-                }
-
-            }
-
-            var total:Double = 0
-            for h in heights {
-                total += h
-            }
-            return Float( total / Double(heights.count) )
-        }
-
-        func setUnknownToFloor(_ floorHeight:Float) {
-            for i in 0..<renderer.myGridBuffer.count {
-                if (renderer.myGridBuffer[i].group == Unknown) {
-                    renderer.myGridBuffer[i] = setAll(floorHeight, 1, Floor)
-                }
-            }
-        }
-
-        let floorHeight = getFloorHeight()
-        setUnknownToFloor(floorHeight)
-        filterMaskMedian()
-        renderer.heights.floor = floorHeight
-    }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -339,6 +272,15 @@ extension ViewController: MTKViewDelegate {
         docContr.name = url.lastPathComponent
         docContr.presentPreview(animated: true)
         
+    }
+    
+    override func didRotate(from fromInterfaceOrientation: UIInterfaceOrientation) {
+        switch UIDevice.current.orientation {
+        case .portrait:
+            print("Portrate")
+        default:
+            print("landscape")
+        }
     }
 }
 

@@ -9,7 +9,15 @@ import Metal
 import MetalKit
 import ARKit
 
+enum RendererState {
+    case findFootArea
+    case scanning
+}
+
 class Renderer {
+    
+
+    
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
     private let cameraRotationThreshold = cos(2 * .degreesToRadian)
@@ -27,15 +35,24 @@ class Renderer {
     private let relaxedStencilState: MTLDepthStencilState
     private let depthStencilState: MTLDepthStencilState
     private let commandQueue: MTLCommandQueue
+    
+    private lazy var normalViewCoords:MetalBuffer<Float2> = {
+        let viewCorners = [Float2(-1,1), Float2(-1,-1), Float2(1,1), Float2(1,-1)]
+        return .init(device: device, array:viewCorners, index: kViewCorner.rawValue)
+    }()
+    
     private lazy var unprojectPipelineState = makeUnprojectionPipelineState()!
     
     private lazy var gridPipelineState = makeGridPipelineState()!
     private lazy var axisPipelineState = makeAxisPipelineState()!
+    private lazy var cameraImageState = makeCameraImageState()!
     
     // texture cache for captured image
     private lazy var textureCache = makeTextureCache()
     private var depthTexture: CVMetalTexture?
     private var confidenceTexture: CVMetalTexture?
+    private var capturedImageTextureY: CVMetalTexture?
+    private var capturedImageTextureCbCr: CVMetalTexture?
     
     // Multi-buffer rendering pipeline
     private let inFlightSemaphore: DispatchSemaphore
@@ -76,11 +93,13 @@ class Renderer {
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
     
-    lazy var myGridBuffer: MetalBuffer<MyMeshData> = initializeGridNodes()
+    var myGridBuffer: MetalBuffer<MyMeshData>!
     lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
     var frameAccumulated:UInt = 0;
-    var frameAccumulatedIntervals:[UInt] = [10, 25, 50, 100, 400, 1000];
+    var frameAccumulatedIntervals:[UInt] = [10, 25, 50, 100, 400, 1000]
+    
+    var state:RendererState
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -106,14 +125,17 @@ class Renderer {
         depthStencilState = device.makeDepthStencilState(descriptor: depthStateDescriptor)!
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
-        
+        state = .findFootArea
     }
     
-    func initializeGridNodes() -> MetalBuffer<MyMeshData> {
+    func setState(state newState:RendererState) {
+        state = newState
+    }
+    
+    func initializeGridNodes() {
         let initVal = initMyMeshData()
         let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
         myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
-        return myGridBuffer
     }
     
     func initializeGridIndeces() -> MetalBuffer<UInt32> {
@@ -188,6 +210,15 @@ class Renderer {
         return true
     }
     
+    private func updateCapturedImageTextures(frame: ARFrame) {
+        let pixelBuffer = frame.capturedImage
+        guard CVPixelBufferGetPlaneCount(pixelBuffer) >= 2 else {
+            return
+        }
+        capturedImageTextureY = makeTexture(fromPixelBuffer: pixelBuffer, pixelFormat: .r8Unorm, planeIndex: 0)
+        capturedImageTextureCbCr = makeTexture(fromPixelBuffer: pixelBuffer, pixelFormat: .rg8Unorm, planeIndex: 1)
+    }
+    
     private func update(frame: ARFrame) {
         // frame dependent info
         let camera = frame.camera
@@ -205,7 +236,7 @@ class Renderer {
         
         func calcHeightGistro() -> [Float:Int] {
             var res = [Float:Int]()
-            let grid = myGridBuffer
+            let grid = myGridBuffer!
             for i in 0..<grid.count {
                 let nodeStat = grid[i]
                 if nodeStat.length == 0 { continue }
@@ -253,38 +284,50 @@ class Renderer {
         // update frame data
         update(frame: currentFrame)
         
-        // handle buffer rotating
-        currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
-        pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
-        
-        
-        if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
-            frameAccumulated += 1
-            accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
+        if state == .findFootArea {
+            updateCapturedImageTextures(frame: currentFrame)
+            
+            renderEncoder.setDepthStencilState(relaxedStencilState)
+            renderEncoder.setRenderPipelineState(cameraImageState)
+            renderEncoder.setVertexBuffer(normalViewCoords)
+            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
+            renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
+            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+
+            
+            renderEncoder.setRenderPipelineState(axisPipelineState)
+            renderEncoder.setVertexBuffer(axisBuffer)
+            renderEncoder.drawIndexedPrimitives(type: .line,
+                                                indexCount: axisIndeces.count,
+                                                indexType: .uint16,
+                                                indexBuffer: axisIndeces.buffer,
+                                                indexBufferOffset: 0)
+        } else {
+            // handle buffer rotating
+            currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
+            pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
+            
+            
+            if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
+                frameAccumulated += 1
+                accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
+            }
+            
+            if (frameAccumulatedIntervals.contains(frameAccumulated)) {
+                separate()
+            }
+            
+            renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+            
+            renderEncoder.setRenderPipelineState(gridPipelineState)
+            
+            renderEncoder.setVertexBuffer(myGridBuffer)
+            renderEncoder.drawIndexedPrimitives(type: .point,
+                                                indexCount: myIndecesBuffer.count,
+                                                indexType: .uint32,
+                                                indexBuffer: myIndecesBuffer.buffer,
+                                                indexBufferOffset: 0)
         }
-        
-        if (frameAccumulatedIntervals.contains(frameAccumulated)) {
-            separate()
-        }
-        
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        
-        renderEncoder.setRenderPipelineState(axisPipelineState)
-        renderEncoder.setVertexBuffer(axisBuffer)
-        renderEncoder.drawIndexedPrimitives(type: .line,
-                                            indexCount: axisIndeces.count,
-                                            indexType: .uint16,
-                                            indexBuffer: axisIndeces.buffer,
-                                            indexBufferOffset: 0)
-        
-        renderEncoder.setRenderPipelineState(gridPipelineState)
-        
-        renderEncoder.setVertexBuffer(myGridBuffer)
-        renderEncoder.drawIndexedPrimitives(type: .point,
-                                            indexCount: myIndecesBuffer.count,
-                                            indexType: .uint32,
-                                            indexBuffer: myIndecesBuffer.buffer,
-                                            indexBufferOffset: 0)
         
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
@@ -368,6 +411,19 @@ private extension Renderer {
         descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
         descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
         descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        
+        return try? device.makeRenderPipelineState(descriptor: descriptor)
+    }
+    
+    func makeCameraImageState() -> MTLRenderPipelineState? {
+        guard let vertexFunction = library.makeFunction(name: "cameraImageVertex"),
+              let fragmentFunction = library.makeFunction(name: "cameraImageFragment") else { return nil }
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = vertexFunction
+        descriptor.fragmentFunction = fragmentFunction
+        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
+        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+        descriptor.colorAttachments[0].isBlendingEnabled = true
         
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
