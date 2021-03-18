@@ -168,7 +168,7 @@ vertex RGBVertexOut cameraImageVertex( uint vid [[ vertex_id ]],
                                        constant matrix_float3x3& viewToCamera[[ buffer(kViewToCam) ]]) {
     RGBVertexOut out;
     out.position = float4(image[vid].viewVertices, 0, 1);
-    out.texCoord = ( float3(image[vid].viewTexCoords, 1) ).xy;
+    out.texCoord = ( float3(image[vid].viewTexCoords, 1)*viewToCamera ).xy;
     return out;
 }
 

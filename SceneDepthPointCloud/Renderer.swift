@@ -37,24 +37,6 @@ class Renderer {
     private let commandQueue: MTLCommandQueue
     
     private lazy var viewArea:MetalBuffer<CameraView> = {
-//        var cv0 = CameraView()
-//        cv0.viewVertices = Float2(-1,1)
-//        cv0.viewTexCoords = Float2(0,0)
-//
-//        var cv1 = CameraView()
-//        cv1.viewVertices = Float2(-1,-1)
-//        cv1.viewTexCoords = Float2(0,1)
-//
-//        var cv2 = CameraView()
-//        cv2.viewVertices = Float2(1,1)
-//        cv2.viewTexCoords = Float2(1,0)
-//
-//        var cv3 = CameraView()
-//        cv3.viewVertices = Float2(1,-1)
-//        cv3.viewTexCoords = Float2(1,1)
-        
-//        var cv00 = CameraView(viewVertices: [1,3], viewTexCoords: [3,4])
-        
         let viewCorners = [
             CameraView(viewVertices: [-1,1], viewTexCoords: [0,0]),
             CameraView(viewVertices: [-1,-1], viewTexCoords: [0,1]),
@@ -112,7 +94,11 @@ class Renderer {
     private var sampleFrame: ARFrame { session.currentFrame! }
     private lazy var cameraResolution = Float2(Float(sampleFrame.camera.imageResolution.width), Float(sampleFrame.camera.imageResolution.height))
     
-    private lazy var viewToCamera = sampleFrame.displayTransform(for: orientation, viewportSize: viewportSize).inverted()
+    private lazy var viewToCamera:matrix_float3x3 = {
+        var mat = matrix_float3x3()
+        mat.copy(from: sampleFrame.displayTransform(for: orientation, viewportSize: viewportSize).inverted())
+        return mat
+    }()
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
     
