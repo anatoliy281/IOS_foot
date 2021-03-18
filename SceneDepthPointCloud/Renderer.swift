@@ -498,10 +498,10 @@ private extension Renderer {
 //        let mdlMesh = MDLMesh(cylinderWithExtent: [1,1,1], segments: [20,10], inwardNormals: false, topCap: true, bottomCap: true, geometryType: .triangles, allocator: allocator)
 //        let mesh = try MTKMesh(mesh: mdlMesh, device: device).submeshes.first
         
-        let res = [ColoredPoint(position: [0,0,0], color: [1,1,1,1]),          // O
-                   ColoredPoint(position: [0.5,0,0], color: [1,0,0,1]),        // X
-                   ColoredPoint(position: [0,0.5,0], color: [0,1,0,1]),        // Y
-                   ColoredPoint(position: [0,0,-1], color: [0,0,1,1])          // Z
+        let res = [ColoredPoint(position: [0,   0,   0], color: [1,1,1,1]),          // O
+                   ColoredPoint(position: [0.5, 0,   0], color: [1,0,0,1]),        // X
+                   ColoredPoint(position: [0,  -1,   0], color: [0,1,0,1]),        // Y
+                   ColoredPoint(position: [0,   0, 0.5], color: [0,0,1,1])          // Z
            ]
         return res
     }
