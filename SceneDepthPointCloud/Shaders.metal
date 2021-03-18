@@ -148,27 +148,43 @@ fragment float4 gridFragment(ParticleVertexOut in[[stage_in]])
     return in.color;
 }
 
+struct RGBVertexOut {
+    float4 position [[position]];
+    float2 texCoord;
+};
+
+
 
 
 constant auto yCbCrToRGB = float4x4(
-                                    float4(1, 1, 1, 0),
-                                    float4(0, -0.3441f, 1.7720f, 0),
-                                    float4(1.4020f, -0.7141f, 0, 0),
-                                    float4(-0.7010f, 0.5291f, -0.8860f, 1)
+                                    float4(+1.0000f, +1.0000f, +1.0000f, +0.0000f),
+                                    float4(+0.0000f, -0.3441f,  1.7720f, +0.0000f),
+                                    float4( 1.4020f, -0.7141f, +0.0000f, +0.0000f),
+                                    float4(-0.7010f,  0.5291f, -0.8860f, +1.0000f)
                                     );
 
-vertex float4 cameraImageVertex( uint vid [[vertex_id]],
-                                 constant float2* image [[buffer(kViewCorner)]] ) {
-    return float4(image[vid], 0, 1);
+vertex RGBVertexOut cameraImageVertex( uint vid [[ vertex_id ]],
+                                       constant CameraView* image [[ buffer(kViewCorner) ]],
+                                       constant matrix_float3x3& viewToCamera[[ buffer(kViewToCam) ]]) {
+    RGBVertexOut out;
+    out.position = float4(image[vid].viewVertices, 0, 1);
+    out.texCoord = ( float3(image[vid].viewTexCoords, 1) ).xy;
+    return out;
 }
 
-fragment float4 cameraImageFragment(texture2d<float, access::sample> capturedImageTextureY[[ texture(kTextureY) ]],
-                                  texture2d<float, access::sample> capturedImageTextureCbCr[[ texture(kTextureCbCr) ]]
+fragment float4 cameraImageFragment(RGBVertexOut in [[stage_in]],
+                                    texture2d<float, access::sample> capturedImageTextureY[[ texture(kTextureY) ]],
+                                    texture2d<float, access::sample> capturedImageTextureCbCr[[ texture(kTextureCbCr) ]]
                                   ) {
+    const auto uv = in.texCoord;
+    const auto ycbcr = float4( capturedImageTextureY.sample(colorSampler, uv).r,
+                               capturedImageTextureCbCr.sample(colorSampler, uv).rg, 1);
     
-//    const auto sampleColor = ()
-    return float4();
+    return float4(float3(yCbCrToRGB*ycbcr).rgb, 1);
 }
+
+
+
 
 
 vertex ParticleVertexOut axisVertex( constant ColoredPoint* axis [[buffer(kVerteces)]],

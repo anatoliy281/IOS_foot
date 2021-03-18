@@ -54,8 +54,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
             renderer.drawRectResized(size: view.bounds.size)
         }
         
-        stackView = UIStackView(arrangedSubviews: [])
-        stackView.addArrangedSubview(startButton)
+        stackView = UIStackView(arrangedSubviews: [startButton, sendButton])
+        sendButton.isHidden = true
         stackView.isHidden = !isUIEnabled
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
@@ -109,8 +109,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         
         renderer.setState(state: .findFootArea)
-        stackView.removeArrangedSubview(sendButton)
-        stackView.addArrangedSubview(startButton)
+        sendButton.isHidden = true
+        startButton.isHidden = !sendButton.isHidden
     }
     
     
@@ -121,8 +121,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         renderer.setState(state: .scanning)
         renderer.initializeGridNodes()
-        stackView.removeArrangedSubview(startButton)
-        stackView.addArrangedSubview(sendButton)
+        renderer.frameAccumulated = 0
+        sendButton.isHidden = false
+        startButton.isHidden = !sendButton.isHidden
     }
     
     

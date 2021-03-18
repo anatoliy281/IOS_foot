@@ -24,7 +24,8 @@ enum BufferIndices {
     kMyMesh = 2,
     kHeight = 3,
     kVerteces = 4,
-    kViewCorner = 5
+    kViewCorner = 5,
+    kViewToCam = 6
 };
 
 struct PointCloudUniforms {
@@ -43,5 +44,12 @@ struct ColoredPoint {
     simd_float3 position;
     simd_int4 color;
 };
+
+struct CameraView {
+    simd_float2 viewVertices;
+    simd_float2 viewTexCoords;
+};
+
+
 
 #endif /* ShaderTypes_h */

@@ -36,8 +36,31 @@ class Renderer {
     private let depthStencilState: MTLDepthStencilState
     private let commandQueue: MTLCommandQueue
     
-    private lazy var normalViewCoords:MetalBuffer<Float2> = {
-        let viewCorners = [Float2(-1,1), Float2(-1,-1), Float2(1,1), Float2(1,-1)]
+    private lazy var viewArea:MetalBuffer<CameraView> = {
+//        var cv0 = CameraView()
+//        cv0.viewVertices = Float2(-1,1)
+//        cv0.viewTexCoords = Float2(0,0)
+//
+//        var cv1 = CameraView()
+//        cv1.viewVertices = Float2(-1,-1)
+//        cv1.viewTexCoords = Float2(0,1)
+//
+//        var cv2 = CameraView()
+//        cv2.viewVertices = Float2(1,1)
+//        cv2.viewTexCoords = Float2(1,0)
+//
+//        var cv3 = CameraView()
+//        cv3.viewVertices = Float2(1,-1)
+//        cv3.viewTexCoords = Float2(1,1)
+        
+//        var cv00 = CameraView(viewVertices: [1,3], viewTexCoords: [3,4])
+        
+        let viewCorners = [
+            CameraView(viewVertices: [-1,1], viewTexCoords: [0,0]),
+            CameraView(viewVertices: [-1,-1], viewTexCoords: [0,1]),
+            CameraView(viewVertices: [1,1], viewTexCoords: [1,0]),
+            CameraView(viewVertices: [1,-1], viewTexCoords: [1,1]),
+        ]
         return .init(device: device, array:viewCorners, index: kViewCorner.rawValue)
     }()
     
@@ -287,16 +310,19 @@ class Renderer {
         if state == .findFootArea {
             updateCapturedImageTextures(frame: currentFrame)
             
+            print(viewToCamera)
+            
             renderEncoder.setDepthStencilState(relaxedStencilState)
             renderEncoder.setRenderPipelineState(cameraImageState)
-            renderEncoder.setVertexBuffer(normalViewCoords)
+            renderEncoder.setVertexBuffer(viewArea)
+            renderEncoder.setVertexBytes(&viewToCamera, length: MemoryLayout<CGAffineTransform>.stride, index: Int(kViewToCam.rawValue))
             renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
             renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
             renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
 
-            
             renderEncoder.setRenderPipelineState(axisPipelineState)
             renderEncoder.setVertexBuffer(axisBuffer)
+            renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<PointCloudUniforms>.stride, index: Int(kPointCloudUniforms.rawValue))
             renderEncoder.drawIndexedPrimitives(type: .line,
                                                 indexCount: axisIndeces.count,
                                                 indexType: .uint16,
@@ -405,7 +431,7 @@ private extension Renderer {
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertexFunction
         descriptor.fragmentFunction = fragmentFunction
-//        descriptor.depthAttachment
+        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
         descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
         descriptor.colorAttachments[0].isBlendingEnabled = true
         descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
@@ -421,9 +447,9 @@ private extension Renderer {
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertexFunction
         descriptor.fragmentFunction = fragmentFunction
-        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
         descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-        descriptor.colorAttachments[0].isBlendingEnabled = true
+        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
+//        descriptor.colorAttachments[0].isBlendingEnabled = true
         
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
@@ -468,11 +494,16 @@ private extension Renderer {
     
     
     func makeAxisVerteces() -> [ColoredPoint] {
-        return [ColoredPoint(position: [0,0,0], color: [1,1,1,1]),          // O
-                ColoredPoint(position: [0.5,0,0], color: [1,0,0,1]),        // X
-                ColoredPoint(position: [0,0.5,0], color: [0,1,0,1]),        // Y
-                ColoredPoint(position: [0,0,-1], color: [0,0,1,1])          // Z
-        ]
+//        let allocator = MTKMeshBufferAllocator(device: device)
+//        let mdlMesh = MDLMesh(cylinderWithExtent: [1,1,1], segments: [20,10], inwardNormals: false, topCap: true, bottomCap: true, geometryType: .triangles, allocator: allocator)
+//        let mesh = try MTKMesh(mesh: mdlMesh, device: device).submeshes.first
+        
+        let res = [ColoredPoint(position: [0,0,0], color: [1,1,1,1]),          // O
+                   ColoredPoint(position: [0.5,0,0], color: [1,0,0,1]),        // X
+                   ColoredPoint(position: [0,0.5,0], color: [0,1,0,1]),        // Y
+                   ColoredPoint(position: [0,0,-1], color: [0,0,1,1])          // Z
+           ]
+        return res
     }
     
     func makeAxisIndeces() -> [UInt16] {
