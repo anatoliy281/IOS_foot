@@ -38,6 +38,10 @@ extern "C" {
         float gradient;
     };
     
+    struct Layer {
+        float lay[3];
+    };
+    
     struct MyMeshData initMyMeshData(void);
 
     struct MyMeshData setAll(float value, int len, enum Group group);

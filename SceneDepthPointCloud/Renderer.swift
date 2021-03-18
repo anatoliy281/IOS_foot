@@ -104,6 +104,8 @@ class Renderer {
     
     var myGridBuffer: MetalBuffer<MyMeshData>!
     lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
+    lazy var gridLayerBuffer: MetalBuffer<Layer> = initializeLayerNodes()
+    
     
     var frameAccumulated:UInt = 0;
     var frameAccumulatedIntervals:[UInt] = [10, 25, 50, 100, 400, 1000]
@@ -145,6 +147,11 @@ class Renderer {
         let initVal = initMyMeshData()
         let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
         myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+    }
+    
+    func initializeLayerNodes() -> MetalBuffer<Layer> {
+        let layers = Array(repeating: Layer(), count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
+        return .init(device: device, array: layers, index: kLayer.rawValue)
     }
     
     func initializeGridIndeces() -> MetalBuffer<UInt32> {
