@@ -65,6 +65,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
             stackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             stackView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -50)
         ])
+//        NotificationCenter.default.addObserver(self, selector: #selector(rotated), name: UIDevice.orientationDidChangeNotification, object: nil)
     }
     
     @objc
@@ -126,6 +127,22 @@ final class ViewController: UIViewController, ARSessionDelegate {
         startButton.isHidden = !sendButton.isHidden
     }
     
+//    @objc
+//    func rotated() {
+//        if UIDeviceOrientationIsLandscape(UIDevice.current.orientation) {
+//            print("Landscape")
+//        } else {
+//            print("portrait")
+//        }
+//    }
+    
+//    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+//        if UIDevice.current.orientation.isLandscape {
+//            print("Landscape")
+//        } else {
+//            print("portrait")
+//        }
+//    }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -274,15 +291,7 @@ extension ViewController: MTKViewDelegate {
         docContr.presentPreview(animated: true)
         
     }
-    
-    override func didRotate(from fromInterfaceOrientation: UIInterfaceOrientation) {
-        switch UIDevice.current.orientation {
-        case .portrait:
-            print("Portrate")
-        default:
-            print("landscape")
-        }
-    }
+
 }
 
 // MARK: - RenderDestinationProvider

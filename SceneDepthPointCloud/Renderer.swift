@@ -302,9 +302,7 @@ class Renderer {
         
         if state == .findFootArea {
             updateCapturedImageTextures(frame: currentFrame)
-            
-            print(viewToCamera)
-            
+                        
             renderEncoder.setDepthStencilState(relaxedStencilState)
             renderEncoder.setRenderPipelineState(cameraImageState)
             renderEncoder.setVertexBuffer(viewArea)
