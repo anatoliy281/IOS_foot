@@ -108,22 +108,6 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
             colCnt = GRID_NODE_COUNT / 2;
             break;
         }
-//        case Back: {
-//            i = int(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
-//            j = -int((position.y - heights.floor)/GRID_NODE_DISTANCE) + GRID_NODE_COUNT / 2;
-//            val = position.z;
-//            colCnt = GRID_NODE_COUNT / 2;
-//            break;
-//        }
-//        case Left: {
-//            i = -int((position.y - heights.floor)/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2 - 1;
-//            if ( i < 0 || i > GRID_NODE_COUNT/2 - 1)
-//                return;
-//            j = int(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
-//            val = position.x;
-//            colCnt = GRID_NODE_COUNT;
-//            break;
-//        }
         case Left:
         case Right: {
             i = int((position.y - heights.floor)/GRID_NODE_DISTANCE);
@@ -184,7 +168,7 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
         x = (vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
         y = md.heights[md.length/2];
         z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-    } else if (projectionView == Back || Front) {
+    } else if (projectionView == Back || projectionView == Front) {
         x = (vid/(GRID_NODE_COUNT/2))*GRID_NODE_DISTANCE - RADIUS;
         y = (vid%(GRID_NODE_COUNT/2))*GRID_NODE_DISTANCE + heights.floor;
         z = md.heights[md.length/2];
@@ -192,20 +176,7 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
             footColor = float4(0.3, 0.1, 0.1, 0);
         else
             footColor = float4(0.1, 0.1, 0.3, 0);
-    }
-//    case Back: {
-//        x = (vid/(GRID_NODE_COUNT/2))*GRID_NODE_DISTANCE - RADIUS;
-//        y = -(vid%(GRID_NODE_COUNT/2))*GRID_NODE_DISTANCE + heights.floor + RADIUS;
-//        z = md.heights[md.length/2];
-//        break;
-//    }
-//    case Left: {
-//        x = md.heights[md.length/2];
-//        y = -(vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE + heights.floor + RADIUS;
-//        z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-//        break;
-//    }
-    else if (projectionView == Right || Left) {
+    } else if (projectionView == Right || projectionView == Left) {
         x = md.heights[md.length/2];
         y = (vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE + heights.floor;
         z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;

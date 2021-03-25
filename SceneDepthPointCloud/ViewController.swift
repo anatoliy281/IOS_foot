@@ -280,10 +280,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
                     if table[i][j] != Float() {
                         if projection == Up.rawValue {
                             str = "v \(1000.0*(Float(i)*gridNodeDistance - radius)) \(1000.0*(Float(j)*gridNodeDistance - radius)) \(1000.0*table[i][j])\n"
-                        } else if projection == Left.rawValue || projection == Right.rawValue {
-                            str = "v \(1000.0*table[i][j]) \(1000.0*(Float(j)*gridNodeDistance - radius)) \(1000.0*Float(i)*gridNodeDistance)\n"
                         } else if projection == Front.rawValue || projection == Back.rawValue {
                             str = "v \(1000.0*(Float(i)*gridNodeDistance - radius)) \(1000.0*table[i][j]) \(1000.0*Float(j)*gridNodeDistance)\n"
+                        } else if projection == Left.rawValue || projection == Right.rawValue {
+                            str = "v \(1000.0*table[i][j]) \(1000.0*(Float(j)*gridNodeDistance - radius)) \(1000.0*Float(i)*gridNodeDistance)\n"
                         } else {}
                     } else {
                         str = "v 0 0 0\n"
