@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-    #define MAX_MESH_STATISTIC 200
+    #define MAX_MESH_STATISTIC 100
 
     #define RADIUS 0.25
     #define GRID_NODE_COUNT 1000
@@ -31,15 +31,20 @@ extern "C" {
         Foot
     };
 
+    enum ProjectionView {
+        Up,
+        Left,
+        Right,
+        Front,
+        Back
+    };
+
     struct MyMeshData {
         float heights[MAX_MESH_STATISTIC];
         int length;
         enum Group group;
         float gradient;
-    };
-    
-    struct Layer {
-        float lay[3];
+        enum ProjectionView projView;
     };
     
     struct MyMeshData initMyMeshData(void);
@@ -50,9 +55,9 @@ extern "C" {
 
     float getMedian(struct MyMeshData md);
 
-    int gridRow(int index);
-    int gridColumn(int index);
-    float toCoordinate(int pos);
+    int gridRow(int index, int colNum);
+    int gridColumn(int index, int colNum);
+//    float toCoordinate(int pos, enum ProjectionView projection);
     int indexPos(int row, int column);
 
 #ifdef __cplusplus

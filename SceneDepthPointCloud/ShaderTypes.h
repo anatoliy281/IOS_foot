@@ -26,7 +26,7 @@ enum BufferIndices {
     kVerteces = 4,
     kViewCorner = 5,
     kViewToCam = 6,
-    kLayer = 7
+    kViewSide = 7
 };
 
 struct PointCloudUniforms {

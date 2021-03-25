@@ -83,14 +83,20 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         
         let fNames = [
-            Int(Unknown.rawValue): "Unknown",
-                                  Int(Floor.rawValue): "Floor",
-                                  Int(Foot.rawValue): "Foot"]
+//            Int(Unknown.rawValue): "Unknown",
+//                                  Int(Floor.rawValue): "Floor",
+//                                  Int(Foot.rawValue): "Foot"
+            Int(Up.rawValue): "Up",
+            Int(Front.rawValue): "Front",
+            Int(Back.rawValue): "Back",
+            Int(Left.rawValue): "Left",
+            Int(Right.rawValue): "Right"
+        ]
         
         var urls:[URL] = []
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             for (id, str) in objects {
-                if id == Int(Unknown.rawValue) { continue }
+//                if id == Int(Unknown.rawValue) { continue }
                 let fileName = fNames[id]! + ".obj"
                 let url = dir.appendingPathComponent(fileName)
                 urls.append(url)
@@ -121,28 +127,15 @@ final class ViewController: UIViewController, ARSessionDelegate {
         print("START!!!")
         
         renderer.setState(state: .scanning)
-        renderer.initializeGridNodes()
+        renderer.initializeNodeBuffer(view: Up)
+        renderer.initializeNodeBuffer(view: Front)
+        renderer.initializeNodeBuffer(view: Back)
+        renderer.initializeNodeBuffer(view: Left)
+        renderer.initializeNodeBuffer(view: Right)
         renderer.frameAccumulated = 0
         sendButton.isHidden = false
         startButton.isHidden = !sendButton.isHidden
     }
-    
-//    @objc
-//    func rotated() {
-//        if UIDeviceOrientationIsLandscape(UIDevice.current.orientation) {
-//            print("Landscape")
-//        } else {
-//            print("portrait")
-//        }
-//    }
-    
-//    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-//        if UIDevice.current.orientation.isLandscape {
-//            print("Landscape")
-//        } else {
-//            print("portrait")
-//        }
-//    }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -196,19 +189,60 @@ final class ViewController: UIViewController, ARSessionDelegate {
     
     func separateData() -> [Int:[(Int,Int,Float)]] {
         var res = [
-            Int(Unknown.rawValue):[(Int,Int,Float)](),
-                    Int(Foot.rawValue):[(Int,Int,Float)](),
-                    Int(Floor.rawValue):[(Int,Int,Float)]() ]
+//            Int(Unknown.rawValue):[(Int,Int,Float)](),
+//                    Int(Foot.rawValue):[(Int,Int,Float)](),
+//                    Int(Floor.rawValue):[(Int,Int,Float)]()
+            Int(Up.rawValue): [(Int,Int,Float)](),
+            Int(Front.rawValue): [(Int,Int,Float)](),
+            Int(Back.rawValue): [(Int,Int,Float)](),
+            Int(Left.rawValue): [(Int,Int,Float)](),
+            Int(Right.rawValue): [(Int,Int,Float)](),
+        ]
         
-        for i in 0..<renderer.myGridBuffer.count {
-            let node = renderer.myGridBuffer[i]
-            let row = Int(gridRow(Int32(i)))
-            let col = Int(gridColumn(Int32(i)))
+        for i in 0..<renderer.upBuffer.count {
+            let node = renderer.upBuffer[i]
+            let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT)) )
+            let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT)) )
             let val = getMedian(node)
-            
-            res[Int(node.group.rawValue)]!.append( (row, col, val) )
+//            res[Int(node.group.rawValue)]!.append( (row, col, val) )
+            res[Int(Up.rawValue)]!.append( (row, col, val) )
         }
         
+        for i in 0..<renderer.frontBuffer.count {
+            let node = renderer.frontBuffer[i]
+            let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT/2)) )
+            let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT/2)) )
+            let val = getMedian(node)
+//            res[Int(node.group.rawValue)]!.append( (row, col, val) )
+            res[Int(Front.rawValue)]!.append( (row, col, val) )
+        }
+        
+        for i in 0..<renderer.backBuffer.count {
+            let node = renderer.backBuffer[i]
+            let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT/2)) )
+            let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT/2)) )
+            let val = getMedian(node)
+//            res[Int(node.group.rawValue)]!.append( (row, col, val) )
+            res[Int(Back.rawValue)]!.append( (row, col, val) )
+        }
+        
+        for i in 0..<renderer.leftBuffer.count {
+            let node = renderer.leftBuffer[i]
+            let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT)) )
+            let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT)) )
+            let val = getMedian(node)
+//            res[Int(node.group.rawValue)]!.append( (row, col, val) )
+            res[Int(Left.rawValue)]!.append( (row, col, val) )
+        }
+        
+        for i in 0..<renderer.rightBuffer.count {
+            let node = renderer.rightBuffer[i]
+            let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT)) )
+            let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT)) )
+            let val = getMedian(node)
+//            res[Int(node.group.rawValue)]!.append( (row, col, val) )
+            res[Int(Right.rawValue)]!.append( (row, col, val) )
+        }
         return res
         
     }
@@ -216,12 +250,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
     
     func convertToObj(separated data:[Int:[(Int,Int,Float)]]) -> [Int:String] {
         
-        func writeEdges(input data: [(Int,Int,Float)]) -> String {
+        func writeEdges(projection:Int, input data: [(Int,Int,Float)]) -> String {
             
-            let dim = Int(GRID_NODE_COUNT)
-            
-            func fullTable(_ data:[(Int,Int,Float)]) -> [[Float]] {
-                var res = Array(repeating:Array(repeating: Float(), count: dim), count: dim)
+            func fullTable(_ data:[(Int,Int,Float)], iDim:Int, jDim:Int) -> [[Float]] {
+                var res = Array(repeating:Array(repeating: Float(), count: jDim), count: iDim)
                 for ( i, j, val ) in data {
                     res[i][j] = val
                 }
@@ -229,12 +261,30 @@ final class ViewController: UIViewController, ARSessionDelegate {
             }
             
             var res = ""
-            let table = fullTable(data)
-            for i in 0..<dim {
-                for j in 0..<dim {
+           
+            
+            var iDim = Int(GRID_NODE_COUNT)
+            let radius = Float(RADIUS)
+            let gridNodeDistance = Float(2)*radius / Float(GRID_NODE_COUNT)
+            var jDim = iDim
+            if projection == Left.rawValue || projection == Right.rawValue {
+                iDim /= 2
+            } else if projection == Front.rawValue || projection == Back.rawValue {
+                jDim /= 2
+            }
+            
+            let table = fullTable(data, iDim:iDim, jDim:jDim)
+            for i in 0..<iDim {
+                for j in 0..<jDim {
                     var str = ""
                     if table[i][j] != Float() {
-                        str = "v \(1000*toCoordinate(Int32(i))) \(1000*toCoordinate(Int32(j))) \(1000*table[i][j])\n"
+                        if projection == Up.rawValue {
+                            str = "v \(1000.0*(Float(i)*gridNodeDistance - radius)) \(1000.0*(Float(j)*gridNodeDistance - radius)) \(1000.0*table[i][j])\n"
+                        } else if projection == Left.rawValue || projection == Right.rawValue {
+                            str = "v \(1000.0*table[i][j]) \(1000.0*(Float(j)*gridNodeDistance - radius)) \(1000.0*Float(i)*gridNodeDistance)\n"
+                        } else if projection == Front.rawValue || projection == Back.rawValue {
+                            str = "v \(1000.0*(Float(i)*gridNodeDistance - radius)) \(1000.0*table[i][j]) \(1000.0*Float(j)*gridNodeDistance)\n"
+                        } else {}
                     } else {
                         str = "v 0 0 0\n"
                     }
@@ -242,16 +292,16 @@ final class ViewController: UIViewController, ARSessionDelegate {
                 }
             }
             
-            for i in 0..<dim {
-                for j in 0..<dim {
+            for i in 0..<iDim {
+                for j in 0..<jDim {
                     if (table[i][j] != Float()) {
-                        if (j+1 != dim && table[i][j+1] != Float()) {
-                            let index = i*dim + j
+                        if (j+1 != jDim && table[i][j+1] != Float()) {
+                            let index = i*jDim + j
                             res.append("l \(index+1) \(index+2)\n")
                         }
-                        if (i+1 != dim && table[i+1][j] != Float()) {
-                            let index = (i+1)*dim + j
-                            res.append("l \(index-dim+1) \(index+1)\n")
+                        if (i+1 != iDim && table[i+1][j] != Float()) {
+                            let index = (i+1)*jDim + j
+                            res.append("l \(index-jDim+1) \(index+1)\n")
                         }
                     }
                 }
@@ -263,7 +313,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         var res = [Int:String]()
         for (key, val) in data {
-            res[key] = writeEdges(input: val)
+            res[key] = writeEdges(projection: key, input: val)
         }
         return res
         

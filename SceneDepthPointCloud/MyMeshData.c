@@ -37,17 +37,22 @@ void setGroup(struct MyMeshData md, enum Group group) {
     md.group = group;
 }
 
-int gridRow(int index) {
-    return index / GRID_NODE_COUNT;
+int gridRow(int index, int colNum) {
+    return index / colNum;
 }
 
-int gridColumn(int index) {
-    return index % GRID_NODE_COUNT;
+int gridColumn(int index, int colNum) {
+    return index % colNum;
 }
 
-float toCoordinate(int pos) {
-    return pos*GRID_NODE_DISTANCE - RADIUS;
-}
+//float toCoordinate(int pos, enum ProjectionView projection) {
+//    float res;
+//    if (projection == Up) {
+//        res = pos*GRID_NODE_DISTANCE - RADIUS;
+//    }
+//    
+//    return res;
+//}
 
 int indexPos(int row, int column) {
     return row * GRID_NODE_COUNT + column;

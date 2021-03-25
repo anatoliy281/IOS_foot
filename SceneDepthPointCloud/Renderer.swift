@@ -16,8 +16,6 @@ enum RendererState {
 
 class Renderer {
     
-
-    
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
     private let cameraRotationThreshold = cos(2 * .degreesToRadian)
@@ -102,9 +100,12 @@ class Renderer {
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
     
-    var myGridBuffer: MetalBuffer<MyMeshData>!
+    var upBuffer: MetalBuffer<MyMeshData>!
+    var frontBuffer: MetalBuffer<MyMeshData>!
+    var backBuffer: MetalBuffer<MyMeshData>!
+    var leftBuffer: MetalBuffer<MyMeshData>!
+    var rightBuffer: MetalBuffer<MyMeshData>!
     lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
-    lazy var gridLayerBuffer: MetalBuffer<Layer> = initializeLayerNodes()
     
     
     var frameAccumulated:UInt = 0;
@@ -143,15 +144,26 @@ class Renderer {
         state = newState
     }
     
-    func initializeGridNodes() {
-        let initVal = initMyMeshData()
-        let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
-        myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
-    }
+    func initializeNodeBuffer(view: ProjectionView) {
+        var initVal = initMyMeshData()
+        initVal.projView = view
+        var volume = Int(GRID_NODE_COUNT*GRID_NODE_COUNT) / 2
+        switch view {
+        case Up:
+            volume *= 2
+            upBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+        case Front:
+            frontBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+        case Back:
+            backBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+        case Left:
+            leftBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+        case Right:
+            rightBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+        default:
+            return
+        }
     
-    func initializeLayerNodes() -> MetalBuffer<Layer> {
-        let layers = Array(repeating: Layer(), count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
-        return .init(device: device, array: layers, index: kLayer.rawValue)
     }
     
     func initializeGridIndeces() -> MetalBuffer<UInt32> {
@@ -252,7 +264,7 @@ class Renderer {
         
         func calcHeightGistro() -> [Float:Int] {
             var res = [Float:Int]()
-            let grid = myGridBuffer!
+            let grid = upBuffer!
             for i in 0..<grid.count {
                 let nodeStat = grid[i]
                 if nodeStat.length == 0 { continue }
@@ -338,17 +350,63 @@ class Renderer {
             
             renderEncoder.setRenderPipelineState(gridPipelineState)
             
-            renderEncoder.setVertexBuffer(myGridBuffer)
-            renderEncoder.drawIndexedPrimitives(type: .point,
-                                                indexCount: myIndecesBuffer.count,
-                                                indexType: .uint32,
-                                                indexBuffer: myIndecesBuffer.buffer,
-                                                indexBufferOffset: 0)
+            
+            let viewSide = detectBuffer()
+            var side = viewSide.1
+            if side == Up {
+                print("Up")
+            } else if side == Right {
+                print("Right")
+            } else if side == Left {
+                print("Left")
+            } else if side == Front {
+                print("Front")
+            } else {
+                print("Back")
+            }
+            renderEncoder.setVertexBytes(&side, length: MemoryLayout<ProjectionView>.stride, index: Int(kViewSide.rawValue))
+            renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
+            renderEncoder.setVertexBuffer(viewSide.0)
+            renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: viewSide.0.count)
+//            renderEncoder.drawIndexedPrimitives(type: .point,
+//                                                indexCount: myIndecesBuffer.count,
+//                                                indexType: .uint32,
+//                                                indexBuffer: myIndecesBuffer.buffer,
+//                                                indexBufferOffset: 0)
         }
         
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
         commandBuffer.commit()
+    }
+    
+    func detectBuffer() -> (MetalBuffer<MyMeshData>, ProjectionView) {
+        
+        if frameAccumulated > 10 {
+            let matTransform = pointCloudUniformsBuffers[currentBufferIndex][0].localToWorld
+            let pointA = matTransform*simd_float4(0,0,0,1)
+            let pointB = matTransform*simd_float4(0,0,1,1)
+            
+            let deviceNorm = pointB - pointA
+            
+            if deviceNorm.y < -0.9 {
+                return (upBuffer, Up)
+            } else if abs(deviceNorm.x) > abs(deviceNorm.z) {
+                if (deviceNorm.x > 0) {
+                    return (leftBuffer, Left)
+                } else {
+                    return (rightBuffer, Right)
+                }
+            } else {
+                if (deviceNorm.z > 0) {
+                    return (frontBuffer, Front)
+                } else {
+                    return (backBuffer, Back)
+                }
+            }
+        } else {
+            return (upBuffer, Up)
+        }
     }
     
     private func shouldAccumulate(frame: ARFrame) -> Bool {
@@ -368,18 +426,28 @@ class Renderer {
             retainingTextures.removeAll()
         }
         
+        let viewSide = detectBuffer()
+        var side = viewSide.1
+        
         renderEncoder.setDepthStencilState(relaxedStencilState)
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
-        renderEncoder.setVertexBuffer(myGridBuffer)
+        renderEncoder.setVertexBuffer(viewSide.0)
         renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
+        renderEncoder.setVertexBytes(&side, length: MemoryLayout<ProjectionView>.stride, index: Int(kViewSide.rawValue))
 
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
         
         lastCameraTransform = frame.camera.transform
+    }
+    
+    
+    
+    func debugBuffer() {
+        
     }
 }
 
@@ -490,9 +558,9 @@ private extension Renderer {
 //        let mesh = try MTKMesh(mesh: mdlMesh, device: device).submeshes.first
         
         let res = [ColoredPoint(position: [0,   0,   0], color: [1,1,1,1]),          // O
-                   ColoredPoint(position: [0.5, 0,   0], color: [1,0,0,1]),        // X
+//                   ColoredPoint(position: [0.5, 0,   0], color: [1,0,0,1]),        // X
                    ColoredPoint(position: [0,  -1,   0], color: [0,1,0,1]),        // Y
-                   ColoredPoint(position: [0,   0, 0.5], color: [0,0,1,1])          // Z
+                   ColoredPoint(position: [0,   0, -0.5], color: [0,0,1,1])          // Z
            ]
         return res
     }
