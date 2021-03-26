@@ -59,7 +59,55 @@ int new_cicle(device float* ar, float medianValue) {
 }
 
 
+bool mapToMeshData(const thread float4& posCoord,
+                   constant ProjectionView& view,
+                   constant Heights& height,
+                   thread int& i, thread int& j, thread int& columnCount, thread float& value) {
+    if ( view == Front || view == Back ) {
+        i = int(posCoord.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
+        j = int((posCoord.y - height.floor)/GRID_NODE_DISTANCE);
+        if ( j < 0 || j > GRID_NODE_COUNT/2 - 1)
+            return false;
+        value = posCoord.z;
+        columnCount = GRID_NODE_COUNT / 2;
+    } else if ( view == Left || view == Right ) {
+        i = int((posCoord.y - height.floor)/GRID_NODE_DISTANCE);
+        if ( i < 0 || i > GRID_NODE_COUNT/2 - 1)
+            return false;
+        j = int(posCoord.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
+        value = posCoord.x;
+        columnCount = GRID_NODE_COUNT;
+    } else {
+        i = int(posCoord.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
+        j = int(posCoord.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
+        value = posCoord.y;
+        columnCount = GRID_NODE_COUNT;
+    }
+    return true;
+}
 
+float4 restoreCoord(constant MyMeshData* myMeshData,
+                    unsigned int vid,
+                    constant Heights& height,
+                    constant ProjectionView& view ) {
+    constant auto& md = myMeshData[vid];
+    float4 res;
+    if (view == Back || view == Front) {
+        res.x = (vid/(GRID_NODE_COUNT/2))*GRID_NODE_DISTANCE - RADIUS;
+        res.y = (vid%(GRID_NODE_COUNT/2))*GRID_NODE_DISTANCE + height.floor;
+        res.z = md.heights[md.length/2];
+    } else if (view == Right || view == Left) {
+        res.x = md.heights[md.length/2];
+        res.y = (vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE + height.floor;
+        res.z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
+    } else {
+        res.x = (vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
+        res.y = md.heights[md.length/2];
+        res.z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
+    }
+    res.w = 1;
+    return res;
+}
 
 ///  Vertex shader that takes in a 2D grid-point and infers its 3D position in world-space, along with RGB and confidence
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
@@ -83,55 +131,22 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
 
     if (
-        position.x*position.x + position.z*position.z < RADIUS*RADIUS
-        &&
-        confidence == 2
+            position.x*position.x + position.z*position.z < RADIUS*RADIUS
+            &&
+            confidence == 2
         ) {
-        int i, j;
-        int colCnt;
-        float val;
-        switch (projectionView) {
-        case Up: {
-            i = int(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
-            j = int(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
-            val = position.y;
-            colCnt = GRID_NODE_COUNT;
-            break;
-        }
-        case Back:
-        case Front: {
-            i = int(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
-            j = int((position.y - heights.floor)/GRID_NODE_DISTANCE);
-            if ( j < 0 || j > GRID_NODE_COUNT/2 - 1)
-                return;
-            val = position.z;
-            colCnt = GRID_NODE_COUNT / 2;
-            break;
-        }
-        case Left:
-        case Right: {
-            i = int((position.y - heights.floor)/GRID_NODE_DISTANCE);
-            if ( i < 0 || i > GRID_NODE_COUNT/2 - 1)
-                return;
-            j = int(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
-            val = position.x;
-            colCnt = GRID_NODE_COUNT;
-            break;
-        }
-        default : {
+        int i, j, columnCount;
+        float value;
+        if (!mapToMeshData(position, projectionView, heights, i, j, columnCount, value))
             return;
-        }
-        }
         
-        device auto& md = myMeshData[i*colCnt + j];
+        device auto& md = myMeshData[i*columnCount + j];
         
-////        const auto maxHeight = heights.floor + heights.delta;
-////        const auto val = min(position.y, maxHeight);
         device auto& len = md.length;
-        auto pos = find_greater(val, md.heights, len);
+        auto pos = find_greater(value, md.heights, len);
         if (pos < MAX_MESH_STATISTIC && len < MAX_MESH_STATISTIC) {
             shift_right(pos, md.heights, len);
-            md.heights[pos] = val;
+            md.heights[pos] = value;
             ++len;
         }
         
@@ -150,6 +165,19 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     }
 }
 
+float4 colorMesh(constant ProjectionView& view) {
+    if ( view == Left ) {
+        return float4(0.7, 0.1, 0.1, 0);
+    } else if ( view == Right) {
+        return float4(0.7, 0.1, 0.1, 0);
+    } else if ( view == Back ) {
+        return float4(0.3, 0.1, 0.1, 0);
+    } else if ( view == Front) {
+        return float4(0.1, 0.1, 0.3, 0);
+    } else {
+        return float4(0.1, 0.3, 0.1, 0);
+    }
+}
 
 vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant ProjectionView& projectionView [[ buffer(kViewSide) ]],
@@ -157,41 +185,15 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
                                      constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
                                      unsigned int vid [[ vertex_id ]] )
 {
-    constant auto &md = myMeshData[vid];
+    const auto footColor = colorMesh(projectionView);
+    const auto floorColor = float4(0.5, 0, 0.5, 0);
     
-    float4 footColor;
-    const float4 floorColor(0.5, 0, 0.5, 0);
+    auto globPos = restoreCoord(myMeshData, vid, heights, projectionView);
     
-    float x, y, z;
-    if (projectionView == Up) {
-        footColor = float4(0.1, 0.3, 0.1, 0);
-        x = (vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-        y = md.heights[md.length/2];
-        z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-    } else if (projectionView == Back || projectionView == Front) {
-        x = (vid/(GRID_NODE_COUNT/2))*GRID_NODE_DISTANCE - RADIUS;
-        y = (vid%(GRID_NODE_COUNT/2))*GRID_NODE_DISTANCE + heights.floor;
-        z = md.heights[md.length/2];
-        if (projectionView == Back)
-            footColor = float4(0.3, 0.1, 0.1, 0);
-        else
-            footColor = float4(0.1, 0.1, 0.3, 0);
-    } else if (projectionView == Right || projectionView == Left) {
-        x = md.heights[md.length/2];
-        y = (vid/GRID_NODE_COUNT)*GRID_NODE_DISTANCE + heights.floor;
-        z = (vid%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-        if (projectionView == Right)
-            footColor = float4(0.7, 0.1, 0.1, 0);
-        else
-            footColor = float4(0.1, 0.1, 0.7, 0);
-    } else {
-        x = y = z = 0;
-        footColor = float4(0);
-    }
-    
-
-    float4 projectedPosition = uniforms.viewProjectionMatrix * float4(x, y, z, 1);
+    float4 projectedPosition = uniforms.viewProjectionMatrix * globPos;
     projectedPosition /= projectedPosition.w;
+    
+    constant auto &md = myMeshData[vid];
     
     ParticleVertexOut pOut;
     pOut.position = projectedPosition;
