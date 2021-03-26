@@ -201,9 +201,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         for i in 0..<renderer.upBuffer.count {
             let node = renderer.upBuffer[i]
-            if node.complete != 1 {
-                continue
-            }
+//            if node.complete != 1 {
+//                continue
+//            }
             let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT)) )
             let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT)) )
             let val = getMedian(node)
@@ -213,9 +213,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         for i in 0..<renderer.frontBuffer.count {
             let node = renderer.frontBuffer[i]
-            if node.complete != 1 {
-                continue
-            }
+//            if node.complete != 1 {
+//                continue
+//            }
             let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT/2)) )
             let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT/2)) )
             let val = getMedian(node)
@@ -225,9 +225,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         for i in 0..<renderer.backBuffer.count {
             let node = renderer.backBuffer[i]
-            if node.complete != 1 {
-                continue
-            }
+//            if node.complete != 1 {
+//                continue
+//            }
             let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT/2)) )
             let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT/2)) )
             let val = getMedian(node)
@@ -237,9 +237,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         for i in 0..<renderer.leftBuffer.count {
             let node = renderer.leftBuffer[i]
-            if node.complete != 1 {
-                continue
-            }
+//            if node.complete != 1 {
+//                continue
+//            }
             let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT)) )
             let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT)) )
             let val = getMedian(node)
@@ -249,9 +249,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         for i in 0..<renderer.rightBuffer.count {
             let node = renderer.rightBuffer[i]
-            if node.complete != 1 {
-                continue
-            }
+//            if node.complete != 1 {
+//                continue
+//            }
             let row = Int( gridRow(Int32(i), Int32(GRID_NODE_COUNT)) )
             let col = Int( gridColumn(Int32(i), Int32(GRID_NODE_COUNT)) )
             let val = getMedian(node)
