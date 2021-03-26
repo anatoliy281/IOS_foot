@@ -13,17 +13,18 @@
 extern "C" {
 #endif
 
-    #define MAX_MESH_STATISTIC 100
+#define MAX_MESH_STATISTIC 100
+#define STATISTICS_THRESHOLD 3e-3
 
-    #define RADIUS 0.25
-    #define GRID_NODE_COUNT 1000
-    #define POINT_SIZE 12
-    #define EPS_H 3e-3
-    #define MAX_GRAD_H 7e-3
+#define RADIUS 0.25
+#define GRID_NODE_COUNT 1000
+#define POINT_SIZE 12
+#define EPS_H 3e-3
+#define MAX_GRAD_H 7e-3
 
-    #define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
+#define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
 
-    #define GROUPS_COUNT 3
+#define GROUPS_COUNT 3
 
     enum Group {
         Unknown,
@@ -44,7 +45,7 @@ extern "C" {
         int length;
         enum Group group;
         float gradient;
-        enum ProjectionView projView;
+        int complete;
     };
     
     struct MyMeshData initMyMeshData(void);

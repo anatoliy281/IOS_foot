@@ -109,6 +109,36 @@ float4 restoreCoord(constant MyMeshData* myMeshData,
     return res;
 }
 
+void updateComplete(device MyMeshData& md) {
+    if (md.length > 0.98*MAX_MESH_STATISTIC) {
+        const auto c = md.length/2;
+        const auto a = c/2;
+        const auto b = 3*a;
+        const auto deltaAC = md.heights[c] - md.heights[a];
+        const auto deltaBC = md.heights[b] - md.heights[c];
+        assert(deltaAC > 0);
+        assert(deltaBC > 0);
+        const auto delta = 0.5*STATISTICS_THRESHOLD;
+        if ( (deltaAC < delta) && (deltaBC < delta) )
+            md.complete = 1;
+        else
+            md.length = 0;
+    }
+}
+
+void separateAndColorPoint(float delta, device MyMeshData& md) {
+    if ( delta > MAX_GRAD_H ) {
+        md.gradient = 1;
+    } else {
+        md.gradient = static_cast<float>(delta) / MAX_GRAD_H;
+    }
+    if ( delta < EPS_H ) {
+        md.group = Floor;
+    } else {
+        md.group = Foot;
+    }
+}
+
 ///  Vertex shader that takes in a 2D grid-point and infers its 3D position in world-space, along with RGB and confidence
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
@@ -142,6 +172,10 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         
         device auto& md = myMeshData[i*columnCount + j];
         
+        if (md.complete) {
+            return;
+        }
+        
         device auto& len = md.length;
         auto pos = find_greater(value, md.heights, len);
         if (pos < MAX_MESH_STATISTIC && len < MAX_MESH_STATISTIC) {
@@ -151,17 +185,11 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         }
         
         auto h = md.heights[md.length/2];
+        
+        updateComplete(md);
+        
         const auto heightDeviation = abs(h - heights.floor);
-        if ( heightDeviation > MAX_GRAD_H ) {
-            md.gradient = 1;
-        } else {
-            md.gradient = static_cast<float>(heightDeviation) / MAX_GRAD_H;
-        }
-        if ( heightDeviation < EPS_H ) {
-            md.group = Floor;
-        } else {
-            md.group = Foot;
-        }
+        separateAndColorPoint(heightDeviation, md);
     }
 }
 

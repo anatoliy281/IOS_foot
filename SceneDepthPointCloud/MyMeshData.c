@@ -25,6 +25,7 @@ struct MyMeshData initMyMeshData() {
 struct MyMeshData setAll(float value, int len, enum Group group) {
     assert(len < MAX_MESH_STATISTIC);
     struct MyMeshData md;
+    md.complete = 0;
     md.group = group;
     md.length = len;
     for (int i=0; i < MAX_MESH_STATISTIC; ++i) {

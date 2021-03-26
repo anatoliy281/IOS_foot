@@ -145,8 +145,7 @@ class Renderer {
     }
     
     func initializeNodeBuffer(view: ProjectionView) {
-        var initVal = initMyMeshData()
-        initVal.projView = view
+        let initVal = initMyMeshData()
         var volume = Int(GRID_NODE_COUNT*GRID_NODE_COUNT) / 2
         switch view {
         case Up:
