@@ -61,12 +61,8 @@ class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
     
-    lazy var heights:Heights = {
-        var h = Heights()
-        h.delta = 75e-3
-        h.floor = 0
-        return h
-    }()
+    var floorHeight:Float = 0
+    var floorHeightFirstCalc:Float = 0
     
     
     // The current viewport size
@@ -100,16 +96,19 @@ class Renderer {
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
     
-    var upBuffer: MetalBuffer<MyMeshData>!
-    var frontBuffer: MetalBuffer<MyMeshData>!
-    var backBuffer: MetalBuffer<MyMeshData>!
-    var leftBuffer: MetalBuffer<MyMeshData>!
-    var rightBuffer: MetalBuffer<MyMeshData>!
+    var viewBuffer =  [UInt32:MetalBuffer<MyMeshData>]()
+    
+//    var upBuffer: MetalBuffer<MyMeshData>!
+//    var frontBuffer: MetalBuffer<MyMeshData>!
+//    var backBuffer: MetalBuffer<MyMeshData>!
+//    var leftBuffer: MetalBuffer<MyMeshData>!
+//    var rightBuffer: MetalBuffer<MyMeshData>!
     lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
     
     var frameAccumulated:UInt = 0;
     var frameAccumulatedIntervals:[UInt] = [10, 25, 50, 100, 400, 1000]
+    let floorDetectCount:UInt = 10
     
     var state:RendererState
     
@@ -147,21 +146,27 @@ class Renderer {
     func initializeNodeBuffer(view: ProjectionView) {
         let initVal = initMyMeshData()
         var volume = Int(GRID_NODE_COUNT*GRID_NODE_COUNT) / 2
-        switch view {
-        case Up:
+        if (view == Up) {
             volume *= 2
-            upBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
-        case Front:
-            frontBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
-        case Back:
-            backBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
-        case Left:
-            leftBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
-        case Right:
-            rightBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
-        default:
-            return
         }
+        
+        print()
+        
+        viewBuffer[view.rawValue] = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+//        switch view {
+//        case Up:
+//            upBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+//        case Front:
+//            frontBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+//        case Back:
+//            backBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+//        case Left:
+//            leftBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+//        case Right:
+//            rightBuffer = .init(device: device, array:Array(repeating: initVal, count: volume), index: kMyMesh.rawValue)
+//        default:
+//            return
+//        }
     
     }
     
@@ -263,7 +268,7 @@ class Renderer {
         
         func calcHeightGistro() -> [Float:Int] {
             var res = [Float:Int]()
-            let grid = upBuffer!
+            let grid = viewBuffer[Up.rawValue]!
             for i in 0..<grid.count {
                 let nodeStat = grid[i]
                 if nodeStat.length == 0 { continue }
@@ -280,14 +285,14 @@ class Renderer {
         
         
         func findFloor(_ gistro: [Float:Int]) -> Float {
-            let floorHeight = gistro.max {
+            let heights = gistro.max {
                 return $0.1 < $1.1
             }
-            return floorHeight!.0
+            return heights!.0
         }
         
 //        var gistro =
-        heights.floor = findFloor( calcHeightGistro() )
+        floorHeight = findFloor( calcHeightGistro() )
         
     }
     
@@ -343,6 +348,9 @@ class Renderer {
             
             if (frameAccumulatedIntervals.contains(frameAccumulated)) {
                 separate()
+                if frameAccumulated == floorDetectCount {
+                    floorHeightFirstCalc = floorHeight
+                }
             }
             
             renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
@@ -350,23 +358,12 @@ class Renderer {
             renderEncoder.setRenderPipelineState(gridPipelineState)
             
             
-            let viewSide = detectBuffer()
-            var side = viewSide.1
-            if side == Up {
-                print("Up")
-            } else if side == Right {
-                print("Right")
-            } else if side == Left {
-                print("Left")
-            } else if side == Front {
-                print("Front")
-            } else {
-                print("Back")
-            }
+            var side = detectBuffer()
+            let meshBuffer = viewBuffer[side.rawValue]!
             renderEncoder.setVertexBytes(&side, length: MemoryLayout<ProjectionView>.stride, index: Int(kViewSide.rawValue))
-            renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
-            renderEncoder.setVertexBuffer(viewSide.0)
-            renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: viewSide.0.count)
+            renderEncoder.setVertexBytes(&floorHeightFirstCalc, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+            renderEncoder.setVertexBuffer(meshBuffer)
+            renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: meshBuffer.count)
 //            renderEncoder.drawIndexedPrimitives(type: .point,
 //                                                indexCount: myIndecesBuffer.count,
 //                                                indexType: .uint32,
@@ -379,9 +376,9 @@ class Renderer {
         commandBuffer.commit()
     }
     
-    func detectBuffer() -> (MetalBuffer<MyMeshData>, ProjectionView) {
+    func detectBuffer() -> ProjectionView {
         
-        if frameAccumulated > 10 {
+        if frameAccumulated > floorDetectCount {
             let matTransform = pointCloudUniformsBuffers[currentBufferIndex][0].localToWorld
             let pointA = matTransform*simd_float4(0,0,0,1)
             let pointB = matTransform*simd_float4(0,0,1,1)
@@ -389,22 +386,22 @@ class Renderer {
             let deviceNorm = pointB - pointA
             
             if deviceNorm.y < -0.9 {
-                return (upBuffer, Up)
+                return Up
             } else if abs(deviceNorm.x) > abs(deviceNorm.z) {
                 if (deviceNorm.x > 0) {
-                    return (leftBuffer, Left)
+                    return Left
                 } else {
-                    return (rightBuffer, Right)
+                    return Right
                 }
             } else {
                 if (deviceNorm.z > 0) {
-                    return (frontBuffer, Front)
+                    return Front
                 } else {
-                    return (backBuffer, Back)
+                    return Back
                 }
             }
         } else {
-            return (upBuffer, Up)
+            return Up
         }
     }
     
@@ -425,15 +422,15 @@ class Renderer {
             retainingTextures.removeAll()
         }
         
-        let viewSide = detectBuffer()
-        var side = viewSide.1
+        var side = detectBuffer()
+        let meshBuffer = viewBuffer[side.rawValue]!
         
         renderEncoder.setDepthStencilState(relaxedStencilState)
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
-        renderEncoder.setVertexBuffer(viewSide.0)
-        renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
+        renderEncoder.setVertexBuffer(meshBuffer)
+        renderEncoder.setVertexBytes(&floorHeightFirstCalc, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
         renderEncoder.setVertexBytes(&side, length: MemoryLayout<ProjectionView>.stride, index: Int(kViewSide.rawValue))
 
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
@@ -443,11 +440,7 @@ class Renderer {
         lastCameraTransform = frame.camera.transform
     }
     
-    
-    
-    func debugBuffer() {
-        
-    }
+
 }
 
 private extension Renderer {

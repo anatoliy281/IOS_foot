@@ -21,12 +21,12 @@ enum TextureIndices {
 enum BufferIndices {
     kPointCloudUniforms = 0,
     kGridPoints = 1,
-    kMyMesh = 2,
-    kHeight = 3,
-    kVerteces = 4,
-    kViewCorner = 5,
-    kViewToCam = 6,
-    kViewSide = 7
+    kHeight = 2,
+    kVerteces = 3,
+    kViewCorner = 4,
+    kViewToCam = 5,
+    kViewSide = 6,
+    kMyMesh = 7
 };
 
 struct PointCloudUniforms {
@@ -36,10 +36,6 @@ struct PointCloudUniforms {
     simd_float2 cameraResolution;
 };
 
-typedef struct {
-    float floor;
-    float delta;
-} Heights;
 
 struct ColoredPoint {
     simd_float3 position;
