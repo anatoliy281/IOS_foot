@@ -105,6 +105,8 @@ class Renderer {
     var myGridBuffer: MetalBuffer<MyMeshData>!
     lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
+    var myGridSphericalBuffer: MetalBuffer<MyMeshData>!
+    
     
     var frameAccumulated:UInt = 0;
     var frameAccumulatedIntervals:[UInt] = [10, 25, 50, 100, 400, 1000]
@@ -146,6 +148,12 @@ class Renderer {
         let initVal = initMyMeshData()
         let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
         myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+    }
+    
+    func initializeSphericalGridNodes() {
+        let initVal = initMyMeshData()
+        let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
+        myGridSphericalBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
     
     
@@ -325,20 +333,34 @@ class Renderer {
                 accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
             }
             
-            if (frameAccumulatedIntervals.contains(frameAccumulated)) {
+            if (frameAccumulated == frameAccumulatedIntervals[0]) {
                 separate()
+                initializeSphericalGridNodes()
             }
             
             renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
             
             renderEncoder.setRenderPipelineState(gridPipelineState)
             
-            renderEncoder.setVertexBuffer(myGridBuffer)
-            renderEncoder.drawIndexedPrimitives(type: .point,
-                                                indexCount: myIndecesBuffer.count,
-                                                indexType: .uint32,
-                                                indexBuffer: myIndecesBuffer.buffer,
-                                                indexBufferOffset: 0)
+            var bufCount:Int = 0
+            if heights.floor == 0 {
+                renderEncoder.setVertexBuffer(myGridBuffer)
+                bufCount = myGridBuffer.count
+                print("print cartesian")
+            } else {
+                renderEncoder.setVertexBuffer(myGridSphericalBuffer)
+                bufCount = myGridSphericalBuffer.count
+                print("print spherical")
+            }
+            renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
+//            renderEncoder.drawIndexedPrimitives(type: .point,
+//                                                indexCount: myIndecesBuffer.count,
+//                                                indexType: .uint32,
+//                                                indexBuffer: myIndecesBuffer.buffer,
+//                                                indexBufferOffset: 0)
+            renderEncoder.drawPrimitives( type: .point,
+                                          vertexStart: 0,
+                                          vertexCount: bufCount)
         }
         
         renderEncoder.endEncoding()
@@ -363,11 +385,21 @@ class Renderer {
             retainingTextures.removeAll()
         }
         
+//        var debugVar = Int(0)
+//        renderEncoder.setVertexBytes(&debugVar, length: MemoryLayout<Int>.stride, index: 12)
+        
         renderEncoder.setDepthStencilState(relaxedStencilState)
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
-        renderEncoder.setVertexBuffer(myGridBuffer)
+        
+        if heights.floor == 0 {
+            renderEncoder.setVertexBuffer(myGridBuffer)
+            print("calc cartesian")
+        } else {
+            renderEncoder.setVertexBuffer(myGridSphericalBuffer)
+            print("calc spherical")
+        }
         renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
 
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
@@ -375,6 +407,9 @@ class Renderer {
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
         
         lastCameraTransform = frame.camera.transform
+//        if (debugVar == 144) {
+//            print("*(*(*(*(*(*(")
+//        }
     }
 }
 
@@ -485,9 +520,9 @@ private extension Renderer {
 //        let mesh = try MTKMesh(mesh: mdlMesh, device: device).submeshes.first
         
         let res = [ColoredPoint(position: [0,   0,   0], color: [1,1,1,1]),          // O
-                   ColoredPoint(position: [0.5, 0,   0], color: [1,0,0,1]),        // X
+                   ColoredPoint(position: [0.25, 0,   0], color: [1,0,0,1]),        // X
                    ColoredPoint(position: [0,  -1,   0], color: [0,1,0,1]),        // Y
-                   ColoredPoint(position: [0,   0, 0.5], color: [0,0,1,1])          // Z
+                   ColoredPoint(position: [0,   0, 0.25], color: [0,0,1,1])          // Z
            ]
         return res
     }

@@ -16,15 +16,15 @@ extern "C" {
 #define MAX_MESH_STATISTIC 200
 
 #define RADIUS 0.25
-#define GRID_NODE_COUNT 1000
+#define GRID_NODE_COUNT 500
 #define POINT_SIZE 12
 #define EPS_H 3e-3
 #define MAX_GRAD_H 7e-3
 #define PI 3.14159
 
 
-#define THETA_STEP ((2*PI) / GRID_NODE_COUNT)
-#define PHI_STEP ((PI/2) / GRID_NODE_COUNT)
+#define PHI_STEP ((2*PI) / GRID_NODE_COUNT)
+#define THETA_STEP (PI / GRID_NODE_COUNT)
 #define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
 
     #define GROUPS_COUNT 3
@@ -52,8 +52,13 @@ extern "C" {
 
     int gridRow(int index);
     int gridColumn(int index);
-    float toCoordinate(int pos);
+//    void calcXY(int i, int j, float* x, float* y);
+    float calcX(int i, int j);
+    float calcY(int i, int j);
+    float calcZ(int i, int j);
     int indexPos(int row, int column);
+
+    float toCoordinate(int pos);
 
 #ifdef __cplusplus
 }
