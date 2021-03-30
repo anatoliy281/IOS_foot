@@ -19,7 +19,7 @@ extern "C" {
 #define GRID_NODE_COUNT 500
 #define POINT_SIZE 12
 #define EPS_H 3e-3
-#define MAX_GRAD_H 7e-3
+#define MAX_GRAD_H 27e-3
 #define PI 3.14159
 
 

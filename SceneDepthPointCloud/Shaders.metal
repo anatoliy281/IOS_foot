@@ -128,17 +128,22 @@ float4 colorCartesianPoint(constant MyMeshData& md) {
     return color;
 }
 
-float4 colorSphericalpoint(float floorHeight, constant MyMeshData& md) {
+float4 colorSphericalpoint(float floorDist, constant MyMeshData& md) {
     const float4 childUnexpected(247/255, 242/255, 26/255, 1);
     const float4 scarlet(1, 36/255, 0, 1);
     float gradient = getValue(md) / RADIUS;
-    float4 color = childUnexpected + (scarlet - childUnexpected)*gradient;
-    color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
+    float4 footColor = childUnexpected + (scarlet - childUnexpected)*gradient;
+    footColor.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
     
-//    const float4 green(0.1, 0.3, 0.1, 0);
-//    float4 color2 = color + (green - color)*md.gradient;
+    float floorGrad;
+    if ( floorDist > MAX_GRAD_H ) {
+        floorGrad = 1;
+    } else {
+        floorGrad = floorDist / MAX_GRAD_H;
+    }
     
-    return color;
+    const float4 green(0.1, 0.3, 0.1, 0);
+    return green + (footColor - green)*floorGrad;
 }
 
 ///  Vertex shader that takes in a 2D grid-point and infers its 3D position in world-space, along with RGB and confidence
@@ -191,11 +196,11 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         if (heights.floor == 0) {
             auto h = md.heights[md.length/2];
             const auto heightDeviation = abs(h - heights.floor);
-            if ( heightDeviation > MAX_GRAD_H ) {
-                md.gradient = 1;
-            } else {
-                md.gradient = static_cast<float>(heightDeviation) / MAX_GRAD_H;
-            }
+//            if ( heightDeviation > MAX_GRAD_H ) {
+//                md.gradient = 1;
+//            } else {
+//                md.gradient = static_cast<float>(heightDeviation) / MAX_GRAD_H;
+//            }
             if ( heightDeviation < EPS_H ) {
                 md.group = Floor;
             } else {
@@ -220,7 +225,7 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
     } else {
         pos = restoreFromSphericalTable(heights.floor, md, vid);
 //        pos = restoreFromSphericalTable(0, md, vid);
-        color = colorSphericalpoint(heights.floor, md);
+        color = colorSphericalpoint(abs(pos.y - heights.floor), md);
     }
 
     float4 projectedPosition = uniforms.viewProjectionMatrix * pos;
