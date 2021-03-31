@@ -113,8 +113,14 @@ final class ViewController: UIViewController, ARSessionDelegate {
         print("START!!!")
         
         renderer.setState(state: .scanning)
-        renderer.initializeGridNodes()
-        renderer.frameAccumulated = 0
+        if (renderer.heights.floor == 0) {
+            renderer.initializeGridNodes()
+            renderer.frameAccumulated = 0
+        } else {
+            renderer.initializeSphericalGridNodes()
+        }
+
+        
         sendButton.isHidden = false
         startButton.isHidden = !sendButton.isHidden
     }
