@@ -199,13 +199,13 @@ final class ViewController: UIViewController, ARSessionDelegate {
                     Int(Foot.rawValue):[(Int,Int,Float)](),
                     Int(Floor.rawValue):[(Int,Int,Float)]() ]
         
-        for i in 0..<renderer.myGridBuffer.count {
-            let node = renderer.myGridBuffer[i]
+        for i in 0..<renderer.myGridSphericalBuffer.count {
+            let node = renderer.myGridSphericalBuffer[i]
             let row = Int(gridRow(Int32(i)))
             let col = Int(gridColumn(Int32(i)))
             let val = getMedian(node)
             
-            res[Int(node.group.rawValue)]!.append( (row, col, val) )
+            res[Int(Foot.rawValue)]!.append( (row, col, val) )
         }
         
         return res
@@ -232,8 +232,12 @@ final class ViewController: UIViewController, ARSessionDelegate {
             for i in 0..<dim {
                 for j in 0..<dim {
                     var str = ""
-                    if table[i][j] != Float() {
-                        str = "v \(1000*toCoordinate(Int32(i))) \(1000*toCoordinate(Int32(j))) \(1000*table[i][j])\n"
+                    let valTable = table[i][j]
+                    if valTable != Float() {
+                        let x:Float = 1000*calcX(Int32(i), Int32(j), valTable)
+                        let y = 1000*calcY(Int32(i), Int32(j), valTable)
+                        let z = 1000*calcZ(Int32(i), Int32(j), valTable)
+                        str = "v \(x) \(y) \(z)\n"
                     } else {
                         str = "v 0 0 0\n"
                     }

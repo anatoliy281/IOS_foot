@@ -407,9 +407,6 @@ class Renderer {
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
         
         lastCameraTransform = frame.camera.transform
-//        if (debugVar == 144) {
-//            print("*(*(*(*(*(*(")
-//        }
     }
 }
 

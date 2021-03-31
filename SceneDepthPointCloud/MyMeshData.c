@@ -9,6 +9,7 @@
 #include "MyMeshData.h"
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 
 float getMedian(struct MyMeshData md) {
     return md.heights[md.length/2];
@@ -51,4 +52,27 @@ float toCoordinate(int pos) {
 
 int indexPos(int row, int column) {
     return row * GRID_NODE_COUNT + column;
+}
+
+
+float calcX(int i, int j, float val) {
+    
+    float rho = val;
+    float theta = i*THETA_STEP;
+    float phi = j*PHI_STEP;
+    
+    return rho*sin(theta)*cos(phi);
+}
+float calcY(int i, int j, float val) {
+    float rho = val;
+    float theta = i*THETA_STEP;
+    float phi = j*PHI_STEP;
+    
+    return rho*sin(theta)*sin(phi);
+}
+float calcZ(int i, int j, float val) {
+    float rho = val;
+    float theta = i*THETA_STEP;
+    
+    return rho*cos(theta);
 }

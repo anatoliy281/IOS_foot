@@ -79,18 +79,12 @@ void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thre
     auto theta = atan2( length(rho), z );
     auto phi = atan( y / x );
     
-//    if (y > 0 && x < 0) {
-//        phi += PI;
-//    }
     if ( x < 0 ) {
         phi += PI;
     }
     else if (y < 0 && x > 0) {
         phi += 2*PI;
     }
-//    else if ( y < 0 && x < 0) {
-//        phi += PI;
-//    }
     else {}
     i = int( theta / THETA_STEP );
     j = int( phi / PHI_STEP );
@@ -102,7 +96,7 @@ float4 restoreFromCartesianTable(constant MyMeshData& md, int index) {
     float4 pos;
     pos.x = (index/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
     pos.z = (index%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-    pos.y = md.heights[md.length/2];
+    pos.y = getValue(md);
     pos.w = 1;
     
     return pos;

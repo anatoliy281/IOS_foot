@@ -24,7 +24,7 @@ extern "C" {
 
 
 #define PHI_STEP ((2*PI) / GRID_NODE_COUNT)
-#define THETA_STEP (PI / GRID_NODE_COUNT)
+#define THETA_STEP ((PI/2) / GRID_NODE_COUNT)
 #define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
 
     #define GROUPS_COUNT 3
@@ -53,9 +53,9 @@ extern "C" {
     int gridRow(int index);
     int gridColumn(int index);
 //    void calcXY(int i, int j, float* x, float* y);
-    float calcX(int i, int j);
-    float calcY(int i, int j);
-    float calcZ(int i, int j);
+    float calcX(int i, int j, float val);
+    float calcY(int i, int j, float val);
+    float calcZ(int i, int j, float val);
     int indexPos(int row, int column);
 
     float toCoordinate(int pos);
