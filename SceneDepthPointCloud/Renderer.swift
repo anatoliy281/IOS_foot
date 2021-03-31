@@ -1,10 +1,3 @@
-/*
-See LICENSE folder for this sample’s licensing information.
-
-Abstract:
-The host app renderer.
-*/
-
 import Metal
 import MetalKit
 import ARKit

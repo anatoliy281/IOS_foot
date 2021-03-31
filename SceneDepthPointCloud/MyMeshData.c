@@ -1,11 +1,3 @@
-//
-//  MyMeshData.c
-//  SceneDepthPointCloud
-//
-//  Created by iOSdev on 18.02.2021.
-//  Copyright © 2021 Apple. All rights reserved.
-//
-
 #include "MyMeshData.h"
 #include <stdio.h>
 #include <assert.h>

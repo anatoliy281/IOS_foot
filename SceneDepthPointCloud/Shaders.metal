@@ -1,12 +1,3 @@
-/*
-See LICENSE folder for this sample’s licensing information.
-
-Abstract:
-The sample app's shaders.
-*/
-
-//#include <algorithm>
-
 #include <metal_stdlib>
 #include <simd/simd.h>
 #import "ShaderTypes.h"
@@ -23,6 +14,15 @@ struct ParticleVertexOut {
 };
 //
 constexpr sampler colorSampler(mip_filter::linear, mag_filter::linear, min_filter::linear);
+
+float4x4 sphericalMatrixTransform(float h) {
+    return float4x4( float4( 1, 0, 0, 0),
+                     float4( 0, 0, 1, 0),
+                     float4( 0, 1, 0, -h),
+                     float4( 0, 0, 0, 1)
+                    );
+}
+
 
 /// Retrieves the world position of a specified camera point with depth
 static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float3x3 cameraIntrinsicsInversed, matrix_float4x4 localToWorld) {
@@ -75,21 +75,17 @@ void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thre
     const auto y = position.z;
     const auto z = position.y - floorHeight;
     
-    const auto rho = float2(x, y);
-    auto theta = atan2( length(rho), z );
+    auto theta = atan2( length(float2(x, y)), z );
     auto phi = atan( y / x );
-    
     if ( x < 0 ) {
         phi += PI;
-    }
-    else if (y < 0 && x > 0) {
+    } else if (y < 0 && x > 0) {
         phi += 2*PI;
-    }
-    else {}
+    } else {}
+    
     i = int( theta / THETA_STEP );
     j = int( phi / PHI_STEP );
-    const auto r = float3(x, y, z);
-    value = length(r);
+    value = length( float3(x, y, z) );
 }
 
 float4 restoreFromCartesianTable(constant MyMeshData& md, int index) {
