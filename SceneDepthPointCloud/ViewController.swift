@@ -119,22 +119,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
         startButton.isHidden = !sendButton.isHidden
     }
     
-//    @objc
-//    func rotated() {
-//        if UIDeviceOrientationIsLandscape(UIDevice.current.orientation) {
-//            print("Landscape")
-//        } else {
-//            print("portrait")
-//        }
-//    }
-    
-//    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-//        if UIDevice.current.orientation.isLandscape {
-//            print("Landscape")
-//        } else {
-//            print("portrait")
-//        }
-//    }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -197,8 +181,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
             let row = Int(gridRow(Int32(i)))
             let col = Int(gridColumn(Int32(i)))
             let val = getMedian(node)
-            
-            res[Int(Foot.rawValue)]!.append( (row, col, val) )
+            if (node.length > MAX_MESH_STATISTIC/2) {
+                res[Int(node.group.rawValue)]!.append( (row, col, val) )
+            }
         }
         
         return res

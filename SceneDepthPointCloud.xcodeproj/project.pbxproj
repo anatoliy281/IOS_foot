@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6A2489AD26146C6300A1F3A9 /* CameraStream.metal in Sources */ = {isa = PBXBuildFile; fileRef = 6A2489AC26146C6300A1F3A9 /* CameraStream.metal */; };
 		6A73C04625DE87B00007853C /* MyMeshData.c in Sources */ = {isa = PBXBuildFile; fileRef = 6A73C04425DE84950007853C /* MyMeshData.c */; };
 		E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13024636FEF00D77039 /* AppDelegate.swift */; };
 		E73DD13324636FEF00D77039 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13224636FEF00D77039 /* Shaders.metal */; };
@@ -20,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		6A2489AC26146C6300A1F3A9 /* CameraStream.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraStream.metal; sourceTree = "<group>"; };
 		6A73C04225DE70C00007853C /* MyMeshData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyMeshData.h; sourceTree = "<group>"; };
 		6A73C04425DE84950007853C /* MyMeshData.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = MyMeshData.c; sourceTree = "<group>"; };
 		948146554F46E56B015690CC /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 				E73DD13024636FEF00D77039 /* AppDelegate.swift */,
 				E73DD13724636FEF00D77039 /* ViewController.swift */,
 				E73DD13224636FEF00D77039 /* Shaders.metal */,
+				6A2489AC26146C6300A1F3A9 /* CameraStream.metal */,
 				E73DD13424636FEF00D77039 /* ShaderTypes.h */,
 				E7B7223A24807ACA002E43E8 /* MetalBuffer.swift */,
 				E73DD13524636FEF00D77039 /* Renderer.swift */,
@@ -178,6 +181,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6A2489AD26146C6300A1F3A9 /* CameraStream.metal in Sources */,
 				E73DD13324636FEF00D77039 /* Shaders.metal in Sources */,
 				E7B7223D24809D1E002E43E8 /* Helpers.swift in Sources */,
 				E7B7223B24807ACA002E43E8 /* MetalBuffer.swift in Sources */,
@@ -347,7 +351,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.1;
+				MARKETING_VERSION = 4.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fittin1;
 				PRODUCT_NAME = "Point Cloud";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -374,7 +378,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.1;
+				MARKETING_VERSION = 4.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fittin1;
 				PRODUCT_NAME = "Point Cloud";
 				PROVISIONING_PROFILE_SPECIFIER = "";

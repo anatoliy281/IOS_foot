@@ -12,17 +12,26 @@ struct ParticleVertexOut {
     float pointSize [[point_size]] = POINT_SIZE;
     float4 color;
 };
-//
-constexpr sampler colorSampler(mip_filter::linear, mag_filter::linear, min_filter::linear);
 
-float4x4 sphericalMatrixTransform(float h) {
+
+float4x4 shiftCoords(float h) {
     return float4x4( float4( 1, 0, 0, 0),
                      float4( 0, 0, 1, 0),
-                     float4( 0, 1, 0, -h),
-                     float4( 0, 0, 0, 1)
+                     float4( 0, 1, 0, 0),
+                     float4( 0, 0, -h, 1)
                     );
 }
 
+float4x4 shiftCoordsBack(float h) {
+    return float4x4( float4( 1, 0, 0, 0),
+                     float4( 0, 0, 1, 0),
+                     float4( 0, 1, 0, 0),
+                     float4( 0, h, 0, 1)
+                    );
+}
+
+//
+constexpr sampler colorSampler(mip_filter::linear, mag_filter::linear, min_filter::linear);
 
 /// Retrieves the world position of a specified camera point with depth
 static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float3x3 cameraIntrinsicsInversed, matrix_float4x4 localToWorld) {
@@ -71,29 +80,26 @@ void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread f
 
 void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thread int& j, thread float& value) {
     
-    const auto x = position.x;
-    const auto y = position.z;
-    const auto z = position.y - floorHeight;
+    const auto spos = shiftCoords(floorHeight)*position;
     
-    auto theta = atan2( length(float2(x, y)), z );
-    auto phi = atan( y / x );
-    if ( x < 0 ) {
+    auto theta = atan2( length( float2(spos.xy) ), spos.z );
+    auto phi = atan( spos.y / spos.x );
+    if ( spos.x < 0 ) {
         phi += PI;
-    } else if (y < 0 && x > 0) {
+    } else if ( spos.y < 0 && spos.x > 0) {
         phi += 2*PI;
     } else {}
     
     i = int( theta / THETA_STEP );
     j = int( phi / PHI_STEP );
-    value = length( float3(x, y, z) );
+    value = length( float3(spos.xyz) );
 }
 
 float4 restoreFromCartesianTable(constant MyMeshData& md, int index) {
-    float4 pos;
+    float4 pos(1);
     pos.x = (index/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
     pos.z = (index%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
     pos.y = getValue(md);
-    pos.w = 1;
     
     return pos;
 }
@@ -103,37 +109,43 @@ float4 restoreFromSphericalTable(float floorHeight, constant MyMeshData& md, int
     const auto phi = (index%GRID_NODE_COUNT)*PHI_STEP;
     const auto rho = getValue(md);
     
-    const auto x = rho*sin(theta)*cos(phi);
-    const auto y = rho*sin(theta)*sin(phi);
-    const auto z = rho*cos(theta);
+    float4 pos(1);
+    pos.x = rho*sin(theta)*cos(phi);
+    pos.y = rho*sin(theta)*sin(phi);
+    pos.z = rho*cos(theta);
 
-    return float4(x, z + floorHeight, y, 1);
+    return shiftCoordsBack(floorHeight)*pos;
 }
 
 float4 colorCartesianPoint(constant MyMeshData& md) {
-    const float4 purple(0.5, 0, 0.5, 0);
-    const float4 green(0.1, 0.3, 0.1, 0);
-    float4 color = purple + (green - purple)*md.gradient;
+    float4 color(0.1, 0.3, 0.1, 0);
     color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
     return color;
 }
 
-float4 colorSphericalpoint(float floorDist, constant MyMeshData& md) {
-    const float4 childUnexpected(247/255, 242/255, 26/255, 1);
-    const float4 scarlet(1, 36/255, 0, 1);
+float4 colorSphericalPoint(float floorDist, constant MyMeshData& md) {
+    const float4 childUnexpected(247/255, 242/255, 26/255, 0);
+    const float4 scarlet(1, 36/255, 0, 0);
     float gradient = getValue(md) / RADIUS;
     float4 footColor = childUnexpected + (scarlet - childUnexpected)*gradient;
-    footColor.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
     
-    float floorGrad;
-    if ( floorDist > MAX_GRAD_H ) {
-        floorGrad = 1;
-    } else {
+    float floorGrad = 1;
+    if ( floorDist < MAX_GRAD_H ) {
         floorGrad = floorDist / MAX_GRAD_H;
     }
     
     const float4 green(0.1, 0.3, 0.1, 0);
-    return green + (footColor - green)*floorGrad;
+    float4 color = green + (footColor - green)*floorGrad;
+    color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
+    if (md.length > MAX_MESH_STATISTIC/2)
+        color = float4(1);
+    return color;
+}
+
+float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float4& pos) {
+    float4 res = uniforms.viewProjectionMatrix * pos;
+    res /= res.w;
+    return res;
 }
 
 ///  Vertex shader that takes in a 2D grid-point and infers its 3D position in world-space, along with RGB and confidence
@@ -151,6 +163,11 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     const auto texCoord = gridPoint / uniforms.cameraResolution;
     // Sample the depth map to get the depth value
     const auto depth = depthTexture.sample(colorSampler, texCoord).r;
+    
+    if (depth < 0.3) {
+        return;
+    }
+    
     // With a 2D point plus depth, we can now get its 3D position
     const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
     
@@ -159,7 +176,7 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     if (
         position.x*position.x + position.z*position.z < RADIUS*RADIUS
         &&
-        confidence == 2
+        confidence > 0
         ) {
         
         int i, j;
@@ -183,14 +200,9 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
             ++len;
         }
             
-        if (heights.floor == 0) {
+        if (heights.floor != 0) {
             auto h = md.heights[md.length/2];
             const auto heightDeviation = abs(h - heights.floor);
-//            if ( heightDeviation > MAX_GRAD_H ) {
-//                md.gradient = 1;
-//            } else {
-//                md.gradient = static_cast<float>(heightDeviation) / MAX_GRAD_H;
-//            }
             if ( heightDeviation < EPS_H ) {
                 md.group = Floor;
             } else {
@@ -214,16 +226,11 @@ vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(k
         color = colorCartesianPoint(md);
     } else {
         pos = restoreFromSphericalTable(heights.floor, md, vid);
-//        pos = restoreFromSphericalTable(0, md, vid);
-        color = colorSphericalpoint(abs(pos.y - heights.floor), md);
+        color = colorSphericalPoint(abs(pos.y - heights.floor), md);
     }
-
-    float4 projectedPosition = uniforms.viewProjectionMatrix * pos;
-    projectedPosition /= projectedPosition.w;
     
     ParticleVertexOut pOut;
-    pOut.position = projectedPosition;
-  
+    pOut.position = projectOnScreen(uniforms, pos);
     pOut.color = color;
     return pOut;
 }
@@ -233,57 +240,3 @@ fragment float4 gridFragment(ParticleVertexOut in[[stage_in]])
     return in.color;
 }
 
-struct RGBVertexOut {
-    float4 position [[position]];
-    float2 texCoord;
-};
-
-
-
-
-constant auto yCbCrToRGB = float4x4(
-                                    float4(+1.0000f, +1.0000f, +1.0000f, +0.0000f),
-                                    float4(+0.0000f, -0.3441f,  1.7720f, +0.0000f),
-                                    float4( 1.4020f, -0.7141f, +0.0000f, +0.0000f),
-                                    float4(-0.7010f,  0.5291f, -0.8860f, +1.0000f)
-                                    );
-
-vertex RGBVertexOut cameraImageVertex( uint vid [[ vertex_id ]],
-                                       constant CameraView* image [[ buffer(kViewCorner) ]],
-                                       constant matrix_float3x3& viewToCamera[[ buffer(kViewToCam) ]]) {
-    RGBVertexOut out;
-    out.position = float4(image[vid].viewVertices, 0, 1);
-    out.texCoord = ( float3(image[vid].viewTexCoords, 1)*viewToCamera ).xy;
-    return out;
-}
-
-fragment float4 cameraImageFragment(RGBVertexOut in [[stage_in]],
-                                    texture2d<float, access::sample> capturedImageTextureY[[ texture(kTextureY) ]],
-                                    texture2d<float, access::sample> capturedImageTextureCbCr[[ texture(kTextureCbCr) ]]
-                                  ) {
-    const auto uv = in.texCoord;
-    const auto ycbcr = float4( capturedImageTextureY.sample(colorSampler, uv).r,
-                               capturedImageTextureCbCr.sample(colorSampler, uv).rg, 1);
-    
-    return float4(float3(yCbCrToRGB*ycbcr).rgb, 1);
-}
-
-
-
-
-
-vertex ParticleVertexOut axisVertex( constant ColoredPoint* axis [[buffer(kVerteces)]],
-                         constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-                         unsigned int vid [[ vertex_id ]]
-                         )
-{
-    ParticleVertexOut outPnt;
-    outPnt.position = uniforms.viewProjectionMatrix * float4(axis[vid].position, 1);
-    outPnt.color = ceil(float4(axis[vid].position, 1));
-    return outPnt;
-}
-
-fragment float4 axisFragment(ParticleVertexOut in[[stage_in]])
-{
-    return in.color;
-}

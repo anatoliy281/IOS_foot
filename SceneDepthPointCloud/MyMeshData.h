@@ -31,7 +31,6 @@ extern "C" {
         float heights[MAX_MESH_STATISTIC];
         int length;
         enum Group group;
-        float gradient;
     };
     
     struct MyMeshData initMyMeshData(void);
