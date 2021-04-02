@@ -82,8 +82,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
         var urls:[URL] = []
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             for (id, str) in objects {
-                if id == Int(Unknown.rawValue) { continue }
-                let fileName = fNames[id]! + ".obj"
+                if id == Int(Unknown.rawValue) || id == Int(Floor.rawValue) { continue }
+//                let date:Int = Date().hashValue
+                let fileName = fNames[id]! + "\(Int(Date().timeIntervalSince1970)).obj"
                 let url = dir.appendingPathComponent(fileName)
                 urls.append(url)
                 do {

@@ -9,8 +9,6 @@ enum RendererState {
 
 class Renderer {
     
-
-    
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
     private let cameraRotationThreshold = cos(2 * .degreesToRadian)
@@ -25,8 +23,19 @@ class Renderer {
     private let device: MTLDevice
     private let library: MTLLibrary
     private let renderDestination: RenderDestinationProvider
-    private let relaxedStencilState: MTLDepthStencilState
-    private let depthStencilState: MTLDepthStencilState
+    
+    lazy private var relaxedStencilState: MTLDepthStencilState = {
+        return device.makeDepthStencilState(descriptor: MTLDepthStencilDescriptor())!
+    }()
+    
+    lazy private var depthStencilState: MTLDepthStencilState = {
+        let descriptor = MTLDepthStencilDescriptor()
+        descriptor.depthCompareFunction = .lessEqual
+        descriptor.isDepthWriteEnabled = true
+        return device.makeDepthStencilState(descriptor: descriptor)!
+        
+    }()
+    
     private let commandQueue: MTLCommandQueue
     
     private lazy var viewArea:MetalBuffer<CameraView> = {
@@ -71,9 +80,22 @@ class Renderer {
                                                             array: makeGridPoints(),
                                                             index: kGridPoints.rawValue, options: [])
     
-    private lazy var axisBuffer = MetalBuffer<ColoredPoint>(device: device, array: makeAxisVerteces(), index: kVerteces.rawValue)
-    private lazy var axisIndeces = MetalBuffer<UInt16>(device: device, array: makeAxisIndeces(), index: 0)
+    private lazy var heelAreaMesh:MTKMesh = {
+        let allocator = MTKMeshBufferAllocator(device: device)
+        let height:Float = 0.25
+        let radius:Float = 0.02
+        let mdlMesh = MDLMesh(cylinderWithExtent: [radius, height, radius],
+                                segments: [100,100],
+                                inwardNormals: false,
+                                topCap: false,
+                                bottomCap: false,
+                                geometryType: .triangles,
+                                allocator: allocator)
+        let mesh = try! MTKMesh(mesh: mdlMesh, device: device)
+        return mesh
+    }()
     
+    private lazy var axisIndeces = MetalBuffer<UInt16>(device: device, array: makeAxisIndeces(), index: 0)
     
     // Point Cloud buffer
     private lazy var pointCloudUniforms: PointCloudUniforms = {
@@ -118,16 +140,6 @@ class Renderer {
         for _ in 0 ..< maxInFlightBuffers {
             pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
         }
-        
-        // rbg does not need to read/write depth
-        let relaxedStateDescriptor = MTLDepthStencilDescriptor()
-        relaxedStencilState = device.makeDepthStencilState(descriptor: relaxedStateDescriptor)!
-        
-        // setup depth test for point cloud
-        let depthStateDescriptor = MTLDepthStencilDescriptor()
-        depthStateDescriptor.depthCompareFunction = .lessEqual
-        depthStateDescriptor.isDepthWriteEnabled = true
-        depthStencilState = device.makeDepthStencilState(descriptor: depthStateDescriptor)!
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         state = .findFootArea
@@ -307,16 +319,23 @@ class Renderer {
             renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
             renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
 
+            
             renderEncoder.setRenderPipelineState(axisPipelineState)
-            renderEncoder.setVertexBuffer(axisBuffer)
-            renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<PointCloudUniforms>.stride, index: Int(kPointCloudUniforms.rawValue))
-            renderEncoder.drawIndexedPrimitives(type: .line,
-                                                indexCount: axisIndeces.count,
-                                                indexType: .uint16,
-                                                indexBuffer: axisIndeces.buffer,
-                                                indexBufferOffset: 0)
+            renderEncoder.setVertexBuffer(heelAreaMesh.vertexBuffers[0].buffer,
+                                          offset: 0,
+                                          index: 0)
+            renderEncoder.setVertexBytes(&pointCloudUniforms,
+                                         length: MemoryLayout<PointCloudUniforms>.stride,
+                                         index: 1)
+            guard let submesh = heelAreaMesh.submeshes.first else { return }
+            renderEncoder.drawIndexedPrimitives(type: .triangle,
+                                                indexCount: submesh.indexCount,
+                                                indexType: submesh.indexType,
+                                                indexBuffer: submesh.indexBuffer.buffer,
+                                                indexBufferOffset: submesh.indexBuffer.offset)
         } else {
             // handle buffer rotating
+            renderEncoder.setDepthStencilState(depthStencilState)
             currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
             pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
             
@@ -339,12 +358,13 @@ class Renderer {
             if heights.floor == 0 {
                 renderEncoder.setVertexBuffer(myGridBuffer)
                 bufCount = myGridBuffer.count
-                print("print cartesian")
+//                print("print cartesian")
             } else {
                 renderEncoder.setVertexBuffer(myGridSphericalBuffer)
                 bufCount = myGridSphericalBuffer.count
-                print("print spherical")
+//                print("print spherical")
             }
+//            heights.floor = 0
             renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
 //            renderEncoder.drawIndexedPrimitives(type: .point,
 //                                                indexCount: myIndecesBuffer.count,
@@ -377,11 +397,6 @@ class Renderer {
         commandBuffer.addCompletedHandler { buffer in
             retainingTextures.removeAll()
         }
-        
-//        var debugVar = Int(0)
-//        renderEncoder.setVertexBytes(&debugVar, length: MemoryLayout<Int>.stride, index: 12)
-        
-        renderEncoder.setDepthStencilState(relaxedStencilState)
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
@@ -448,6 +463,7 @@ private extension Renderer {
         descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
         descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
         descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        descriptor.vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(heelAreaMesh.vertexDescriptor)
         
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
@@ -490,10 +506,8 @@ private extension Renderer {
         
         var points = [Float2]()
         for gridY in 0 ..< deltaY {
-//            let alternatingOffsetX = Float(gridY % 2) * spacing / 2
             let alternatingOffsetX = Float(gridY % 2) / 2
             for gridX in 0 ..< deltaX {
-//                let cameraPoint = Float2(alternatingOffsetX + (Float(gridX) + 0.5) * spacing, (Float(gridY) + 0.5) * spacing)
                 let cameraPoint = Float2(alternatingOffsetX + (Float(gridX) + 0.5), (Float(gridY) + 0.5))
                 
                 points.append(cameraPoint)
@@ -503,19 +517,6 @@ private extension Renderer {
         return points
     }
     
-    
-    func makeAxisVerteces() -> [ColoredPoint] {
-//        let allocator = MTKMeshBufferAllocator(device: device)
-//        let mdlMesh = MDLMesh(cylinderWithExtent: [1,1,1], segments: [20,10], inwardNormals: false, topCap: true, bottomCap: true, geometryType: .triangles, allocator: allocator)
-//        let mesh = try MTKMesh(mesh: mdlMesh, device: device).submeshes.first
-        
-        let res = [ColoredPoint(position: [0,   0,   0], color: [1,1,1,1]),          // O
-                   ColoredPoint(position: [0.25, 0,   0], color: [1,0,0,1]),        // X
-                   ColoredPoint(position: [0,  -1,   0], color: [0,1,0,1]),        // Y
-                   ColoredPoint(position: [0,   0, 0.25], color: [0,0,1,1])          // Z
-           ]
-        return res
-    }
     
     func makeAxisIndeces() -> [UInt16] {
         let zero = UInt16(0)

@@ -39,24 +39,37 @@ fragment float4 cameraImageFragment(RGBVertexOut in [[stage_in]],
     return float4(float3(yCbCrToRGB*ycbcr).rgb, 1);
 }
 
+struct VertexIn {
+    float4 position [[attribute(0)]];
+};
+
 struct ParticleVertexOut {
     float4 position [[position]];
     float pointSize [[point_size]] = POINT_SIZE;
-    float4 color;
+//    float4 color;
 };
 
-vertex ParticleVertexOut axisVertex( constant ColoredPoint* axis [[buffer(kVerteces)]],
-                         constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-                         unsigned int vid [[ vertex_id ]]
-                         )
+
+float4 project(constant PointCloudUniforms &uniforms, const thread float4& pos) {
+    float4 res = uniforms.viewProjectionMatrix * pos;
+    res /= res.w;
+    return res;
+}
+
+vertex ParticleVertexOut axisVertex(
+                                    const VertexIn vertexIn [[ stage_in ]],
+                                     constant PointCloudUniforms &uniforms [[ buffer(1) ]]
+                                    )
 {
+    const auto pos = vertexIn.position - float4(0, 0.14, 0, 0);
     ParticleVertexOut outPnt;
-    outPnt.position = uniforms.viewProjectionMatrix * float4(axis[vid].position, 1);
-    outPnt.color = ceil(float4(axis[vid].position, 1));
+    outPnt.position = project( uniforms, pos );
+//    outPnt.position = pos;
     return outPnt;
 }
 
-fragment float4 axisFragment(ParticleVertexOut in[[stage_in]])
+
+fragment float4 axisFragment()
 {
-    return in.color;
+    return float4(247/255, 242/255, 26/255, 0.25);
 }

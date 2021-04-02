@@ -137,8 +137,8 @@ float4 colorSphericalPoint(float floorDist, constant MyMeshData& md) {
     const float4 green(0.1, 0.3, 0.1, 0);
     float4 color = green + (footColor - green)*floorGrad;
     color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
-    if (md.length > MAX_MESH_STATISTIC/2)
-        color = float4(1);
+//    if (md.length > MAX_MESH_STATISTIC/2)
+//        color = float4(1, 0, 0 , 1);
     return color;
 }
 
