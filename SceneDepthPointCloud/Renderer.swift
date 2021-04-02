@@ -354,26 +354,26 @@ class Renderer {
             
             renderEncoder.setRenderPipelineState(gridPipelineState)
             
-            var bufCount:Int = 0
+//            var bufCount:Int = 0
             if heights.floor == 0 {
                 renderEncoder.setVertexBuffer(myGridBuffer)
-                bufCount = myGridBuffer.count
+//                bufCount = myGridBuffer.count
 //                print("print cartesian")
             } else {
                 renderEncoder.setVertexBuffer(myGridSphericalBuffer)
-                bufCount = myGridSphericalBuffer.count
+//                bufCount = myGridSphericalBuffer.count
 //                print("print spherical")
             }
 //            heights.floor = 0
             renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
-//            renderEncoder.drawIndexedPrimitives(type: .point,
-//                                                indexCount: myIndecesBuffer.count,
-//                                                indexType: .uint32,
-//                                                indexBuffer: myIndecesBuffer.buffer,
-//                                                indexBufferOffset: 0)
-            renderEncoder.drawPrimitives( type: .point,
-                                          vertexStart: 0,
-                                          vertexCount: bufCount)
+            renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+                                                indexCount: myIndecesBuffer.count,
+                                                indexType: .uint32,
+                                                indexBuffer: myIndecesBuffer.buffer,
+                                                indexBufferOffset: 0)
+//            renderEncoder.drawPrimitives( type: .point,
+//                                          vertexStart: 0,
+//                                          vertexCount: bufCount)
         }
         
         renderEncoder.endEncoding()

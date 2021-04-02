@@ -188,9 +188,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
             let row = Int(gridRow(Int32(i)))
             let col = Int(gridColumn(Int32(i)))
             let val = getMedian(node)
-            if (node.length > MAX_MESH_STATISTIC/2) {
+//            if (node.length > MAX_MESH_STATISTIC/2) {
                 res[Int(node.group.rawValue)]!.append( (row, col, val) )
-            }
+//            }
         }
         
         return res

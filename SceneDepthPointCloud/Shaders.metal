@@ -73,8 +73,8 @@ float getValue(constant MyMeshData& md) {
 
 
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value) {
-    i = int(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
-    j = int(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
+    i = round(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
+    j = round(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
     value = position.y;
 }
 
@@ -90,8 +90,8 @@ void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thre
         phi += 2*PI;
     } else {}
     
-    i = int( theta / THETA_STEP );
-    j = int( phi / PHI_STEP );
+    i = round( theta / THETA_STEP );
+    j = round( phi / PHI_STEP );
     value = length( float3(spos.xyz) );
 }
 
@@ -137,8 +137,6 @@ float4 colorSphericalPoint(float floorDist, constant MyMeshData& md) {
     const float4 green(0.1, 0.3, 0.1, 0);
     float4 color = green + (footColor - green)*floorGrad;
     color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
-//    if (md.length > MAX_MESH_STATISTIC/2)
-//        color = float4(1, 0, 0 , 1);
     return color;
 }
 
