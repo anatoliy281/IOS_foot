@@ -90,6 +90,10 @@ void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thre
         phi += 2*PI;
     } else {}
     
+//    if (abs(theta - PI/2) < 50*PI/180) {
+//        i = j = -1;
+//    }
+    
     i = round( theta / THETA_STEP );
     j = round( phi / PHI_STEP );
     value = length( float3(spos.xyz) );
@@ -127,7 +131,7 @@ float4 colorSphericalPoint(float floorDist, constant MyMeshData& md) {
     const float4 childUnexpected(247/255, 242/255, 26/255, 0);
     const float4 scarlet(1, 36/255, 0, 0);
     float gradient = getValue(md) / RADIUS;
-    float4 footColor = childUnexpected + (scarlet - childUnexpected)*gradient;
+    float4 footColor = mix(childUnexpected, scarlet, gradient);
     
     float floorGrad = 1;
     if ( floorDist < MAX_GRAD_H ) {
@@ -135,7 +139,7 @@ float4 colorSphericalPoint(float floorDist, constant MyMeshData& md) {
     }
     
     const float4 green(0.1, 0.3, 0.1, 0);
-    float4 color = green + (footColor - green)*floorGrad;
+    float4 color = mix(green, footColor, floorGrad);
     color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
     return color;
 }
