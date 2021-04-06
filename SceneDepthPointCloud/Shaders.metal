@@ -154,7 +154,7 @@ float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
-                            constant Heights& heights[[ buffer(kHeight) ]],
+                            constant float& floorHeight[[ buffer(kHeight) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
@@ -183,10 +183,10 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         
         int i, j;
         float val;
-        if (heights.floor == 0) {
+        if (floorHeight == 0) {
             mapToCartesianTable(position, i, j, val);
         } else {
-            mapToSphericalTable(heights.floor, position, i, j, val);
+            mapToSphericalTable(floorHeight, position, i, j, val);
             if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
                 return ;
             }
@@ -202,9 +202,9 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
             ++len;
         }
             
-        if (heights.floor != 0) {
+        if (floorHeight != 0) {
             auto h = md.heights[md.length/2];
-            const auto heightDeviation = abs(h - heights.floor);
+            const auto heightDeviation = abs(h - floorHeight);
             if ( heightDeviation < EPS_H ) {
                 md.group = Floor;
             } else {
@@ -217,18 +217,18 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 
 vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-                                     constant Heights& heights[[ buffer(kHeight) ]],
+                                     constant float& floorHeight[[ buffer(kHeight) ]],
                                      unsigned int vid [[ vertex_id ]] )
 {
     constant auto &md = myMeshData[vid];
 
     float4 pos, color;
-    if (heights.floor == 0) {
+    if (floorHeight == 0) {
         pos = restoreFromCartesianTable(md, vid);
         color = colorCartesianPoint(md);
     } else {
-        pos = restoreFromSphericalTable(heights.floor, md, vid);
-        color = colorSphericalPoint(abs(pos.y - heights.floor), md);
+        pos = restoreFromSphericalTable(floorHeight, md, vid);
+        color = colorSphericalPoint(abs(pos.y - floorHeight), md);
     }
     
     ParticleVertexOut pOut;

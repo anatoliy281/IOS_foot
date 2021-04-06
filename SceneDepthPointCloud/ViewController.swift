@@ -114,7 +114,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         print("START!!!")
         
         renderer.setState(state: .scanning)
-        if (renderer.heights.floor == 0) {
+        if (renderer.floorHeight == nil) {
             renderer.initializeGridNodes()
             renderer.frameAccumulated = 0
         } else {

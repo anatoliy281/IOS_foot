@@ -65,12 +65,7 @@ class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
     
-    lazy var heights:Heights = {
-        var h = Heights()
-        h.delta = 75e-3
-        h.floor = 0
-        return h
-    }()
+    var floorHeight:Float!
     
     
     // The current viewport size
@@ -283,9 +278,7 @@ class Renderer {
             return floorHeight!.0
         }
         
-//        var gistro =
-        heights.floor = findFloor( calcHeightGistro() )
-        
+        floorHeight = findFloor( calcHeightGistro() )
     }
     
     
@@ -355,7 +348,7 @@ class Renderer {
             renderEncoder.setRenderPipelineState(gridPipelineState)
             
 //            var bufCount:Int = 0
-            if heights.floor == 0 {
+            if floorHeight == nil {
                 renderEncoder.setVertexBuffer(myGridBuffer)
 //                bufCount = myGridBuffer.count
 //                print("print cartesian")
@@ -365,7 +358,7 @@ class Renderer {
 //                print("print spherical")
             }
 //            heights.floor = 0
-            renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
+            renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
             renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
                                                 indexCount: myIndecesBuffer.count,
                                                 indexType: .uint32,
@@ -401,14 +394,14 @@ class Renderer {
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
         
-        if heights.floor == 0 {
+        if floorHeight == nil {
             renderEncoder.setVertexBuffer(myGridBuffer)
             print("calc cartesian")
         } else {
             renderEncoder.setVertexBuffer(myGridSphericalBuffer)
             print("calc spherical")
         }
-        renderEncoder.setVertexBytes(&heights, length: MemoryLayout<Heights>.stride, index: Int(kHeight.rawValue))
+        renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))

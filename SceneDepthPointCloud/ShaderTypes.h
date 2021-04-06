@@ -37,11 +37,6 @@ struct PointCloudUniforms {
     simd_float2 cameraResolution;
 };
 
-typedef struct {
-    float floor;
-    float delta;
-} Heights;
-
 struct ColoredPoint {
     simd_float3 position;
     simd_int4 color;
