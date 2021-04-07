@@ -218,7 +218,7 @@ class Renderer {
     }
    
     
-    private func updateDepthTextures(frame: ARFrame) -> Bool {
+    private func canUpdateDepthTextures(frame: ARFrame) -> Bool {
         guard let depthMap = frame.sceneDepth?.depthMap,
             let confidenceMap = frame.sceneDepth?.confidenceMap else {
                 return false
@@ -282,8 +282,6 @@ class Renderer {
         let gistro = calcHeightGistro()
         if !gistro.isEmpty {
             floorHeight = findFloor( gistro )
-        } else {
-            print(gistro.count)
         }
     }
     
@@ -310,7 +308,7 @@ class Renderer {
         currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
         pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
         
-        if updateDepthTextures(frame: currentFrame) {
+        if canUpdateDepthTextures(frame: currentFrame) {
             frameAccumulated += 1
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
         }
@@ -331,9 +329,6 @@ class Renderer {
                                           offset: 0,
                                           index: Int(kHeelArea.rawValue))
             renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-//            renderEncoder.setVertexBytes(&pointCloudUniforms,
-//                                         length: MemoryLayout<PointCloudUniforms>.stride,
-//                                         index: Int(kPointCloudUniforms.rawValue))
             renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
             
             guard let submesh = heelAreaMesh.submeshes.first else { return }
@@ -365,7 +360,6 @@ class Renderer {
         
         if (frameAccumulated%10 == 0) && (floorHeight == -10) {
             separate()
-            initializeSphericalGridNodes()
         }
     }
     

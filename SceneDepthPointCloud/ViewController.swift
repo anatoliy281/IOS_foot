@@ -112,11 +112,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
     func startAction(_ sender: UIButton!) {
         
         print("START!!!")
-        
-        renderer.setState(state: .scanning)
         if (renderer.floorHeight != -10) {
-            renderer.frameAccumulated = 0
             renderer.initializeSphericalGridNodes()
+            renderer.setState(state: .scanning)
         }
         
         sendButton.isHidden = false
