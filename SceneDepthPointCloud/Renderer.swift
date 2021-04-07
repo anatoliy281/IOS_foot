@@ -310,7 +310,7 @@ class Renderer {
         currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
         pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
         
-        if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
+        if updateDepthTextures(frame: currentFrame) {
             frameAccumulated += 1
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
         }
@@ -367,14 +367,6 @@ class Renderer {
             separate()
             initializeSphericalGridNodes()
         }
-    }
-    
-    private func shouldAccumulate(frame: ARFrame) -> Bool {
-        let cameraTransform = frame.camera.transform
-        return
-//            currentPointCount == 0 ||
-            dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
-            || distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) >= cameraTranslationThreshold
     }
     
     private func accumulatePoints(frame: ARFrame, commandBuffer: MTLCommandBuffer, renderEncoder: MTLRenderCommandEncoder) {
