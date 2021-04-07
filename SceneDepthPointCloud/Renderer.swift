@@ -65,7 +65,7 @@ class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
     
-    var floorHeight:Float!
+    var floorHeight:Float = -10
     
     
     // The current viewport size
@@ -77,7 +77,7 @@ class Renderer {
     
     private lazy var heelAreaMesh:MTKMesh = {
         let allocator = MTKMeshBufferAllocator(device: device)
-        let height:Float = 0.25
+        let height:Float = 0.05
         let radius:Float = 0.02
         let mdlMesh = MDLMesh(cylinderWithExtent: [radius, height, radius],
                                 segments: [100,100],
@@ -118,8 +118,8 @@ class Renderer {
     var myGridSphericalBuffer: MetalBuffer<MyMeshData>!
     
     
-    var frameAccumulated:UInt = 0;
-    var frameAccumulatedIntervals:[UInt] = [10, 25, 50, 100, 400, 1000]
+    var frameAccumulated: UInt = 0;
+    var frameEnoughForHeight: UInt = 10
     
     var state:RendererState
     
@@ -138,6 +138,7 @@ class Renderer {
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         state = .findFootArea
+        initializeGridNodes()
     }
     
     func setState(state newState:RendererState) {
@@ -278,7 +279,12 @@ class Renderer {
             return floorHeight!.0
         }
         
-        floorHeight = findFloor( calcHeightGistro() )
+        let gistro = calcHeightGistro()
+        if !gistro.isEmpty {
+            floorHeight = findFloor( gistro )
+        } else {
+            print(gistro.count)
+        }
     }
     
     
@@ -301,25 +307,35 @@ class Renderer {
         // update frame data
         update(frame: currentFrame)
         
+        currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
+        pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
+        
+        if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
+            frameAccumulated += 1
+            accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
+        }
+        
         if state == .findFootArea {
             updateCapturedImageTextures(frame: currentFrame)
-                        
             renderEncoder.setDepthStencilState(relaxedStencilState)
+            
             renderEncoder.setRenderPipelineState(cameraImageState)
             renderEncoder.setVertexBuffer(viewArea)
             renderEncoder.setVertexBytes(&viewToCamera, length: MemoryLayout<CGAffineTransform>.stride, index: Int(kViewToCam.rawValue))
             renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
             renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
-            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-
+            renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: viewArea.count)
             
             renderEncoder.setRenderPipelineState(axisPipelineState)
             renderEncoder.setVertexBuffer(heelAreaMesh.vertexBuffers[0].buffer,
                                           offset: 0,
-                                          index: 0)
-            renderEncoder.setVertexBytes(&pointCloudUniforms,
-                                         length: MemoryLayout<PointCloudUniforms>.stride,
-                                         index: 1)
+                                          index: Int(kHeelArea.rawValue))
+            renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//            renderEncoder.setVertexBytes(&pointCloudUniforms,
+//                                         length: MemoryLayout<PointCloudUniforms>.stride,
+//                                         index: Int(kPointCloudUniforms.rawValue))
+            renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+            
             guard let submesh = heelAreaMesh.submeshes.first else { return }
             renderEncoder.drawIndexedPrimitives(type: .triangle,
                                                 indexCount: submesh.indexCount,
@@ -329,49 +345,28 @@ class Renderer {
         } else {
             // handle buffer rotating
             renderEncoder.setDepthStencilState(depthStencilState)
-            currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
-            pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
-            
-            
-            if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
-                frameAccumulated += 1
-                accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
-            }
-            
-            if (frameAccumulated == frameAccumulatedIntervals[0]) {
-                separate()
-                initializeSphericalGridNodes()
-            }
             
             renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
             
             renderEncoder.setRenderPipelineState(gridPipelineState)
             
-//            var bufCount:Int = 0
-            if floorHeight == nil {
-                renderEncoder.setVertexBuffer(myGridBuffer)
-//                bufCount = myGridBuffer.count
-//                print("print cartesian")
-            } else {
-                renderEncoder.setVertexBuffer(myGridSphericalBuffer)
-//                bufCount = myGridSphericalBuffer.count
-//                print("print spherical")
-            }
-//            heights.floor = 0
+            renderEncoder.setVertexBuffer(myGridSphericalBuffer)
             renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
             renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
                                                 indexCount: myIndecesBuffer.count,
                                                 indexType: .uint32,
                                                 indexBuffer: myIndecesBuffer.buffer,
                                                 indexBufferOffset: 0)
-//            renderEncoder.drawPrimitives( type: .point,
-//                                          vertexStart: 0,
-//                                          vertexCount: bufCount)
         }
         
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
         commandBuffer.commit()
+        
+        if (frameAccumulated%10 == 0) && (floorHeight == -10) {
+            separate()
+            initializeSphericalGridNodes()
+        }
     }
     
     private func shouldAccumulate(frame: ARFrame) -> Bool {
@@ -394,12 +389,10 @@ class Renderer {
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
         
-        if floorHeight == nil {
+        if state == .findFootArea {
             renderEncoder.setVertexBuffer(myGridBuffer)
-            print("calc cartesian")
         } else {
             renderEncoder.setVertexBuffer(myGridSphericalBuffer)
-            print("calc spherical")
         }
         renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 

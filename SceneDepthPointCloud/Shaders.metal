@@ -183,15 +183,14 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         
         int i, j;
         float val;
-        if (floorHeight == 0) {
+        if (floorHeight == -10) {
             mapToCartesianTable(position, i, j, val);
         } else {
             mapToSphericalTable(floorHeight, position, i, j, val);
-            if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
-                return ;
-            }
         }
-        
+        if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
+            return ;
+        }
         
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
         device auto& len = md.length;

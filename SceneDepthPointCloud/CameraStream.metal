@@ -56,15 +56,14 @@ float4 project(constant PointCloudUniforms &uniforms, const thread float4& pos) 
     return res;
 }
 
-vertex ParticleVertexOut axisVertex(
-                                    const VertexIn vertexIn [[ stage_in ]],
-                                     constant PointCloudUniforms &uniforms [[ buffer(1) ]]
+vertex ParticleVertexOut axisVertex( const VertexIn vertexIn [[ stage_in ]],
+                                     constant PointCloudUniforms& uniforms [[ buffer(kPointCloudUniforms) ]],
+                                     constant float& floorHeight [[ buffer(kHeight) ]]
                                     )
 {
-    const auto pos = vertexIn.position - float4(0, 0.14, 0, 0);
+    const auto pos = vertexIn.position + float4(0, floorHeight, 0, 0);
     ParticleVertexOut outPnt;
     outPnt.position = project( uniforms, pos );
-//    outPnt.position = pos;
     return outPnt;
 }
 

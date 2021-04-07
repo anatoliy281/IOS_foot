@@ -19,15 +19,14 @@ enum TextureIndices {
 };
 
 enum BufferIndices {
-    kPointCloudUniforms = 0,
+    kHeelArea = 0,
     kGridPoints = 1,
     kMyMesh = 2,
     kHeight = 3,
     kVerteces = 4,
     kViewCorner = 5,
     kViewToCam = 6,
-    kLayer = 7,
-    kHeelArea = 8
+    kPointCloudUniforms = 8
 };
 
 struct PointCloudUniforms {
