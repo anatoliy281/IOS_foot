@@ -51,7 +51,7 @@ class Renderer {
     private lazy var unprojectPipelineState = makeUnprojectionPipelineState()!
     
     private lazy var gridPipelineState = makeGridPipelineState()!
-    private lazy var axisPipelineState = makeAxisPipelineState()!
+    private lazy var heelMarkerAreaPipelineState = makeHeelMarkerAreaPipelineState()!
     private lazy var cameraImageState = makeCameraImageState()!
     
     // texture cache for captured image
@@ -65,7 +65,7 @@ class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
     
-    var floorHeight:Float = -10
+    var floorHeight:Float!
     
     
     // The current viewport size
@@ -77,16 +77,17 @@ class Renderer {
     
     private lazy var heelAreaMesh:MTKMesh = {
         let allocator = MTKMeshBufferAllocator(device: device)
-        let height:Float = 0.05
+        let height:Float = 0.002
         let radius:Float = 0.02
         let mdlMesh = MDLMesh(cylinderWithExtent: [radius, height, radius],
                                 segments: [100,100],
                                 inwardNormals: false,
-                                topCap: false,
-                                bottomCap: false,
+                                topCap: true,
+                                bottomCap: true,
                                 geometryType: .triangles,
                                 allocator: allocator)
         let mesh = try! MTKMesh(mesh: mdlMesh, device: device)
+        
         return mesh
     }()
     
@@ -121,7 +122,7 @@ class Renderer {
     var frameAccumulated: UInt = 0;
     var frameEnoughForHeight: UInt = 10
     
-    var state:RendererState
+    var state:RendererState!
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -137,11 +138,19 @@ class Renderer {
         }
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
-        state = .findFootArea
-        initializeGridNodes()
+        setState(state: .findFootArea)
     }
     
     func setState(state newState:RendererState) {
+        switch state {
+        case .findFootArea:
+            floorHeight = -10
+            initializeGridNodes()
+        case .scanning:
+            initializeSphericalGridNodes()
+        case .none:
+            return
+        }
         state = newState
     }
     
@@ -324,7 +333,7 @@ class Renderer {
             renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
             renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: viewArea.count)
             
-            renderEncoder.setRenderPipelineState(axisPipelineState)
+            renderEncoder.setRenderPipelineState(heelMarkerAreaPipelineState)
             renderEncoder.setVertexBuffer(heelAreaMesh.vertexBuffers[0].buffer,
                                           offset: 0,
                                           index: Int(kHeelArea.rawValue))
@@ -423,9 +432,9 @@ private extension Renderer {
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
     
-    func makeAxisPipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "axisVertex"),
-              let fragmentFunction = library.makeFunction(name: "axisFragment") else { return nil }
+    func makeHeelMarkerAreaPipelineState() -> MTLRenderPipelineState? {
+        guard let vertexFunction = library.makeFunction(name: "heelMarkerAreaVertex"),
+              let fragmentFunction = library.makeFunction(name: "heelMarkerAreaFragment") else { return nil }
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertexFunction
         descriptor.fragmentFunction = fragmentFunction

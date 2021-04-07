@@ -56,7 +56,7 @@ float4 project(constant PointCloudUniforms &uniforms, const thread float4& pos) 
     return res;
 }
 
-vertex ParticleVertexOut axisVertex( const VertexIn vertexIn [[ stage_in ]],
+vertex ParticleVertexOut heelMarkerAreaVertex( const VertexIn vertexIn [[ stage_in ]],
                                      constant PointCloudUniforms& uniforms [[ buffer(kPointCloudUniforms) ]],
                                      constant float& floorHeight [[ buffer(kHeight) ]]
                                     )
@@ -68,7 +68,7 @@ vertex ParticleVertexOut axisVertex( const VertexIn vertexIn [[ stage_in ]],
 }
 
 
-fragment float4 axisFragment()
+fragment float4 heelMarkerAreaFragment()
 {
-    return float4(247/255, 242/255, 26/255, 0.25);
+    return float4(247/255, 242/255, 26/255, 1);
 }

@@ -101,8 +101,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
             present(activity, animated: true, completion: nil)
         }
         
-        
+
         renderer.setState(state: .findFootArea)
+
+
         sendButton.isHidden = true
         startButton.isHidden = !sendButton.isHidden
     }
@@ -113,7 +115,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("START!!!")
         if (renderer.floorHeight != -10) {
-            renderer.initializeSphericalGridNodes()
             renderer.setState(state: .scanning)
         }
         
