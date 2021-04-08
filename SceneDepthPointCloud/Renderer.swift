@@ -122,7 +122,7 @@ class Renderer {
     var frameAccumulated: UInt = 0;
     var frameEnoughForHeight: UInt = 10
     
-    var state:RendererState!
+    var state:RendererState = .findFootArea
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -142,14 +142,12 @@ class Renderer {
     }
     
     func setState(state newState:RendererState) {
-        switch state {
+        switch newState {
         case .findFootArea:
             floorHeight = -10
             initializeGridNodes()
         case .scanning:
             initializeSphericalGridNodes()
-        case .none:
-            return
         }
         state = newState
     }
@@ -346,7 +344,7 @@ class Renderer {
                                                 indexType: submesh.indexType,
                                                 indexBuffer: submesh.indexBuffer.buffer,
                                                 indexBufferOffset: submesh.indexBuffer.offset)
-        } else {
+        } else if state == .scanning {
             // handle buffer rotating
             renderEncoder.setDepthStencilState(depthStencilState)
             
@@ -361,7 +359,7 @@ class Renderer {
                                                 indexType: .uint32,
                                                 indexBuffer: myIndecesBuffer.buffer,
                                                 indexBufferOffset: 0)
-        }
+        } else { return }
         
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
@@ -386,9 +384,9 @@ class Renderer {
         
         if state == .findFootArea {
             renderEncoder.setVertexBuffer(myGridBuffer)
-        } else {
+        } else if state == .scanning {
             renderEncoder.setVertexBuffer(myGridSphericalBuffer)
-        }
+        } else { return }
         renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
