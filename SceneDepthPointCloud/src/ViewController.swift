@@ -68,7 +68,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
 //        smooth()
         renderer.separate()
         
-        
         let data = separateData()
         let objects = convertToObj(separated: data)
 //        let objects = exportToObjFormat()

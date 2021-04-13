@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		6A2489AD26146C6300A1F3A9 /* CameraStream.metal in Sources */ = {isa = PBXBuildFile; fileRef = 6A2489AC26146C6300A1F3A9 /* CameraStream.metal */; };
 		6A73C04625DE87B00007853C /* MyMeshData.c in Sources */ = {isa = PBXBuildFile; fileRef = 6A73C04425DE84950007853C /* MyMeshData.c */; };
+		8A8BFCCC262038D9007F1456 /* AnyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCC8262038D9007F1456 /* AnyStates.swift */; };
+		8A8BFCCD262038D9007F1456 /* compute.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCC9262038D9007F1456 /* compute.metal */; };
+		8A8BFCCE262038D9007F1456 /* computeFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCCA262038D9007F1456 /* computeFunctions.swift */; };
 		E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13024636FEF00D77039 /* AppDelegate.swift */; };
 		E73DD13324636FEF00D77039 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13224636FEF00D77039 /* Shaders.metal */; };
 		E73DD13624636FEF00D77039 /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13524636FEF00D77039 /* Renderer.swift */; };
@@ -24,6 +27,9 @@
 		6A2489AC26146C6300A1F3A9 /* CameraStream.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraStream.metal; sourceTree = "<group>"; };
 		6A73C04225DE70C00007853C /* MyMeshData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyMeshData.h; sourceTree = "<group>"; };
 		6A73C04425DE84950007853C /* MyMeshData.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = MyMeshData.c; sourceTree = "<group>"; };
+		8A8BFCC8262038D9007F1456 /* AnyStates.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AnyStates.swift; sourceTree = "<group>"; };
+		8A8BFCC9262038D9007F1456 /* compute.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = compute.metal; sourceTree = "<group>"; };
+		8A8BFCCA262038D9007F1456 /* computeFunctions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = computeFunctions.swift; sourceTree = "<group>"; };
 		948146554F46E56B015690CC /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		B57D60B9736905755DECF7CE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		E73DD12D24636FEF00D77039 /* Point Cloud.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Point Cloud.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -53,6 +59,42 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		8A8BFCC426203721007F1456 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				8A8BFCD42620418A007F1456 /* metalFiles */,
+				8A8BFCC6262037DF007F1456 /* parallel */,
+				6A73C04425DE84950007853C /* MyMeshData.c */,
+				6A73C04225DE70C00007853C /* MyMeshData.h */,
+				8A8BFCC8262038D9007F1456 /* AnyStates.swift */,
+				E73DD13024636FEF00D77039 /* AppDelegate.swift */,
+				E73DD13724636FEF00D77039 /* ViewController.swift */,
+				E73DD13424636FEF00D77039 /* ShaderTypes.h */,
+				E7B7223A24807ACA002E43E8 /* MetalBuffer.swift */,
+				E73DD13524636FEF00D77039 /* Renderer.swift */,
+				E7B7223C24809D1E002E43E8 /* Helpers.swift */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+		8A8BFCC6262037DF007F1456 /* parallel */ = {
+			isa = PBXGroup;
+			children = (
+				8A8BFCCA262038D9007F1456 /* computeFunctions.swift */,
+			);
+			path = parallel;
+			sourceTree = "<group>";
+		};
+		8A8BFCD42620418A007F1456 /* metalFiles */ = {
+			isa = PBXGroup;
+			children = (
+				E73DD13224636FEF00D77039 /* Shaders.metal */,
+				6A2489AC26146C6300A1F3A9 /* CameraStream.metal */,
+				8A8BFCC9262038D9007F1456 /* compute.metal */,
+			);
+			path = metalFiles;
+			sourceTree = "<group>";
+		};
 		A6415A999BE1C768F18B2649 /* Configuration */ = {
 			isa = PBXGroup;
 			children = (
@@ -91,16 +133,7 @@
 		E73DD12F24636FEF00D77039 /* SceneDepthPointCloud */ = {
 			isa = PBXGroup;
 			children = (
-				6A73C04425DE84950007853C /* MyMeshData.c */,
-				6A73C04225DE70C00007853C /* MyMeshData.h */,
-				E73DD13024636FEF00D77039 /* AppDelegate.swift */,
-				E73DD13724636FEF00D77039 /* ViewController.swift */,
-				E73DD13224636FEF00D77039 /* Shaders.metal */,
-				6A2489AC26146C6300A1F3A9 /* CameraStream.metal */,
-				E73DD13424636FEF00D77039 /* ShaderTypes.h */,
-				E7B7223A24807ACA002E43E8 /* MetalBuffer.swift */,
-				E73DD13524636FEF00D77039 /* Renderer.swift */,
-				E7B7223C24809D1E002E43E8 /* Helpers.swift */,
+				8A8BFCC426203721007F1456 /* src */,
 				E73DD13924636FEF00D77039 /* Main.storyboard */,
 				E73DD13C24636FF100D77039 /* Assets.xcassets */,
 				E73DD13E24636FF100D77039 /* LaunchScreen.storyboard */,
@@ -181,8 +214,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8A8BFCCC262038D9007F1456 /* AnyStates.swift in Sources */,
 				6A2489AD26146C6300A1F3A9 /* CameraStream.metal in Sources */,
 				E73DD13324636FEF00D77039 /* Shaders.metal in Sources */,
+				8A8BFCCE262038D9007F1456 /* computeFunctions.swift in Sources */,
+				8A8BFCCD262038D9007F1456 /* compute.metal in Sources */,
 				E7B7223D24809D1E002E43E8 /* Helpers.swift in Sources */,
 				E7B7223B24807ACA002E43E8 /* MetalBuffer.swift in Sources */,
 				6A73C04625DE87B00007853C /* MyMeshData.c in Sources */,
@@ -343,7 +379,7 @@
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = UR6DEMSJ84;
 				INFOPLIST_FILE = SceneDepthPointCloud/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.4;
@@ -351,7 +387,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.2;
+				MARKETING_VERSION = 4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = fittin1;
 				PRODUCT_NAME = "Point Cloud";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -370,7 +406,7 @@
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = UR6DEMSJ84;
 				INFOPLIST_FILE = SceneDepthPointCloud/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.4;
@@ -378,7 +414,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.2;
+				MARKETING_VERSION = 4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = fittin1;
 				PRODUCT_NAME = "Point Cloud";
 				PROVISIONING_PROFILE_SPECIFIER = "";

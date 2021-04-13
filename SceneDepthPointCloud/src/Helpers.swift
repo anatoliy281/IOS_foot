@@ -1,13 +1,7 @@
-/*
-See LICENSE folder for this sample’s licensing information.
-
-Abstract:
-General Helper methods and properties
-*/
-
 import ARKit
 
 typealias Float2 = SIMD2<Float>
+typealias Int2 = SIMD2<Int>
 typealias Float3 = SIMD3<Float>
 
 extension Float {

@@ -20,9 +20,9 @@ class Renderer {
     private let session: ARSession
     
     // Metal objects and textures
-    private let device: MTLDevice
-    private let library: MTLLibrary
-    private let renderDestination: RenderDestinationProvider
+    let device: MTLDevice
+    let library: MTLLibrary
+    let renderDestination: RenderDestinationProvider
     
     lazy private var relaxedStencilState: MTLDepthStencilState = {
         return device.makeDepthStencilState(descriptor: MTLDepthStencilDescriptor())!
@@ -36,7 +36,7 @@ class Renderer {
         
     }()
     
-    private let commandQueue: MTLCommandQueue
+    let commandQueue: MTLCommandQueue
     
     private lazy var viewArea:MetalBuffer<CameraView> = {
         let viewCorners = [
@@ -65,6 +65,9 @@ class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
     
+    
+    lazy var gistroReductionState: MTLComputePipelineState = makeReductionComputeState()!
+    lazy var toGistroConvertState: MTLComputePipelineState = makeConvertionComputeState()!
     var floorHeight:Float!
     
     
@@ -75,7 +78,7 @@ class Renderer {
                                                             array: makeGridPoints(),
                                                             index: kGridPoints.rawValue, options: [])
     
-    private lazy var heelAreaMesh:MTKMesh = {
+    lazy var heelAreaMesh:MTKMesh = {
         let allocator = MTKMeshBufferAllocator(device: device)
         let height:Float = 0.002
         let radius:Float = 0.02
@@ -118,6 +121,11 @@ class Renderer {
     
     var myGridSphericalBuffer: MetalBuffer<MyMeshData>!
     
+    var gistrosBuffer:MTLBuffer!
+    func initializeGistrosBuffer() {
+        gistrosBuffer = device.makeBuffer(length: MemoryLayout<Gistro>.stride*myGridBuffer.count)
+    }
+    
     
     var frameAccumulated: UInt = 0;
     var frameEnoughForHeight: UInt = 10
@@ -139,6 +147,7 @@ class Renderer {
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         setState(state: .findFootArea)
+        initializeGistrosBuffer()
     }
     
     func setState(state newState:RendererState) {
@@ -258,11 +267,11 @@ class Renderer {
         pointCloudUniforms.cameraIntrinsicsInversed = cameraIntrinsicsInversed
     }
     
-    func separate()  {
+    func separate() -> Float {
         let dH:Float = 2e-3;
         
         func calcHeightGistro() -> [Float:Int] {
-            var res = [Float:Int]()
+            var res = [Float:Int].init()
             let grid = myGridBuffer!
             for i in 0..<grid.count {
                 let nodeStat = grid[i]
@@ -287,9 +296,53 @@ class Renderer {
         }
         
         let gistro = calcHeightGistro()
-        if !gistro.isEmpty {
-            floorHeight = findFloor( gistro )
+        if gistro.isEmpty {
+            return -10
+        } else {
+            return findFloor( gistro )
         }
+    }
+    
+    func gpuSeparate(floorInit: Float) -> Float {
+        
+        var startTime, endTime: CFAbsoluteTime
+        
+        let delta = Float(2e-3)
+        var interval = Float2()
+        if floorInit != -10 {
+            interval = Float2(floorInit + 0.75*delta, floorInit - 0.75*delta);
+        } else {
+            interval = Float2(0, -2)
+        }
+        var i:Int = 1
+        
+        while interval.x - interval.y > delta {
+            // генерация массива Gistro для каждого узла
+            
+//            print(" - \(i)  delta:\(interval.x - interval.y)")
+            
+//            startTime = CFAbsoluteTimeGetCurrent()
+            makeConversion(bufferIn: myGridBuffer.buffer, bufferOut: &gistrosBuffer, &interval)
+//            endTime = CFAbsoluteTimeGetCurrent() - startTime
+//            print("conversion Time elapsed \(String(format: "%.05f", endTime)) seconds")
+            
+//            startTime = CFAbsoluteTimeGetCurrent()
+             // sum-редукция массивов resultGistro
+            let resGistro:Gistro = reductionGistrosData(gistrosBuffer)!
+//            print("{\(interval.x - interval.y)}  gistro(\(resGistro.mn)) a: \(interval.x) b: \(interval.y)")
+//            endTime = CFAbsoluteTimeGetCurrent() - startTime
+//            print("reduction Time elapsed \(String(format: "%.05f", endTime)) seconds")
+            
+            
+            let c = (interval.x + interval.y)*0.5
+            if resGistro.mn[0] > resGistro.mn[1] {
+                interval.y = c
+            } else {
+                interval.x = c
+            }
+            i += 1
+        }
+        return (interval.x + interval.y) / 2
     }
     
     
@@ -365,9 +418,23 @@ class Renderer {
         commandBuffer.present(renderDestination.currentDrawable!)
         commandBuffer.commit()
         
-        if (frameAccumulated%10 == 0) && (floorHeight == -10) {
-            separate()
+        var startTime, endTime: CFAbsoluteTime
+        
+//        if (frameAccumulated%10 == 0) && (floorHeight == -10) {
+        let ffh = floorHeight
+        
+        var fH = Float()
+        if frameAccumulated > 10 {
+            if ( frameAccumulated%10 == 0 ) {
+                startTime = CFAbsoluteTimeGetCurrent()
+    //            floorHeight = separate()
+                floorHeight = gpuSeparate(floorInit: floorHeight)
+                endTime = CFAbsoluteTimeGetCurrent() - startTime
+                print("Time elapsed \(String(format: "%.05f", endTime)) seconds => H:\(String(describing: floorHeight))")
+            }
+            
         }
+        
     }
     
     private func accumulatePoints(frame: ARFrame, commandBuffer: MTLCommandBuffer, renderEncoder: MTLRenderCommandEncoder) {
@@ -398,86 +465,6 @@ class Renderer {
 }
 
 private extension Renderer {
-    func makeUnprojectionPipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "unprojectVertex") else {
-            return nil
-        }
-        
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertexFunction
-        descriptor.isRasterizationEnabled = false
-        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
-        
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }
-    
-    func makeGridPipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "gridVertex"),
-              let fragmentFunction = library.makeFunction(name: "gridFragment") else { return nil }
-        
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertexFunction
-        descriptor.fragmentFunction = fragmentFunction
-        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-
-        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
-        descriptor.colorAttachments[0].isBlendingEnabled = true
-        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
-
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }
-    
-    func makeHeelMarkerAreaPipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "heelMarkerAreaVertex"),
-              let fragmentFunction = library.makeFunction(name: "heelMarkerAreaFragment") else { return nil }
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertexFunction
-        descriptor.fragmentFunction = fragmentFunction
-        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
-        descriptor.colorAttachments[0].isBlendingEnabled = true
-        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
-        descriptor.vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(heelAreaMesh.vertexDescriptor)
-        
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }
-    
-    func makeCameraImageState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "cameraImageVertex"),
-              let fragmentFunction = library.makeFunction(name: "cameraImageFragment") else { return nil }
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertexFunction
-        descriptor.fragmentFunction = fragmentFunction
-        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
-//        descriptor.colorAttachments[0].isBlendingEnabled = true
-        
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }
-    
-    func makePointCloudState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "particleVertex"),
-              let fragmentFunction = library.makeFunction(name: "particleFragment") else { return nil }
-        
-        let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = vertexFunction
-        descriptor.fragmentFunction = fragmentFunction
-        descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-
-        descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
-        descriptor.colorAttachments[0].isBlendingEnabled = true
-        descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-        descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
-
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }
-    
     /// Makes sample points on camera image, also precompute the anchor point for animation
     func makeGridPoints() -> [Float2] {
         let deltaX = Int(round(cameraResolution.x))

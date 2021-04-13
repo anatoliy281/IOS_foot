@@ -26,7 +26,8 @@ enum BufferIndices {
     kVerteces = 4,
     kViewCorner = 5,
     kViewToCam = 6,
-    kPointCloudUniforms = 8
+    kPointCloudUniforms = 8,
+    kGistros = 9
 };
 
 struct PointCloudUniforms {
@@ -46,6 +47,8 @@ struct CameraView {
     simd_float2 viewTexCoords;
 };
 
-
+struct Gistro {
+    simd_int2 mn;
+};
 
 #endif /* ShaderTypes_h */

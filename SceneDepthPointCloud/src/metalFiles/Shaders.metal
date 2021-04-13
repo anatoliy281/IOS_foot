@@ -1,7 +1,7 @@
 #include <metal_stdlib>
 #include <simd/simd.h>
-#import "ShaderTypes.h"
-#include "MyMeshData.h"
+#import "../ShaderTypes.h"
+#include "../MyMeshData.h"
 #include <metal_array>
 
 using namespace metal;

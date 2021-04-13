@@ -68,3 +68,4 @@ float calcZ(int i, int j, float val) {
     
     return rho*cos(theta);
 }
+
