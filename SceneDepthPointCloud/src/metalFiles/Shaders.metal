@@ -90,13 +90,21 @@ void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thre
         phi += 2*PI;
     } else {}
     
-//    if (abs(theta - PI/2) < 50*PI/180) {
-//        i = j = -1;
-//    }
-    
     i = round( theta / THETA_STEP );
     j = round( phi / PHI_STEP );
-    value = length( float3(spos.xyz) );
+//    value = (abs(theta - PI/2) > (3*PI/180))? length( float3(spos.xyz) ): 0;
+    const auto l = length( float3(spos.xyz) );
+    
+    const float kA = 1500;
+    const float kB = 1000;
+    const float lA = 0.36;
+    const float lB = 0.04;
+    const auto alpha = ( kA*(l - lB)/(lA - lB) + kB*(l - lA)/(lB - lA) )*l;
+    const auto eps = 0.0005;
+    const auto x = theta - M_PI_2_F + log( (1-eps)/eps ) / alpha;
+    float sigma = 1 / ( exp(alpha*x) + 1 );
+    
+    value = sigma*l;
 }
 
 float4 restoreFromCartesianTable(constant MyMeshData& md, int index) {
@@ -159,14 +167,13 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
-    
     const auto gridPoint = gridPoints[vertexID];
 
     const auto texCoord = gridPoint / uniforms.cameraResolution;
     // Sample the depth map to get the depth value
     const auto depth = depthTexture.sample(colorSampler, texCoord).r;
     
-    if (depth < 0.3) {
+    if (depth < 0.15 ) {
         return;
     }
     
@@ -201,7 +208,7 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
             ++len;
         }
             
-        if (floorHeight != 0) {
+        if (floorHeight != 10) {
             auto h = md.heights[md.length/2];
             const auto heightDeviation = abs(h - floorHeight);
             if ( heightDeviation < EPS_H ) {

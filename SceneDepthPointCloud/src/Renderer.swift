@@ -303,11 +303,13 @@ class Renderer {
         }
     }
     
-    func gpuSeparate(floorInit: Float) -> Float {
+    func gpuSeparate(floorInit: Float) -> Float? {
+        
+        let minCountOfNodes = Int(0.02*Double(myGridBuffer.count))
         
         var startTime, endTime: CFAbsoluteTime
         
-        let delta = Float(2e-3)
+        let delta = Float(1e-3)
         var interval = Float2()
         if floorInit != -10 {
             interval = Float2(floorInit + 0.75*delta, floorInit - 0.75*delta);
@@ -335,12 +337,18 @@ class Renderer {
             
             
             let c = (interval.x + interval.y)*0.5
+            if (resGistro.mn.max() < minCountOfNodes) {
+                return floorInit
+            }
             if resGistro.mn[0] > resGistro.mn[1] {
                 interval.y = c
             } else {
                 interval.x = c
             }
             i += 1
+            if interval.x - interval.y <= delta {
+                print("   (\(resGistro.mn[0]), \(resGistro.mn[1]))")
+            }
         }
         return (interval.x + interval.y) / 2
     }
@@ -367,6 +375,20 @@ class Renderer {
         
         currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
         pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
+        
+        //        var startTime, endTime: CFAbsoluteTime
+        //        if (frameAccumulated%10 == 0) && (floorHeight == -10)
+        if frameAccumulated > 10 {
+            if ( frameAccumulated%10 == 0 ) {
+//                startTime = CFAbsoluteTimeGetCurrent()
+    //            floorHeight = separate()
+                floorHeight = gpuSeparate(floorInit: floorHeight)
+//                endTime = CFAbsoluteTimeGetCurrent() - startTime
+//                print("Time elapsed \(String(format: "%.05f", endTime)) seconds => H:\(String(describing: floorHeight))")
+                print(" floor \(floorHeight!)")
+            }
+            
+        }
         
         if canUpdateDepthTextures(frame: currentFrame) {
             frameAccumulated += 1
@@ -417,24 +439,6 @@ class Renderer {
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
         commandBuffer.commit()
-        
-        var startTime, endTime: CFAbsoluteTime
-        
-//        if (frameAccumulated%10 == 0) && (floorHeight == -10) {
-        let ffh = floorHeight
-        
-        var fH = Float()
-        if frameAccumulated > 10 {
-            if ( frameAccumulated%10 == 0 ) {
-                startTime = CFAbsoluteTimeGetCurrent()
-    //            floorHeight = separate()
-                floorHeight = gpuSeparate(floorInit: floorHeight)
-                endTime = CFAbsoluteTimeGetCurrent() - startTime
-                print("Time elapsed \(String(format: "%.05f", endTime)) seconds => H:\(String(describing: floorHeight))")
-            }
-            
-        }
-        
     }
     
     private func accumulatePoints(frame: ARFrame, commandBuffer: MTLCommandBuffer, renderEncoder: MTLRenderCommandEncoder) {
