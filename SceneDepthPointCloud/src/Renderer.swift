@@ -2,9 +2,8 @@ import Metal
 import MetalKit
 import ARKit
 
-enum RendererState {
-    case findFootArea
-    case scanning
+enum RendererState: Int {
+    case findFootArea = 0, scanning = 1
 }
 
 class Renderer {
@@ -307,7 +306,7 @@ class Renderer {
         
         let minCountOfNodes = Int(0.02*Double(myGridBuffer.count))
         
-        var startTime, endTime: CFAbsoluteTime
+//        var startTime, endTime: CFAbsoluteTime
         
         let delta = Float(1e-3)
         var interval = Float2()
@@ -458,6 +457,9 @@ class Renderer {
         } else if state == .scanning {
             renderEncoder.setVertexBuffer(myGridSphericalBuffer)
         } else { return }
+        
+        var stateInt = Int32(state.rawValue)
+        renderEncoder.setVertexBytes(&stateInt, length: MemoryLayout<Int32>.stride, index: Int(kStateNum.rawValue))
         renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))

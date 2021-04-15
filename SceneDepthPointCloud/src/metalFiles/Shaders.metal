@@ -95,14 +95,14 @@ void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thre
 //    value = (abs(theta - PI/2) > (3*PI/180))? length( float3(spos.xyz) ): 0;
     const auto l = length( float3(spos.xyz) );
     
-    const float kA = 1500;
-    const float kB = 1000;
-    const float lA = 0.36;
-    const float lB = 0.04;
-    const auto alpha = ( kA*(l - lB)/(lA - lB) + kB*(l - lA)/(lB - lA) )*l;
-    const auto eps = 0.0005;
-    const auto x = theta - M_PI_2_F + log( (1-eps)/eps ) / alpha;
-    float sigma = 1 / ( exp(alpha*x) + 1 );
+//    const float kA = 1500;
+//    const float kB = 1000;
+//    const float lA = 0.36;
+//    const float lB = 0.04;
+//    const auto alpha = ( kA*(l - lB)/(lA - lB) + kB*(l - lA)/(lB - lA) )*l;
+//    const auto eps = 0.0005;
+//    const auto x = theta - M_PI_2_F + log( (1-eps)/eps ) / alpha;
+    float sigma = 1;// / ( exp(alpha*x) + 1 );
     
     value = sigma*l;
 }
@@ -149,6 +149,12 @@ float4 colorSphericalPoint(float floorDist, constant MyMeshData& md) {
     const float4 green(0.1, 0.3, 0.1, 0);
     float4 color = mix(green, footColor, floorGrad);
     color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
+    
+//    if (md.group == Floor) {
+//        color = float(1);
+//    }
+    
+    
     return color;
 }
 
@@ -162,6 +168,7 @@ float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
+                            constant int& state [[ buffer(kStateNum) ]],
                             constant float& floorHeight[[ buffer(kHeight) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
@@ -182,10 +189,12 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
 
+    bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
+    
     if (
-        position.x*position.x + position.z*position.z < RADIUS*RADIUS
+        check1
         &&
-        confidence > 0
+        confidence > 1
         ) {
         
         int i, j;
@@ -208,14 +217,18 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
             ++len;
         }
             
-        if (floorHeight != 10) {
-            auto h = md.heights[md.length/2];
-            const auto heightDeviation = abs(h - floorHeight);
-            if ( heightDeviation < EPS_H ) {
-                md.group = Floor;
-            } else {
-                md.group = Foot;
-            }
+       
+        auto h = md.heights[md.length/2];
+        float heightDeviation;
+        if (state == 0) {
+            heightDeviation = abs(h - floorHeight);
+        } else {
+            heightDeviation = abs(h*cos(i*THETA_STEP));
+        }
+        if ( heightDeviation < 2*EPS_H ) {
+            md.group = Floor;
+        } else {
+            md.group = Foot;
         }
     }
 }

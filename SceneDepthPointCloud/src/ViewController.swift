@@ -66,7 +66,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         print("SEND!!!")
         
 //        smooth()
-        renderer.separate()
+//        renderer.separate()
         
         let data = separateData()
         let objects = convertToObj(separated: data)
