@@ -33,7 +33,7 @@ extern "C" {
         enum Group group;
     };
     
-    struct MyMeshData initMyMeshData(void);
+    struct MyMeshData initMyMeshData(float valInit);
 
     struct MyMeshData setAll(float value, int len, enum Group group);
    

@@ -67,10 +67,13 @@ int new_cicle(device float* ar, float medianValue) {
     return halflen;
 }
 
-float getValue(constant MyMeshData& md) {
+float getMedianValue(constant MyMeshData& md) {
     return md.heights[md.length/2];
 }
 
+float getPosValue(constant MyMeshData& md, constant int& pos) {
+    return md.heights[pos-1];
+}
 
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value) {
     i = round(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
@@ -107,19 +110,18 @@ void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thre
     value = sigma*l;
 }
 
-float4 restoreFromCartesianTable(constant MyMeshData& md, int index) {
+float4 restoreFromCartesianTable(float h, int index) {
     float4 pos(1);
     pos.x = (index/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
     pos.z = (index%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-    pos.y = getValue(md);
+    pos.y = h;
     
     return pos;
 }
 
-float4 restoreFromSphericalTable(float floorHeight, constant MyMeshData& md, int index) {
+float4 restoreFromSphericalTable(float floorHeight, float rho, int index) {
     const auto theta = (index/GRID_NODE_COUNT)*THETA_STEP;
     const auto phi = (index%GRID_NODE_COUNT)*PHI_STEP;
-    const auto rho = getValue(md);
     
     float4 pos(1);
     pos.x = rho*sin(theta)*cos(phi);
@@ -135,11 +137,11 @@ float4 colorCartesianPoint(constant MyMeshData& md) {
     return color;
 }
 
-float4 colorSphericalPoint(float floorDist, constant MyMeshData& md) {
+float4 colorSphericalPoint(float floorDist, float rho, constant int& state) {
     const float4 childUnexpected(247/255, 242/255, 26/255, 0);
-    const float4 scarlet(1, 36/255, 0, 0);
-    float gradient = getValue(md) / RADIUS;
-    float4 footColor = mix(childUnexpected, scarlet, gradient);
+    const float4 yellow(1, 211/255, 0, 0);
+    float gradient = rho / RADIUS;
+    float4 footColor = mix(childUnexpected, yellow, gradient);
     
     float floorGrad = 1;
     if ( floorDist < MAX_GRAD_H ) {
@@ -148,13 +150,14 @@ float4 colorSphericalPoint(float floorDist, constant MyMeshData& md) {
     
     const float4 green(0.1, 0.3, 0.1, 0);
     float4 color = mix(green, footColor, floorGrad);
-    color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
-    
-//    if (md.group == Floor) {
-//        color = float(1);
+    float saturation = 1;
+//    if (state == 2) {
+//        saturation = 1;
+//    } else {
+//        saturation = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
 //    }
-    
-    
+    color.a = saturation;
+
     return color;
 }
 
@@ -164,13 +167,57 @@ float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float
     return res;
 }
 
+void populateOrderd( device MyMeshData& md, float value ) {
+    device auto& len = md.length;
+    if (len >= MAX_MESH_STATISTIC) {
+        return;
+    }
+    auto pos = find_greater(value, md.heights, len);
+    if ( pos < MAX_MESH_STATISTIC ) {
+        shift_right(pos, md.heights, len);
+        md.heights[pos] = value;
+        ++len;
+    }
+}
+
+void populateUnorderd( device MyMeshData& md, float value, constant int& frame) {
+    if (frame >= MAX_MESH_STATISTIC) {
+        return;
+    }
+    md.heights[frame] = value;
+}
+
+void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) {
+    auto h = md.heights[md.length/2];
+    auto heightDeviation = abs(h - floorHeight);
+    if ( heightDeviation < 2*EPS_H ) {
+        md.group = Floor;
+    } else {
+        md.group = Foot;
+    }
+}
+
+void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
+    
+    auto h = md.heights[md.length/2];
+    auto heightDeviation = abs(h*cos(thetaIndex*THETA_STEP));
+    if ( heightDeviation < 2*EPS_H ) {
+        md.group = Floor;
+    } else {
+        md.group = Foot;
+    }
+}
+
 ///  Vertex shader that takes in a 2D grid-point and infers its 3D position in world-space, along with RGB and confidence
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
+                            
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
                             constant int& state [[ buffer(kStateNum) ]],
                             constant float& floorHeight[[ buffer(kHeight) ]],
+                            constant int& frame [[ buffer(kFrame) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
+                            
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
@@ -199,7 +246,7 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         
         int i, j;
         float val;
-        if (floorHeight == -10) {
+        if (floorHeight == -10) { // TODO  узкое место (переделать на проверку state)
             mapToCartesianTable(position, i, j, val);
         } else {
             mapToSphericalTable(floorHeight, position, i, j, val);
@@ -209,26 +256,16 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         }
         
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-        device auto& len = md.length;
-        auto pos = find_greater(val, md.heights, len);
-        if (pos < MAX_MESH_STATISTIC && len < MAX_MESH_STATISTIC) {
-            shift_right(pos, md.heights, len);
-            md.heights[pos] = val;
-            ++len;
+        if (state == 2) {
+            populateUnorderd(md, val, frame);
+        } else {
+            populateOrderd(md, val);
         }
-            
-       
-        auto h = md.heights[md.length/2];
-        float heightDeviation;
+        
         if (state == 0) {
-            heightDeviation = abs(h - floorHeight);
-        } else {
-            heightDeviation = abs(h*cos(i*THETA_STEP));
-        }
-        if ( heightDeviation < 2*EPS_H ) {
-            md.group = Floor;
-        } else {
-            md.group = Foot;
+            markCartesianMeshNodes(md, floorHeight);
+        } else  {
+            markSphericalMeshNodes(md, i);
         }
     }
 }
@@ -236,18 +273,21 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 
 vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-                                     constant float& floorHeight[[ buffer(kHeight) ]],
+                                     constant float& floorHeight [[ buffer(kHeight) ]],
+                                     constant int& frame [[ buffer(kFrame) ]],
+                                     constant int& state [[ buffer(kStateNum) ]],
                                      unsigned int vid [[ vertex_id ]] )
 {
     constant auto &md = myMeshData[vid];
 
+    const auto nodeVal = (state == 2)? getPosValue(md, frame): getMedianValue(md);
     float4 pos, color;
-    if (floorHeight == 0) {
-        pos = restoreFromCartesianTable(md, vid);
+    if (state == 0) {
+        pos = restoreFromCartesianTable(nodeVal, vid);
         color = colorCartesianPoint(md);
-    } else {
-        pos = restoreFromSphericalTable(floorHeight, md, vid);
-        color = colorSphericalPoint(abs(pos.y - floorHeight), md);
+    } else { // state == 1 || state == 2
+        pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
+        color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, state);
     }
     
     ParticleVertexOut pOut;

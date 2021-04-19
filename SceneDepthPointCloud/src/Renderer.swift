@@ -2,8 +2,8 @@ import Metal
 import MetalKit
 import ARKit
 
-enum RendererState: Int {
-    case findFootArea = 0, scanning = 1
+enum RendererState: Int32 {
+    case findFootArea = 0, scanning = 1, separate = 2
 }
 
 class Renderer {
@@ -126,7 +126,7 @@ class Renderer {
     }
     
     
-    var frameAccumulated: UInt = 0;
+    var frameAccumulated: Int32 = 0;
     var frameEnoughForHeight: UInt = 10
     
     var state:RendererState = .findFootArea
@@ -151,23 +151,23 @@ class Renderer {
     
     func setState(state newState:RendererState) {
         switch newState {
-        case .findFootArea:
+        case .findFootArea :
             floorHeight = -10
             initializeGridNodes()
-        case .scanning:
+        case .scanning, .separate:
             initializeSphericalGridNodes()
         }
         state = newState
     }
     
     func initializeGridNodes() {
-        let initVal = initMyMeshData()
+        let initVal = initMyMeshData(-0.5)
         let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
         myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
     
     func initializeSphericalGridNodes() {
-        let initVal = initMyMeshData()
+        let initVal = initMyMeshData(0)
         let gridInitial = Array(repeating: initVal, count: Int(GRID_NODE_COUNT*GRID_NODE_COUNT))
         myGridSphericalBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
@@ -266,41 +266,41 @@ class Renderer {
         pointCloudUniforms.cameraIntrinsicsInversed = cameraIntrinsicsInversed
     }
     
-    func separate() -> Float {
-        let dH:Float = 2e-3;
-        
-        func calcHeightGistro() -> [Float:Int] {
-            var res = [Float:Int].init()
-            let grid = myGridBuffer!
-            for i in 0..<grid.count {
-                let nodeStat = grid[i]
-                if nodeStat.length == 0 { continue }
-                let h = getMedian(nodeStat)
-                let hDescr = floor(h/dH)*dH
-                if let cnt = res[hDescr] {
-                    res[hDescr] = cnt + 1
-                } else {
-                    res[hDescr] = 1
-                }
-            }
-            return res
-        }
-        
-        
-        func findFloor(_ gistro: [Float:Int]) -> Float {
-            let floorHeight = gistro.max {
-                return $0.1 < $1.1
-            }
-            return floorHeight!.0
-        }
-        
-        let gistro = calcHeightGistro()
-        if gistro.isEmpty {
-            return -10
-        } else {
-            return findFloor( gistro )
-        }
-    }
+//    func separate() -> Float {
+//        let dH:Float = 2e-3;
+//
+//        func calcHeightGistro() -> [Float:Int] {
+//            var res = [Float:Int].init()
+//            let grid = myGridBuffer!
+//            for i in 0..<grid.count {
+//                let nodeStat = grid[i]
+//                if nodeStat.length == 0 { continue }
+//                let h = getMedian(nodeStat)
+//                let hDescr = floor(h/dH)*dH
+//                if let cnt = res[hDescr] {
+//                    res[hDescr] = cnt + 1
+//                } else {
+//                    res[hDescr] = 1
+//                }
+//            }
+//            return res
+//        }
+//
+//
+//        func findFloor(_ gistro: [Float:Int]) -> Float {
+//            let floorHeight = gistro.max {
+//                return $0.1 < $1.1
+//            }
+//            return floorHeight!.0
+//        }
+//
+//        let gistro = calcHeightGistro()
+//        if gistro.isEmpty {
+//            return -10
+//        } else {
+//            return findFloor( gistro )
+//        }
+//    }
     
     func gpuSeparate(floorInit: Float) -> Float? {
         
@@ -386,15 +386,23 @@ class Renderer {
 //                print("Time elapsed \(String(format: "%.05f", endTime)) seconds => H:\(String(describing: floorHeight))")
                 print(" floor \(floorHeight!)")
             }
-            
         }
-        
+               
         if canUpdateDepthTextures(frame: currentFrame) {
-            frameAccumulated += 1
-            accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
+            if frameAccumulated < MAX_MESH_STATISTIC-1 {
+                accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
+                if state == .separate {
+                    print("frame accumulated: \(frameAccumulated)")
+                    if (frameAccumulated == MAX_MESH_STATISTIC-2) {
+                        print("reached MAX MESH STATISTIC")
+//                        frameAccumulated = 0
+                    }
+                }
+                frameAccumulated += 1
+            }
         }
-        
-        if state == .findFootArea {
+        switch state {
+        case .findFootArea:
             updateCapturedImageTextures(frame: currentFrame)
             renderEncoder.setDepthStencilState(relaxedStencilState)
             
@@ -418,7 +426,7 @@ class Renderer {
                                                 indexType: submesh.indexType,
                                                 indexBuffer: submesh.indexBuffer.buffer,
                                                 indexBufferOffset: submesh.indexBuffer.offset)
-        } else if state == .scanning {
+        case .scanning, .separate:
             // handle buffer rotating
             renderEncoder.setDepthStencilState(depthStencilState)
             
@@ -428,13 +436,16 @@ class Renderer {
             
             renderEncoder.setVertexBuffer(myGridSphericalBuffer)
             renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+            renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
+            var stateVal = state.rawValue
+            renderEncoder.setVertexBytes(&stateVal, length: MemoryLayout<Int32>.stride, index: Int(kStateNum.rawValue))
             renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
                                                 indexCount: myIndecesBuffer.count,
                                                 indexType: .uint32,
                                                 indexBuffer: myIndecesBuffer.buffer,
                                                 indexBufferOffset: 0)
-        } else { return }
-        
+        }
+    
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
         commandBuffer.commit()
@@ -452,15 +463,19 @@ class Renderer {
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(gridPointsBuffer)
         
-        if state == .findFootArea {
-            renderEncoder.setVertexBuffer(myGridBuffer)
-        } else if state == .scanning {
-            renderEncoder.setVertexBuffer(myGridSphericalBuffer)
-        } else { return }
         
-        var stateInt = Int32(state.rawValue)
-        renderEncoder.setVertexBytes(&stateInt, length: MemoryLayout<Int32>.stride, index: Int(kStateNum.rawValue))
+        switch state {
+        case .findFootArea:
+            renderEncoder.setVertexBuffer(myGridBuffer)
+        case .scanning, .separate:
+            renderEncoder.setVertexBuffer(myGridSphericalBuffer)
+        }
+
+        var stateVal = state.rawValue
+        
         renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+        renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
+        renderEncoder.setVertexBytes(&stateVal, length: MemoryLayout<Int32>.stride, index: Int(kStateNum.rawValue))
 
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))

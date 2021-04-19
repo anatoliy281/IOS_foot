@@ -27,6 +27,7 @@
 		6A2489AC26146C6300A1F3A9 /* CameraStream.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraStream.metal; sourceTree = "<group>"; };
 		6A73C04225DE70C00007853C /* MyMeshData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyMeshData.h; sourceTree = "<group>"; };
 		6A73C04425DE84950007853C /* MyMeshData.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = MyMeshData.c; sourceTree = "<group>"; };
+		8A25657326288E3D00267A12 /* Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Header.h; sourceTree = "<group>"; };
 		8A8BFCC8262038D9007F1456 /* AnyStates.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AnyStates.swift; sourceTree = "<group>"; };
 		8A8BFCC9262038D9007F1456 /* compute.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = compute.metal; sourceTree = "<group>"; };
 		8A8BFCCA262038D9007F1456 /* computeFunctions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = computeFunctions.swift; sourceTree = "<group>"; };
@@ -42,7 +43,7 @@
 		E73DD13C24636FF100D77039 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E73DD13F24636FF100D77039 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		E73DD14124636FF100D77039 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		E73DD14224636FF100D77039 /* SceneDepthPointCloud-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "SceneDepthPointCloud-Bridging-Header.h"; sourceTree = "<group>"; };
+		E73DD14224636FF100D77039 /* BridgingHeader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BridgingHeader.h; sourceTree = "<group>"; };
 		E7B7223A24807ACA002E43E8 /* MetalBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalBuffer.swift; sourceTree = "<group>"; };
 		E7B7223C24809D1E002E43E8 /* Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helpers.swift; sourceTree = "<group>"; };
 		E7E2ED6F1473F1FD1E9543FA /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
@@ -66,6 +67,7 @@
 				8A8BFCC6262037DF007F1456 /* parallel */,
 				6A73C04425DE84950007853C /* MyMeshData.c */,
 				6A73C04225DE70C00007853C /* MyMeshData.h */,
+				8A25657326288E3D00267A12 /* Header.h */,
 				8A8BFCC8262038D9007F1456 /* AnyStates.swift */,
 				E73DD13024636FEF00D77039 /* AppDelegate.swift */,
 				E73DD13724636FEF00D77039 /* ViewController.swift */,
@@ -138,7 +140,7 @@
 				E73DD13C24636FF100D77039 /* Assets.xcassets */,
 				E73DD13E24636FF100D77039 /* LaunchScreen.storyboard */,
 				E73DD14124636FF100D77039 /* Info.plist */,
-				E73DD14224636FF100D77039 /* SceneDepthPointCloud-Bridging-Header.h */,
+				E73DD14224636FF100D77039 /* BridgingHeader.h */,
 			);
 			path = SceneDepthPointCloud;
 			sourceTree = "<group>";
@@ -392,7 +394,8 @@
 				PRODUCT_NAME = "Point Cloud";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
-				SWIFT_OBJC_BRIDGING_HEADER = "SceneDepthPointCloud/SceneDepthPointCloud-Bridging-Header.h";
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = SceneDepthPointCloud/BridgingHeader.h;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -419,7 +422,8 @@
 				PRODUCT_NAME = "Point Cloud";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
-				SWIFT_OBJC_BRIDGING_HEADER = "SceneDepthPointCloud/SceneDepthPointCloud-Bridging-Header.h";
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = SceneDepthPointCloud/BridgingHeader.h;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};

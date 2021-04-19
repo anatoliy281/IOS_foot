@@ -3,6 +3,14 @@ import Metal
 import MetalKit
 import ARKit
 
+class GroupedData {
+    var data: [Int:String] = .init()
+}
+
+class GroupDataCoords {
+    var data: [Int:[(Int, Int, Float)]] = .init()
+}
+
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let sendButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
@@ -65,41 +73,16 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("SEND!!!")
         
+        let mn:Int = 5
+        
 //        smooth()
 //        renderer.separate()
         
-        let data = separateData()
+        let data = separateData(mn: mn)
         let objects = convertToObj(separated: data)
 //        let objects = exportToObjFormat()
         
-        
-        let fNames = [
-            Int(Unknown.rawValue): "Unknown",
-                                  Int(Floor.rawValue): "Floor",
-                                  Int(Foot.rawValue): "Foot"]
-        
-        var urls:[URL] = []
-        if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            for (id, str) in objects {
-                if id == Int(Unknown.rawValue) || id == Int(Floor.rawValue) { continue }
-//                let date:Int = Date().hashValue
-                let fileName = fNames[id]! + "\(Int(Date().timeIntervalSince1970)).obj"
-                let url = dir.appendingPathComponent(fileName)
-                urls.append(url)
-                do {
-                    try str.write(to: url, atomically: true, encoding: String.Encoding.utf8)
-                }
-                catch {
-                    print("Error!")
-                }
-                
-            }
-            
-            let activity = UIActivityViewController(activityItems: urls, applicationActivities: .none)
-            activity.isModalInPresentation = true
-            present(activity, animated: true, completion: nil)
-        }
-        
+        writePerId(objects)
 
         renderer.setState(state: .findFootArea)
 
@@ -109,12 +92,50 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     
+    func writePerId(_ objects:GroupedData) {
+        
+        var fNames = [Int:String].init()
+        if renderer.state != .separate {
+            fNames.updateValue("Unknown", forKey: Int(Unknown.rawValue))
+            fNames.updateValue("Floor", forKey: Int(Floor.rawValue))
+            fNames.updateValue("Foot", forKey: Int(Foot.rawValue))
+        } else {
+            for i in 0..<objects.data.count {
+                fNames.updateValue(String("image-\(i)_"), forKey: i)
+            }
+        }
+
+        
+        var urls:[URL] = []
+        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first  else { return }
+        
+        for (id, str) in objects.data {
+            if renderer.state != .separate {
+                if id == Int(Unknown.rawValue) || id == Int(Floor.rawValue) { continue }
+            }
+            let fileName = fNames[id]! + "\(Int(Date().timeIntervalSince1970)).obj"
+            let url = dir.appendingPathComponent(fileName)
+            urls.append(url)
+            do {
+                try str.write(to: url, atomically: true, encoding: String.Encoding.utf8)
+            } catch {
+                print("Error!")
+            }
+            
+        }
+        
+        let activity = UIActivityViewController(activityItems: urls, applicationActivities: .none)
+        activity.isModalInPresentation = true
+        present(activity, animated: true, completion: nil)
+    }
+    
     @objc
     func startAction(_ sender: UIButton!) {
         
         print("START!!!")
         if (renderer.floorHeight != -10) {
-            renderer.setState(state: .scanning)
+            renderer.setState(state: .separate)
+            renderer.frameAccumulated = 0
         }
         
         sendButton.isHidden = false
@@ -172,28 +193,43 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     
-    func separateData() -> [Int:[(Int,Int,Float)]] {
-        var res = [
-            Int(Unknown.rawValue):[(Int,Int,Float)](),
-                    Int(Foot.rawValue):[(Int,Int,Float)](),
-                    Int(Floor.rawValue):[(Int,Int,Float)]() ]
-        
-        for i in 0..<renderer.myGridSphericalBuffer.count {
-            let node = renderer.myGridSphericalBuffer[i]
-            let row = Int(gridRow(Int32(i)))
-            let col = Int(gridColumn(Int32(i)))
-            let val = getMedian(node)
-//            if (node.length > MAX_MESH_STATISTIC/2) {
-                res[Int(node.group.rawValue)]!.append( (row, col, val) )
-//            }
+    func separateData(mn:Int) -> GroupDataCoords {
+        let res = GroupDataCoords()
+        if renderer.state != .separate {
+            res.data = [ Int(Unknown.rawValue):.init(),
+                         Int(Foot.rawValue):.init(),
+                         Int(Floor.rawValue):.init() ]
+            
+            for i in 0..<renderer.myGridSphericalBuffer.count {
+                let node = renderer.myGridSphericalBuffer[i]
+                let row = Int(gridRow(Int32(i)))
+                let col = Int(gridColumn(Int32(i)))
+                let val = getMedian(node)
+                res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
+
+            }
+            
+        } else {
+            for i in 0..<MAX_MESH_STATISTIC/Int32(mn) {
+                res.data[Int(i)] = .init()
+            }
+            
+            for frame in 0..<MAX_MESH_STATISTIC/Int32(mn) {
+                for i in 0..<renderer.myGridSphericalBuffer.count {
+                    var node = renderer.myGridSphericalBuffer[i]
+                    let row = Int(gridRow(Int32(i)))
+                    let col = Int(gridColumn(Int32(i)))
+                    let val = getValue(&node, frame)
+                    res.data[Int(frame)]!.append( (row, col, val) )
+                }
+            }
         }
         
         return res
         
     }
     
-    
-    func convertToObj(separated data:[Int:[(Int,Int,Float)]]) -> [Int:String] {
+    func convertToObj(separated data:GroupDataCoords) -> GroupedData {
         
         func writeEdges(input data: [(Int,Int,Float)]) -> String {
             
@@ -214,27 +250,31 @@ final class ViewController: UIViewController, ARSessionDelegate {
                     var str = ""
                     let valTable = table[i][j]
                     if valTable != Float() {
-                        let x:Float = 1000*calcX(Int32(i), Int32(j), valTable)
+                        let x:Float = -1000*calcX(Int32(i), Int32(j), valTable) // flip the foot
                         let y = 1000*calcY(Int32(i), Int32(j), valTable)
                         let z = 1000*calcZ(Int32(i), Int32(j), valTable)
                         str = "v \(x) \(y) \(z)\n"
                     } else {
-                        str = "v 0 0 0\n"
+                        if (renderer.state != .separate) {
+                            str = "v 0 0 0\n"
+                        }
                     }
                     res.append(str)
                 }
             }
             
-            for i in 0..<dim {
-                for j in 0..<dim {
-                    if (table[i][j] != Float()) {
-                        if (j+1 != dim && table[i][j+1] != Float()) {
-                            let index = i*dim + j
-                            res.append("l \(index+1) \(index+2)\n")
-                        }
-                        if (i+1 != dim && table[i+1][j] != Float()) {
-                            let index = (i+1)*dim + j
-                            res.append("l \(index-dim+1) \(index+1)\n")
+            if (renderer.state != .separate) {
+                for i in 0..<dim {
+                    for j in 0..<dim {
+                        if (table[i][j] != Float()) {
+                            if (j+1 != dim && table[i][j+1] != Float()) {
+                                let index = i*dim + j
+                                res.append("l \(index+1) \(index+2)\n")
+                            }
+                            if (i+1 != dim && table[i+1][j] != Float()) {
+                                let index = (i+1)*dim + j
+                                res.append("l \(index-dim+1) \(index+1)\n")
+                            }
                         }
                     }
                 }
@@ -243,10 +283,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
             return res
         }
         
-        
-        var res = [Int:String]()
-        for (key, val) in data {
-            res[key] = writeEdges(input: val)
+        let res = GroupedData()
+        for (key, val) in data.data {
+            res.data[key] = writeEdges(input: val)
         }
         return res
         

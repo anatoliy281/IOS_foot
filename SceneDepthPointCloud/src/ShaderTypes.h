@@ -28,7 +28,8 @@ enum BufferIndices {
     kViewToCam = 6,
     kPointCloudUniforms = 8,
     kGistros = 9,
-    kStateNum = 10
+    kStateNum = 10,
+    kFrame = 11
 };
 
 struct PointCloudUniforms {

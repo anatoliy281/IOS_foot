@@ -11,8 +11,8 @@ int isCulculated(struct MyMeshData md) {
     return md.length > 0;
 }
 
-struct MyMeshData initMyMeshData() {
-    return setAll(-0.5, 0, Unknown);
+struct MyMeshData initMyMeshData(float valInit) {
+    return setAll(valInit, 0, Unknown);
 }
 
 struct MyMeshData setAll(float value, int len, enum Group group) {
