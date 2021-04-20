@@ -73,8 +73,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("SEND!!!")
         
-        let mn:Int = 5
-        
 //        smooth()
 //        renderer.separate()
         
@@ -84,7 +82,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         writePerId(objects)
 
-        renderer.setState(state: .findFootArea)
+//        renderer.currentState = Renderer.RendererState.findFootArea
+        renderer.currentState.nextState()
 
 
         sendButton.isHidden = true
@@ -95,7 +94,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     func writePerId(_ objects:GroupedData) {
         
         var fNames = [Int:String].init()
-        if renderer.state != .separate {
+        if renderer.currentState != .separate {
             fNames.updateValue("Unknown", forKey: Int(Unknown.rawValue))
             fNames.updateValue("Floor", forKey: Int(Floor.rawValue))
             fNames.updateValue("Foot", forKey: Int(Foot.rawValue))
@@ -110,7 +109,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first  else { return }
         
         for (id, str) in objects.data {
-            if renderer.state != .separate {
+            if renderer.currentState != .separate {
                 if id == Int(Unknown.rawValue) || id == Int(Floor.rawValue) { continue }
             }
             let fileName = fNames[id]! + "\(Int(Date().timeIntervalSince1970)).obj"
@@ -134,8 +133,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("START!!!")
         if (renderer.floorHeight != -10) {
-            renderer.setState(state: .separate)
-            renderer.frameAccumulated = 0
+//            let nextState = isDebugMode ? Renderer.RendererState.separate: Renderer.RendererState.scanning
+            renderer.currentState.nextState()
         }
         
         sendButton.isHidden = false
@@ -195,7 +194,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     
     func separateData(mn:Int) -> GroupDataCoords {
         let res = GroupDataCoords()
-        if renderer.state != .separate {
+        if renderer.currentState != .separate {
             res.data = [ Int(Unknown.rawValue):.init(),
                          Int(Foot.rawValue):.init(),
                          Int(Floor.rawValue):.init() ]
@@ -255,7 +254,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
                         let z = 1000*calcZ(Int32(i), Int32(j), valTable)
                         str = "v \(x) \(y) \(z)\n"
                     } else {
-                        if (renderer.state != .separate) {
+                        if (renderer.currentState != .separate) {
                             str = "v 0 0 0\n"
                         }
                     }
@@ -263,7 +262,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
                 }
             }
             
-            if (renderer.state != .separate) {
+            if (renderer.currentState != .separate) {
                 for i in 0..<dim {
                     for j in 0..<dim {
                         if (table[i][j] != Float()) {

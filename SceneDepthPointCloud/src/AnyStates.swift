@@ -25,8 +25,8 @@ extension Renderer {
 
 
 extension Renderer {
-    public func makeUnprojectionPipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "unprojectVertex") else {
+    private func makeBaseUnprojectionPipelineState(shaderFuncName:String) -> MTLRenderPipelineState? {
+        guard let vertexFunction = library.makeFunction(name: shaderFuncName) else {
             return nil
         }
         
@@ -39,15 +39,27 @@ extension Renderer {
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
     
-    public func makeGridPipelineState() -> MTLRenderPipelineState? {
-        guard let vertexFunction = library.makeFunction(name: "gridVertex"),
-              let fragmentFunction = library.makeFunction(name: "gridFragment") else { return nil }
+    
+    public func makeCartesianUnprojectPipelineState() -> MTLRenderPipelineState? {
+        return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectCartesianVertex")
+    }
+
+    public func makeSphericalUnprojectPipelineState() -> MTLRenderPipelineState? {
+        return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectSphericalVertex")
+    }
+    
+    public func makeSingleFrameUnprojectPipelineState() -> MTLRenderPipelineState? {
+        return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectSingleFrameVertex")
+    }
+    
+    private func makeBaseGridPipelineState(functions: [String]) -> MTLRenderPipelineState? {
+        guard let vertexFunction = library.makeFunction(name: functions[0]),
+              let fragmentFunction = library.makeFunction(name: functions[1]) else { return nil }
         
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertexFunction
         descriptor.fragmentFunction = fragmentFunction
         descriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
-
         descriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
         descriptor.colorAttachments[0].isBlendingEnabled = true
         descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
@@ -55,6 +67,14 @@ extension Renderer {
         descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
 
         return try? device.makeRenderPipelineState(descriptor: descriptor)
+    }
+    
+    public func makeSphericalGridPipelineState() -> MTLRenderPipelineState? {
+        return makeBaseGridPipelineState(functions: ["gridSphericalMeshVertex", "gridFragment"])
+    }
+    
+    public func makeSingleFramePipelineState() -> MTLRenderPipelineState? {
+        return makeBaseGridPipelineState(functions: ["singleFrameVertex", "gridFragment"])
     }
     
     public func makeHeelMarkerAreaPipelineState() -> MTLRenderPipelineState? {

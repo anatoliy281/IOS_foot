@@ -71,10 +71,6 @@ float getMedianValue(constant MyMeshData& md) {
     return md.heights[md.length/2];
 }
 
-float getPosValue(constant MyMeshData& md, constant int& pos) {
-    return md.heights[pos-1];
-}
-
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value) {
     i = round(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
     j = round(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
@@ -137,7 +133,7 @@ float4 colorCartesianPoint(constant MyMeshData& md) {
     return color;
 }
 
-float4 colorSphericalPoint(float floorDist, float rho, constant int& state) {
+float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
     const float4 childUnexpected(247/255, 242/255, 26/255, 0);
     const float4 yellow(1, 211/255, 0, 0);
     float gradient = rho / RADIUS;
@@ -150,12 +146,6 @@ float4 colorSphericalPoint(float floorDist, float rho, constant int& state) {
     
     const float4 green(0.1, 0.3, 0.1, 0);
     float4 color = mix(green, footColor, floorGrad);
-    float saturation = 1;
-//    if (state == 2) {
-//        saturation = 1;
-//    } else {
-//        saturation = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
-//    }
     color.a = saturation;
 
     return color;
@@ -208,20 +198,56 @@ void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
     }
 }
 
-///  Vertex shader that takes in a 2D grid-point and infers its 3D position in world-space, along with RGB and confidence
-vertex void unprojectVertex(uint vertexID [[vertex_id]],
-                            
+
+vertex void unprojectSingleFrameVertex(
+                            uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
-                            constant int& state [[ buffer(kStateNum) ]],
                             constant float& floorHeight[[ buffer(kHeight) ]],
                             constant int& frame [[ buffer(kFrame) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-                            
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
     const auto gridPoint = gridPoints[vertexID];
+
+    const auto texCoord = gridPoint / uniforms.cameraResolution;
+    // Sample the depth map to get the depth value
+    const auto depth = depthTexture.sample(colorSampler, texCoord).r;
+    if (depth < 0.15 ) {
+        return;
+    }
+
+    // With a 2D point plus depth, we can now get its 3D position
+    const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
+    const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
+
+    bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
+    if ( !check1 || confidence < 2 ) {
+        return;
+        
+    }
+    int i, j;
+    float val;
+    mapToSphericalTable(floorHeight, position, i, j, val);
+    if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
+        return ;
+    }
+    device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
+    populateUnorderd(md, val, frame);
+    markSphericalMeshNodes(md, i);
+}
+
+vertex void unprojectCartesianVertex(
+                            uint vid [[vertex_id]],
+                            constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
+                            constant float2 *gridPoints [[ buffer(kGridPoints) ]],
+                            constant float& floorHeight[[ buffer(kHeight) ]],
+                            device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
+                            texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
+                            texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
+                            ) {
+    const auto gridPoint = gridPoints[vid];
 
     const auto texCoord = gridPoint / uniforms.cameraResolution;
     // Sample the depth map to get the depth value
@@ -233,9 +259,7 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     
     // With a 2D point plus depth, we can now get its 3D position
     const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
-    
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
-
     bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
     
     if (
@@ -246,55 +270,101 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
         
         int i, j;
         float val;
-        if (floorHeight == -10) { // TODO  узкое место (переделать на проверку state)
-            mapToCartesianTable(position, i, j, val);
-        } else {
-            mapToSphericalTable(floorHeight, position, i, j, val);
-        }
+        mapToCartesianTable(position, i, j, val);
         if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
             return ;
         }
         
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-        if (state == 2) {
-            populateUnorderd(md, val, frame);
-        } else {
-            populateOrderd(md, val);
-        }
-        
-        if (state == 0) {
-            markCartesianMeshNodes(md, floorHeight);
-        } else  {
-            markSphericalMeshNodes(md, i);
-        }
+        populateOrderd(md, val);
+
+        markCartesianMeshNodes(md, floorHeight);
     }
 }
 
+vertex void unprojectSphericalVertex(
+                            uint vertexID [[vertex_id]],
 
-vertex ParticleVertexOut gridVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
+                            constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
+                            constant float2 *gridPoints [[ buffer(kGridPoints) ]],
+                            constant float& floorHeight[[ buffer(kHeight) ]],
+                            device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
+
+                            texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
+                            texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
+                            ) {
+    const auto gridPoint = gridPoints[vertexID];
+
+    const auto texCoord = gridPoint / uniforms.cameraResolution;
+    // Sample the depth map to get the depth value
+    const auto depth = depthTexture.sample(colorSampler, texCoord).r;
+
+    if (depth < 0.15 ) {
+        return;
+    }
+
+    // With a 2D point plus depth, we can now get its 3D position
+    const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
+
+    const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
+
+    bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
+
+    if (
+        check1
+        &&
+        confidence > 1
+        ) {
+
+        int i, j;
+        float val;
+        mapToSphericalTable(floorHeight, position, i, j, val);
+        if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
+            return ;
+        }
+
+        device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
+        populateOrderd(md, val);
+
+        markSphericalMeshNodes(md, i);
+    }
+}
+
+vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
                                      constant float& floorHeight [[ buffer(kHeight) ]],
-                                     constant int& frame [[ buffer(kFrame) ]],
-                                     constant int& state [[ buffer(kStateNum) ]],
                                      unsigned int vid [[ vertex_id ]] )
 {
     constant auto &md = myMeshData[vid];
 
-    const auto nodeVal = (state == 2)? getPosValue(md, frame): getMedianValue(md);
-    float4 pos, color;
-    if (state == 0) {
-        pos = restoreFromCartesianTable(nodeVal, vid);
-        color = colorCartesianPoint(md);
-    } else { // state == 1 || state == 2
-        pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
-        color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, state);
-    }
+    const auto nodeVal = getMedianValue(md);
+    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
+    auto saturation = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
     
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
-    pOut.color = color;
+    pOut.color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
     return pOut;
 }
+
+vertex ParticleVertexOut singleFrameVertex(
+                                        constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
+                                        constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
+                                        constant float& floorHeight [[ buffer(kHeight) ]],
+                                        constant int& frame [[ buffer(kFrame) ]],
+                                        unsigned int vid [[ vertex_id ]]
+                                           ) {
+    constant auto &md = myMeshData[vid];
+
+    const auto nodeVal = md.heights[frame-1];
+    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
+
+    ParticleVertexOut pOut;
+    pOut.position = projectOnScreen(uniforms, pos);
+    pOut.color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, 1);
+    return pOut;
+}
+
 
 fragment float4 gridFragment(ParticleVertexOut in[[stage_in]])
 {
