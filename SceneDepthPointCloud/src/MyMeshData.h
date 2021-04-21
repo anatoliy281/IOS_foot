@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define MAX_MESH_STATISTIC 200
+#define MAX_MESH_STATISTIC 50
 
 #define RADIUS 0.5
 #define GRID_NODE_COUNT 500
@@ -28,8 +28,12 @@ extern "C" {
     };
 
     struct MyMeshData {
-        float heights[MAX_MESH_STATISTIC];
-        int length;
+        float buffer[MAX_MESH_STATISTIC];  	// актуальные данные буфера
+        int bufModLen;                         // текущее значение для заполнения
+		int totalSteps;					// текущая длина буфера без модульного деления
+        float pairs[2];       				// поступающая пара для пересчета медианы
+        int pairLen;                        // длина промежуточного буфера пар
+        float median;                       // медиана
         enum Group group;
     };
     

@@ -12,7 +12,7 @@
 #include "MyMeshData.h"
 
 float getValue(const struct MyMeshData* md, int i) {
-    return md->heights[i];
+    return md->buffer[i];
 }
 
 

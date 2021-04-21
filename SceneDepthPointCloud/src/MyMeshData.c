@@ -4,11 +4,11 @@
 #include <math.h>
 
 float getMedian(struct MyMeshData md) {
-    return md.heights[md.length/2];
+    return md.buffer[md.bufModLen/2];
 }
 
 int isCulculated(struct MyMeshData md) {
-    return md.length > 0;
+    return md.bufModLen > 0;
 }
 
 struct MyMeshData initMyMeshData(float valInit) {
@@ -19,9 +19,9 @@ struct MyMeshData setAll(float value, int len, enum Group group) {
     assert(len < MAX_MESH_STATISTIC);
     struct MyMeshData md;
     md.group = group;
-    md.length = len;
+    md.bufModLen = len;
     for (int i=0; i < MAX_MESH_STATISTIC; ++i) {
-        md.heights[i] = value;
+        md.buffer[i] = value;
     }
     return md;
 }

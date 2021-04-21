@@ -19,10 +19,10 @@ kernel void convert_gistro( constant MyMeshData* in [[ buffer(0) ]],
     constant auto& md = in[index];
     device auto& gistro = out[index];
     
-    if ( md.length == 0 ) {
+    if ( md.bufModLen == 0 ) {
         gistro.mn = int2(0);
     } else {
-        const auto x = md.heights[md.length/2];
+        const auto x = md.buffer[md.bufModLen/2];
         const auto c = (interval.x + interval.y)*0.5f;
         if ( x > interval.x || x < interval.y ) {
             gistro.mn = int2(0);

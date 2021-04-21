@@ -6,6 +6,8 @@
 
 using namespace metal;
 
+// -------------------------- BASE DEFINITIONS -----------------------------
+
 //// Particle vertex shader outputs and fragment shader inputs
 struct ParticleVertexOut {
     float4 position [[position]];
@@ -13,24 +15,6 @@ struct ParticleVertexOut {
     float4 color;
 };
 
-
-float4x4 shiftCoords(float h) {
-    return float4x4( float4( 1, 0, 0, 0),
-                     float4( 0, 0, 1, 0),
-                     float4( 0, 1, 0, 0),
-                     float4( 0, 0, -h, 1)
-                    );
-}
-
-float4x4 shiftCoordsBack(float h) {
-    return float4x4( float4( 1, 0, 0, 0),
-                     float4( 0, 0, 1, 0),
-                     float4( 0, 1, 0, 0),
-                     float4( 0, h, 0, 1)
-                    );
-}
-
-//
 constexpr sampler colorSampler(mip_filter::linear, mag_filter::linear, min_filter::linear);
 
 /// Retrieves the world position of a specified camera point with depth
@@ -41,69 +25,96 @@ static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float
     return worldPoint / worldPoint.w;
 }
 
-int find_greater(float val, device float* ar, int len) {
-    for (int i = 0; i < len; ++i) {
-        if (ar[i] >= val)
-            return i;
-    }
-    return len;
+float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float4& pos) {
+    float4 res = uniforms.viewProjectionMatrix * pos;
+    res /= res.w;
+    return res;
 }
 
-void shift_right(int pos, device float* ar, int len) {
-    auto start = min(MAX_MESH_STATISTIC-1, len);
-    for (int i = start; i > pos; --i) {
-        ar[i] = ar[i-1];
-    }
-}
-
-
-int new_cicle(device float* ar, float medianValue) {
+float closestToMedian(device MyMeshData& md, bool greater) {
+    device auto& med = md.median;
+    auto res = med;
     
-    auto halflen = MAX_MESH_STATISTIC/2;
-    for (int i=0; i < halflen; ++i) {
-        ar[i] = medianValue;
+    for (int i=0; i < min(md.totalSteps, MAX_MESH_STATISTIC); ++i) {
+        // условия поиска в зависимости от флага greater
+		bool firstCatched; 	// условие для пополнения начального шага
+		bool closer;		// условие для более близкого нового значения к старому
+        if (greater) {	// стараемся найти ближайшую справа
+            firstCatched = md.buffer[i] > res;
+            closer = md.buffer[i] < res;
+        } else {	// стараемся найти ближайшую слева
+            firstCatched = md.buffer[i] < res;
+            closer = md.buffer[i] > res;
+        }
+        
+        if ( res != med ) {    // обновляет новую медиану (ищет более ближайшую)
+            if (closer) {
+                res = md.buffer[i];
+            }
+        } else {  // срабатывает один раз, находит стартовое значение для обновленной медианы
+            if (firstCatched) {
+                res = md.buffer[i];     // первое условие больше не сработает
+            }
+        }
     }
     
-    return halflen;
+    return res;
 }
 
-float getMedianValue(constant MyMeshData& md) {
-    return md.heights[md.length/2];
+int cycle(device MyMeshData& md) {
+	auto res = md.bufModLen;
+	md.bufModLen = (res + 1)%MAX_MESH_STATISTIC;
+	++md.totalSteps;
+	return res;
 }
+
+void appendNewValue( device MyMeshData& md, float value ) {
+
+    device auto& med = md.median;
+    if (md.totalSteps == 0) { // срабатывает один единственный раз
+		md.buffer[cycle(md)] = med = value;
+        md.pairLen = 0;
+        return;
+    }
+    
+    thread auto& plen = md.pairLen;
+    if (plen < 2) { // пара не готова
+		md.pairs[plen++] = value;
+    } else {	// пересчет медианы
+		auto a = md.buffer[cycle(md)] = md.pairs[--plen];
+		auto b = md.buffer[cycle(md)] = md.pairs[--plen];
+		
+		auto pairMin = min(a, b);
+		auto pairMax = max(a, b);
+		
+		bool greater;
+		if ( med < pairMin ) { // сдвинуть медану на ближайшее значение вправо
+			greater = true;
+		} else if ( med > pairMax ) { // сдвинуться влево
+			greater = false;
+		} else if ( med > pairMin && med < pairMax ) {
+			// не трогаем медиану
+			return;
+		}
+		else {    // исключительная ситуация!
+//            len -= 2; // удалили "плохие данные из буфера"
+			return;
+		}
+		
+		med = closestToMedian(md, greater);
+    }
+}
+
+
+
+// ------------------------------------- CARTESIAN ------------------------------------
+
+
 
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value) {
     i = round(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
     j = round(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
     value = position.y;
-}
-
-void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thread int& j, thread float& value) {
-    
-    const auto spos = shiftCoords(floorHeight)*position;
-    
-    auto theta = atan2( length( float2(spos.xy) ), spos.z );
-    auto phi = atan( spos.y / spos.x );
-    if ( spos.x < 0 ) {
-        phi += PI;
-    } else if ( spos.y < 0 && spos.x > 0) {
-        phi += 2*PI;
-    } else {}
-    
-    i = round( theta / THETA_STEP );
-    j = round( phi / PHI_STEP );
-//    value = (abs(theta - PI/2) > (3*PI/180))? length( float3(spos.xyz) ): 0;
-    const auto l = length( float3(spos.xyz) );
-    
-//    const float kA = 1500;
-//    const float kB = 1000;
-//    const float lA = 0.36;
-//    const float lB = 0.04;
-//    const auto alpha = ( kA*(l - lB)/(lA - lB) + kB*(l - lA)/(lB - lA) )*l;
-//    const auto eps = 0.0005;
-//    const auto x = theta - M_PI_2_F + log( (1-eps)/eps ) / alpha;
-    float sigma = 1;// / ( exp(alpha*x) + 1 );
-    
-    value = sigma*l;
 }
 
 float4 restoreFromCartesianTable(float h, int index) {
@@ -115,127 +126,20 @@ float4 restoreFromCartesianTable(float h, int index) {
     return pos;
 }
 
-float4 restoreFromSphericalTable(float floorHeight, float rho, int index) {
-    const auto theta = (index/GRID_NODE_COUNT)*THETA_STEP;
-    const auto phi = (index%GRID_NODE_COUNT)*PHI_STEP;
-    
-    float4 pos(1);
-    pos.x = rho*sin(theta)*cos(phi);
-    pos.y = rho*sin(theta)*sin(phi);
-    pos.z = rho*cos(theta);
-
-    return shiftCoordsBack(floorHeight)*pos;
-}
-
 float4 colorCartesianPoint(constant MyMeshData& md) {
     float4 color(0.1, 0.3, 0.1, 0);
-    color.a = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
+    color.a = static_cast<float>(md.bufModLen) / MAX_MESH_STATISTIC;
     return color;
-}
-
-float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
-    const float4 childUnexpected(247/255, 242/255, 26/255, 0);
-    const float4 yellow(1, 211/255, 0, 0);
-    float gradient = rho / RADIUS;
-    float4 footColor = mix(childUnexpected, yellow, gradient);
-    
-    float floorGrad = 1;
-    if ( floorDist < MAX_GRAD_H ) {
-        floorGrad = floorDist / MAX_GRAD_H;
-    }
-    
-    const float4 green(0.1, 0.3, 0.1, 0);
-    float4 color = mix(green, footColor, floorGrad);
-    color.a = saturation;
-
-    return color;
-}
-
-float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float4& pos) {
-    float4 res = uniforms.viewProjectionMatrix * pos;
-    res /= res.w;
-    return res;
-}
-
-void populateOrderd( device MyMeshData& md, float value ) {
-    device auto& len = md.length;
-    if (len >= MAX_MESH_STATISTIC) {
-        return;
-    }
-    auto pos = find_greater(value, md.heights, len);
-    if ( pos < MAX_MESH_STATISTIC ) {
-        shift_right(pos, md.heights, len);
-        md.heights[pos] = value;
-        ++len;
-    }
-}
-
-void populateUnorderd( device MyMeshData& md, float value, constant int& frame) {
-    if (frame >= MAX_MESH_STATISTIC) {
-        return;
-    }
-    md.heights[frame] = value;
 }
 
 void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) {
-    auto h = md.heights[md.length/2];
+    auto h = md.median;
     auto heightDeviation = abs(h - floorHeight);
     if ( heightDeviation < 2*EPS_H ) {
         md.group = Floor;
     } else {
         md.group = Foot;
     }
-}
-
-void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
-    
-    auto h = md.heights[md.length/2];
-    auto heightDeviation = abs(h*cos(thetaIndex*THETA_STEP));
-    if ( heightDeviation < 2*EPS_H ) {
-        md.group = Floor;
-    } else {
-        md.group = Foot;
-    }
-}
-
-
-vertex void unprojectSingleFrameVertex(
-                            uint vertexID [[vertex_id]],
-                            constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
-                            constant float2 *gridPoints [[ buffer(kGridPoints) ]],
-                            constant float& floorHeight[[ buffer(kHeight) ]],
-                            constant int& frame [[ buffer(kFrame) ]],
-                            device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-                            texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
-                            texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
-                            ) {
-    const auto gridPoint = gridPoints[vertexID];
-
-    const auto texCoord = gridPoint / uniforms.cameraResolution;
-    // Sample the depth map to get the depth value
-    const auto depth = depthTexture.sample(colorSampler, texCoord).r;
-    if (depth < 0.15 ) {
-        return;
-    }
-
-    // With a 2D point plus depth, we can now get its 3D position
-    const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
-    const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
-
-    bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
-    if ( !check1 || confidence < 2 ) {
-        return;
-        
-    }
-    int i, j;
-    float val;
-    mapToSphericalTable(floorHeight, position, i, j, val);
-    if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
-        return ;
-    }
-    device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-    populateUnorderd(md, val, frame);
-    markSphericalMeshNodes(md, i);
 }
 
 vertex void unprojectCartesianVertex(
@@ -276,11 +180,108 @@ vertex void unprojectCartesianVertex(
         }
         
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-        populateOrderd(md, val);
+        appendNewValue(md, val);
 
         markCartesianMeshNodes(md, floorHeight);
     }
 }
+
+
+
+
+// ------------------------- BASE SPHERICAL -------------------------------
+
+float4x4 shiftCoords(float h) {
+    return float4x4( float4( 1, 0, 0, 0),
+                     float4( 0, 0, 1, 0),
+                     float4( 0, 1, 0, 0),
+                     float4( 0, 0, -h, 1)
+                    );
+}
+
+float4x4 shiftCoordsBack(float h) {
+    return float4x4( float4( 1, 0, 0, 0),
+                     float4( 0, 0, 1, 0),
+                     float4( 0, 1, 0, 0),
+                     float4( 0, h, 0, 1)
+                    );
+}
+
+void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thread int& j, thread float& value) {
+    
+    const auto spos = shiftCoords(floorHeight)*position;
+    
+    auto theta = atan2( length( float2(spos.xy) ), spos.z );
+    auto phi = atan( spos.y / spos.x );
+    if ( spos.x < 0 ) {
+        phi += PI;
+    } else if ( spos.y < 0 && spos.x > 0) {
+        phi += 2*PI;
+    } else {}
+    
+    i = round( theta / THETA_STEP );
+    j = round( phi / PHI_STEP );
+//    value = (abs(theta - PI/2) > (3*PI/180))? length( float3(spos.xyz) ): 0;
+    const auto l = length( float3(spos.xyz) );
+    
+//    const float kA = 1500;
+//    const float kB = 1000;
+//    const float lA = 0.36;
+//    const float lB = 0.04;
+//    const auto alpha = ( kA*(l - lB)/(lA - lB) + kB*(l - lA)/(lB - lA) )*l;
+//    const auto eps = 0.0005;
+//    const auto x = theta - M_PI_2_F + log( (1-eps)/eps ) / alpha;
+    float sigma = 1;// / ( exp(alpha*x) + 1 );
+    
+    value = sigma*l;
+}
+
+float4 restoreFromSphericalTable(float floorHeight, float rho, int index) {
+    const auto theta = (index/GRID_NODE_COUNT)*THETA_STEP;
+    const auto phi = (index%GRID_NODE_COUNT)*PHI_STEP;
+    
+    float4 pos(1);
+    pos.x = rho*sin(theta)*cos(phi);
+    pos.y = rho*sin(theta)*sin(phi);
+    pos.z = rho*cos(theta);
+
+    return shiftCoordsBack(floorHeight)*pos;
+}
+
+float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
+    const float4 childUnexpected(247/255, 242/255, 26/255, 0);
+    const float4 yellow(1, 211/255, 0, 0);
+    float gradient = rho / RADIUS;
+    float4 footColor = mix(childUnexpected, yellow, gradient);
+    
+    float floorGrad = 1;
+    if ( floorDist < MAX_GRAD_H ) {
+        floorGrad = floorDist / MAX_GRAD_H;
+    }
+    
+    const float4 green(0.1, 0.3, 0.1, 0);
+    float4 color = mix(green, footColor, floorGrad);
+    color.a = saturation;
+
+    return color;
+}
+
+void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
+    
+    auto h = md.median;
+    auto heightDeviation = abs(h*cos(thetaIndex*THETA_STEP));
+    if ( heightDeviation < 2*EPS_H ) {
+        md.group = Floor;
+    } else {
+        md.group = Foot;
+    }
+}
+
+
+
+// --------------------- SPHERICAL GRID ------------------------------------
+
+
 
 vertex void unprojectSphericalVertex(
                             uint vertexID [[vertex_id]],
@@ -324,7 +325,7 @@ vertex void unprojectSphericalVertex(
         }
 
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-        populateOrderd(md, val);
+        appendNewValue(md, val);
 
         markSphericalMeshNodes(md, i);
     }
@@ -333,19 +334,71 @@ vertex void unprojectSphericalVertex(
 vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
                                      constant float& floorHeight [[ buffer(kHeight) ]],
-                                     unsigned int vid [[ vertex_id ]] )
-{
+                                     unsigned int vid [[ vertex_id ]] ) {
     constant auto &md = myMeshData[vid];
 
-    const auto nodeVal = getMedianValue(md);
+    const auto nodeVal = md.median;
     auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
-    auto saturation = static_cast<float>(md.length) / MAX_MESH_STATISTIC;
+    auto saturation = static_cast<float>(md.bufModLen) / MAX_MESH_STATISTIC;
     
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
     pOut.color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
     return pOut;
 }
+
+
+
+// -------------------------------------- SINGLE FRAME (IN SPHERICAL COORDS) ---------------------------------------------
+
+
+
+void populateUnorderd( device MyMeshData& md, float value, constant int& frame) {
+    if (frame >= MAX_MESH_STATISTIC) {
+        return;
+    }
+    md.buffer[frame] = value;
+}
+
+vertex void unprojectSingleFrameVertex(
+                            uint vertexID [[vertex_id]],
+                            constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
+                            constant float2 *gridPoints [[ buffer(kGridPoints) ]],
+                            constant float& floorHeight[[ buffer(kHeight) ]],
+                            constant int& frame [[ buffer(kFrame) ]],
+                            device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
+                            texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
+                            texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
+                            ) {
+    const auto gridPoint = gridPoints[vertexID];
+
+    const auto texCoord = gridPoint / uniforms.cameraResolution;
+    // Sample the depth map to get the depth value
+    const auto depth = depthTexture.sample(colorSampler, texCoord).r;
+    if (depth < 0.15 ) {
+        return;
+    }
+
+    // With a 2D point plus depth, we can now get its 3D position
+    const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
+    const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
+
+    bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
+    if ( !check1 || confidence < 2 ) {
+        return;
+        
+    }
+    int i, j;
+    float val;
+    mapToSphericalTable(floorHeight, position, i, j, val);
+    if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
+        return ;
+    }
+    device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
+    populateUnorderd(md, val, frame);
+    markSphericalMeshNodes(md, i);
+}
+
 
 vertex ParticleVertexOut singleFrameVertex(
                                         constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
@@ -356,7 +409,7 @@ vertex ParticleVertexOut singleFrameVertex(
                                            ) {
     constant auto &md = myMeshData[vid];
 
-    const auto nodeVal = md.heights[frame-1];
+    const auto nodeVal = md.buffer[frame-1];
     auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 
     ParticleVertexOut pOut;
@@ -366,8 +419,12 @@ vertex ParticleVertexOut singleFrameVertex(
 }
 
 
-fragment float4 gridFragment(ParticleVertexOut in[[stage_in]])
-{
+
+// --------------------------------- BASE FRAGMENT SHADER ------------------------------------------
+
+
+
+fragment float4 gridFragment(ParticleVertexOut in[[stage_in]]) {
     return in.color;
 }
 

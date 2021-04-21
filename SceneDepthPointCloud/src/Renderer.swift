@@ -150,8 +150,6 @@ class Renderer {
         
         renderEncoder.setVertexBuffer(myGridSphericalBuffer)
         
-        let frame = frameAccumulated
-        
         renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
         renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
         renderEncoder.drawIndexedPrimitives(type: .point,
@@ -193,7 +191,6 @@ class Renderer {
     
     
     var frameAccumulated: Int32 = 0;
-    var frameEnoughForHeight: UInt = 10
     
     var currentState:RendererState {
         willSet {
