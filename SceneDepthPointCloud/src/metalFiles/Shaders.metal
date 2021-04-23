@@ -353,6 +353,8 @@ void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
 
 
 
+
+
 // --------------------- SPHERICAL GRID ------------------------------------
 
 
@@ -369,7 +371,7 @@ vertex void unprojectSphericalVertex(
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
     const auto gridPoint = gridPoints[vertexID];
-
+	
     const auto texCoord = gridPoint / uniforms.cameraResolution;
     // Sample the depth map to get the depth value
     const auto depth = depthTexture.sample(colorSampler, texCoord).r;
@@ -402,6 +404,14 @@ vertex void unprojectSphericalVertex(
 		
 		if (md.lock == 1)
 			return;
+		
+		auto direction = (uniforms.localToWorld*float4(0, 0, 0, 1)).xyz - (uniforms.localToWorld*float4(0, 1, 0, 1)).xyz;
+		auto nodeDirection = (restoreFromSphericalTable(floorHeight, val, vertexID) - restoreFromSphericalTable(floorHeight, 0, 0)).xyx;
+		
+		
+		if (dot(normalize(direction), normalize(nodeDirection)) > cos(M_PI_F/6))
+			return;
+		
 		
 		MedianSearcher(&md).appendNewValue(val);
         markSphericalMeshNodes(md, i);
