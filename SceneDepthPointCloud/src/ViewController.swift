@@ -203,7 +203,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
                 let node = renderer.myGridSphericalBuffer[i]
                 let row = Int(gridRow(Int32(i)))
                 let col = Int(gridColumn(Int32(i)))
-                let val = getMedian(node)
+				let val = node.median
                 res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
 
             }

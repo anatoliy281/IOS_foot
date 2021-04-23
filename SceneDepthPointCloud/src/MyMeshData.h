@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define MAX_MESH_STATISTIC 50
+#define MAX_MESH_STATISTIC 101
 
 #define RADIUS 0.5
 #define GRID_NODE_COUNT 500
@@ -28,6 +28,7 @@ extern "C" {
     };
 
     struct MyMeshData {
+		int lock;
         float buffer[MAX_MESH_STATISTIC];  	// актуальные данные буфера
         int bufModLen;                         // текущее значение для заполнения
 		int totalSteps;					// текущая длина буфера без модульного деления
@@ -38,12 +39,8 @@ extern "C" {
     };
     
     struct MyMeshData initMyMeshData(float valInit);
-
-    struct MyMeshData setAll(float value, int len, enum Group group);
    
     void setGroup(struct MyMeshData md, enum Group group);
-
-    float getMedian(struct MyMeshData md);
 
     int gridRow(int index);
     int gridColumn(int index);

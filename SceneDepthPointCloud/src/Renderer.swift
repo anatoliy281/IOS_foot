@@ -3,7 +3,7 @@ import MetalKit
 import ARKit
 
 
-let isDebugMode:Bool = true
+let isDebugMode:Bool = false
 let mn:Int = 60
 
 let gridNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
@@ -231,6 +231,11 @@ class Renderer {
         let initVal = initMyMeshData(-0.5)
         let gridInitial = Array(repeating: initVal, count: nodeCount)
         myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+//		for i in 0..<myGridBuffer.count {
+//			print(i)
+//			debugNode(node: i, buffer: myGridBuffer.buffer, field: .pairLen)
+//		}
+//		print(nodeCount, myGridBuffer.count)
     }
     
     func initializeSphericalGridNodes(nodeCount:Int) {
@@ -405,10 +410,23 @@ class Renderer {
                       
         if canUpdateDepthTextures(frame: currentFrame) {
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
+//			for i in 0..<myGridBuffer.count {
+//				print(i)
+//				debugNode(node: i, buffer: myGridBuffer.buffer, field: .pairLen)
+//			}
+//			print("")
+
+			
         }
         
         switch currentState {
         case .findFootArea:
+			
+//			for i in 0..<myGridBuffer.count {
+//				print(i)
+//				debugNode(node: i, buffer: myGridBuffer.buffer, field: .pairLen)
+//			}
+			
             updateCapturedImageTextures(frame: currentFrame)
             renderEncoder.setDepthStencilState(relaxedStencilState)
             drawCameraStream(renderEncoder)
@@ -465,6 +483,13 @@ class Renderer {
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
+		
+//		if currentState == .scanning {
+//			for node in 0..<myGridSphericalBuffer.count {
+//				let pp = myGridSphericalBuffer.buffer.contents().load(fromByteOffset: MemoryLayout<MyMeshData>.stride*node, as: MyMeshData.self)
+//				print(pp.totalSteps, pp.bufModLen)
+//			}
+//		}
         
         lastCameraTransform = frame.camera.transform
     }

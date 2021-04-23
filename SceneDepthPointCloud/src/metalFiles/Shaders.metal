@@ -6,7 +6,150 @@
 
 using namespace metal;
 
+constant float minDistance = 0.2;
+
 // -------------------------- BASE DEFINITIONS -----------------------------
+
+class MedianSearcher {
+	device MyMeshData* md;
+	constant MyMeshData* mdConst;
+	
+	void cycle();
+	int incrementModulo(int x, int step = 1);
+	float moveMedian(int greater);
+	int detectShiftDirection(float median, float a, float b, bool add);
+	
+public:
+	MedianSearcher(device MyMeshData* meshData): md(meshData), mdConst(nullptr) {}
+	MedianSearcher(constant MyMeshData* meshData): md(nullptr), mdConst(meshData) {}
+	void appendNewValue(float value);
+	
+	int getLength() const;
+	
+};
+
+
+
+void MedianSearcher::cycle() {
+	md->bufModLen = incrementModulo(md->bufModLen);
+	md->totalSteps += 1;
+}
+
+int MedianSearcher::incrementModulo(int x, int step) {
+	return (x + step + MAX_MESH_STATISTIC)%MAX_MESH_STATISTIC;
+}
+
+float MedianSearcher::moveMedian(int greater) {
+	const auto med = md->median;
+	auto newMed = med;
+	
+	bool firstCathed = false;
+	
+	if ( greater == 1 ) {	// стараемся найти ближайшую справа
+		for (int i = 0; i < getLength(); ++i) {
+			const auto deviation = md->buffer[i] - med;
+			if ( deviation > 0 ) {
+				if ( !firstCathed ) {
+					newMed = md->buffer[i];
+					firstCathed = true;
+				} else if ( abs(deviation) < abs(newMed - med) ) {
+					newMed = md->buffer[i];
+				}
+			}
+		}
+	} else if ( greater == -1 ) {	// стараемся найти ближайшую слева
+		for (int i=0; i < getLength(); ++i) {
+			const auto deviation = md->buffer[i] - med;
+			if ( deviation < 0 ) {
+				if ( !firstCathed ) {
+					newMed = md->buffer[i];
+					firstCathed = true;
+				} else if ( abs(deviation) < abs(med - newMed)) {
+					newMed = md->buffer[i];
+				}
+			}
+		}
+	} else {}
+
+	return newMed;
+}
+
+int MedianSearcher::detectShiftDirection(float median, float a, float b, bool valuesAdded) {
+	
+	auto pairMin = min(a, b);
+	auto pairMax = max(a, b);
+	
+	int res = 0;
+	if ( median < pairMin ) { // сдвинуть медану на ближайшее значение вправо
+		res = 1;
+	} else if ( median > pairMax ) { // сдвинуться влево
+		res = -1;
+	}
+	
+	if (!valuesAdded)
+		res = -1*res;
+	
+	return res;
+}
+
+void MedianSearcher::appendNewValue(float value) {
+	
+	md->lock = 1;
+
+	device auto& med = md->median;
+	if (md->totalSteps == 0) { // срабатывает один единственный раз
+		md->buffer[md->bufModLen] = med = value;
+		md->pairLen = 0;
+		cycle();
+		md->lock = 0;
+		return;
+	}
+
+	device int& plen = md->pairLen;
+	if (plen < 2)
+		md->pairs[plen++] = value;
+	if (plen == 2) { // пара готова
+		int p1 = md->bufModLen;
+		int p2 = incrementModulo(p1);
+		
+		// проверка на удаление текущей медианы
+		if (md->buffer[p1] == med) {
+			p1 = incrementModulo(p1, -1);
+		}
+		if (md->buffer[p2] == med) {
+			p2 = incrementModulo(p2);
+		}
+		
+		if (md->bufModLen < md->totalSteps ) {
+			auto a_old = md->buffer[p1];
+			auto b_old = md->buffer[p2];
+			// пересчет медианы при удалении
+			auto shiftToGreater = detectShiftDirection(med, a_old, b_old, false);
+//			cycle();
+//			cycle();
+			med = moveMedian(shiftToGreater);
+
+		}
+		
+		
+		
+		auto a = md->buffer[p1] = md->pairs[--plen];
+		auto b = md->buffer[p2] = md->pairs[--plen];
+		
+		cycle();
+		cycle();
+		auto shiftToGreater = detectShiftDirection(med, a, b, true);
+
+		med = moveMedian(shiftToGreater);
+	}
+	md->lock = 0;
+}
+
+int MedianSearcher::getLength() const {
+	auto totalSteps = (mdConst)? mdConst->totalSteps: md->totalSteps;
+	return min(totalSteps, MAX_MESH_STATISTIC);
+}
+
 
 //// Particle vertex shader outputs and fragment shader inputs
 struct ParticleVertexOut {
@@ -30,81 +173,7 @@ float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float
     res /= res.w;
     return res;
 }
-
-float closestToMedian(device MyMeshData& md, bool greater) {
-    device auto& med = md.median;
-    auto res = med;
-    
-    for (int i=0; i < min(md.totalSteps, MAX_MESH_STATISTIC); ++i) {
-        // условия поиска в зависимости от флага greater
-		bool firstCatched; 	// условие для пополнения начального шага
-		bool closer;		// условие для более близкого нового значения к старому
-        if (greater) {	// стараемся найти ближайшую справа
-            firstCatched = md.buffer[i] > res;
-            closer = md.buffer[i] < res;
-        } else {	// стараемся найти ближайшую слева
-            firstCatched = md.buffer[i] < res;
-            closer = md.buffer[i] > res;
-        }
-        
-        if ( res != med ) {    // обновляет новую медиану (ищет более ближайшую)
-            if (closer) {
-                res = md.buffer[i];
-            }
-        } else {  // срабатывает один раз, находит стартовое значение для обновленной медианы
-            if (firstCatched) {
-                res = md.buffer[i];     // первое условие больше не сработает
-            }
-        }
-    }
-    
-    return res;
-}
-
-int cycle(device MyMeshData& md) {
-	auto res = md.bufModLen;
-	md.bufModLen = (res + 1)%MAX_MESH_STATISTIC;
-	++md.totalSteps;
-	return res;
-}
-
-void appendNewValue( device MyMeshData& md, float value ) {
-
-    device auto& med = md.median;
-    if (md.totalSteps == 0) { // срабатывает один единственный раз
-		md.buffer[cycle(md)] = med = value;
-        md.pairLen = 0;
-        return;
-    }
-    
-    thread auto& plen = md.pairLen;
-    if (plen < 2) { // пара не готова
-		md.pairs[plen++] = value;
-    } else {	// пересчет медианы
-		auto a = md.buffer[cycle(md)] = md.pairs[--plen];
-		auto b = md.buffer[cycle(md)] = md.pairs[--plen];
-		
-		auto pairMin = min(a, b);
-		auto pairMax = max(a, b);
-		
-		bool greater;
-		if ( med < pairMin ) { // сдвинуть медану на ближайшее значение вправо
-			greater = true;
-		} else if ( med > pairMax ) { // сдвинуться влево
-			greater = false;
-		} else if ( med > pairMin && med < pairMax ) {
-			// не трогаем медиану
-			return;
-		}
-		else {    // исключительная ситуация!
-//            len -= 2; // удалили "плохие данные из буфера"
-			return;
-		}
-		
-		med = closestToMedian(md, greater);
-    }
-}
-
+	
 
 
 // ------------------------------------- CARTESIAN ------------------------------------
@@ -126,11 +195,11 @@ float4 restoreFromCartesianTable(float h, int index) {
     return pos;
 }
 
-float4 colorCartesianPoint(constant MyMeshData& md) {
-    float4 color(0.1, 0.3, 0.1, 0);
-    color.a = static_cast<float>(md.bufModLen) / MAX_MESH_STATISTIC;
-    return color;
-}
+//float4 colorCartesianPoint(constant MyMeshData& md) {
+//    float4 color(0.1, 0.3, 0.1, 0);
+//    color.a = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
+//    return color;
+//}
 
 void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) {
     auto h = md.median;
@@ -157,7 +226,7 @@ vertex void unprojectCartesianVertex(
     // Sample the depth map to get the depth value
     const auto depth = depthTexture.sample(colorSampler, texCoord).r;
     
-    if (depth < 0.15 ) {
+    if (depth < minDistance ) {
         return;
     }
     
@@ -180,16 +249,21 @@ vertex void unprojectCartesianVertex(
         }
         
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-        appendNewValue(md, val);
-
+		if (md.lock == 1)
+			return;
+		
+		auto shr = MedianSearcher(&md);
+		shr.appendNewValue(val);
+		
         markCartesianMeshNodes(md, floorHeight);
     }
 }
 
 
 
-
 // ------------------------- BASE SPHERICAL -------------------------------
+
+
 
 float4x4 shiftCoords(float h) {
     return float4x4( float4( 1, 0, 0, 0),
@@ -300,7 +374,7 @@ vertex void unprojectSphericalVertex(
     // Sample the depth map to get the depth value
     const auto depth = depthTexture.sample(colorSampler, texCoord).r;
 
-    if (depth < 0.15 ) {
+    if (depth < minDistance ) {
         return;
     }
 
@@ -325,8 +399,11 @@ vertex void unprojectSphericalVertex(
         }
 
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-        appendNewValue(md, val);
-
+		
+		if (md.lock == 1)
+			return;
+		
+		MedianSearcher(&md).appendNewValue(val);
         markSphericalMeshNodes(md, i);
     }
 }
@@ -339,7 +416,7 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 
     const auto nodeVal = md.median;
     auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
-    auto saturation = static_cast<float>(md.bufModLen) / MAX_MESH_STATISTIC;
+    auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
     
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);

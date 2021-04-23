@@ -1,5 +1,6 @@
 #include <metal_stdlib>
 #include "../ShaderTypes.h"
+//#include "MedianSearcher.metal"
 
 using namespace metal;
 
@@ -19,10 +20,10 @@ kernel void convert_gistro( constant MyMeshData* in [[ buffer(0) ]],
     constant auto& md = in[index];
     device auto& gistro = out[index];
     
-    if ( md.bufModLen == 0 ) {
+    if ( min(md.totalSteps, MAX_MESH_STATISTIC) == 0 ) {
         gistro.mn = int2(0);
     } else {
-        const auto x = md.buffer[md.bufModLen/2];
+        const auto x = md.median;
         const auto c = (interval.x + interval.y)*0.5f;
         if ( x > interval.x || x < interval.y ) {
             gistro.mn = int2(0);
