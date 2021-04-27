@@ -94,7 +94,7 @@ int MedianSearcher::detectShiftDirection(float median, float a, float b, bool va
 
 void MedianSearcher::appendNewValue(float value) {
 	
-	md->lock = 1;
+//	md->lock = 1;
 
 	device auto& med = md->median;
 	if (md->totalSteps == 0) { // срабатывает один единственный раз
@@ -109,6 +109,7 @@ void MedianSearcher::appendNewValue(float value) {
 	if (plen < 2)
 		md->pairs[plen++] = value;
 	if (plen == 2) { // пара готова
+		plen = 3;		//  прикрываем проходной двор для других потоков
 		int p1 = md->bufModLen;
 		int p2 = incrementModulo(p1);
 		
@@ -133,8 +134,8 @@ void MedianSearcher::appendNewValue(float value) {
 		
 		
 		
-		auto a = md->buffer[p1] = md->pairs[plen-1];
-		auto b = md->buffer[p2] = md->pairs[plen-2];
+		auto a = md->buffer[p1] = md->pairs[plen-2];
+		auto b = md->buffer[p2] = md->pairs[plen-3];
 		
 		cycle();
 		cycle();
@@ -143,7 +144,7 @@ void MedianSearcher::appendNewValue(float value) {
 		med = moveMedian(shiftToGreater);
 		plen = 0;
 	}
-	md->lock = 0;
+//	md->lock = 0;
 }
 
 int MedianSearcher::getLength() const {
