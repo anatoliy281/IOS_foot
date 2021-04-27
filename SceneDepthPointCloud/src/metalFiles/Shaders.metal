@@ -133,14 +133,15 @@ void MedianSearcher::appendNewValue(float value) {
 		
 		
 		
-		auto a = md->buffer[p1] = md->pairs[--plen];
-		auto b = md->buffer[p2] = md->pairs[--plen];
+		auto a = md->buffer[p1] = md->pairs[plen-1];
+		auto b = md->buffer[p2] = md->pairs[plen-2];
 		
 		cycle();
 		cycle();
 		auto shiftToGreater = detectShiftDirection(med, a, b, true);
 
 		med = moveMedian(shiftToGreater);
+		plen = 0;
 	}
 	md->lock = 0;
 }
@@ -420,7 +421,7 @@ vertex void unprojectSphericalVertex(
 		if (md.lock == 1)
 			return;
 		
-		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.5 )
+		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.75 )
 			return;
 		
 		
