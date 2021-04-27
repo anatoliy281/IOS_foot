@@ -340,6 +340,7 @@ float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
     return color;
 }
 
+
 void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
     
     auto h = md.median;
@@ -357,6 +358,20 @@ void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
 
 // --------------------- SPHERICAL GRID ------------------------------------
 
+
+float detectNodeOrientationToCamera(constant PointCloudUniforms &uniforms, const thread float4& nodePos, constant float& floorHeight) {
+	constant auto& mat = uniforms.localToWorld;
+	auto camOrigin = (mat*float4(0, 0, 0, 1)).xyz;
+	auto camDir = normalize( (mat*float4(0, 0, 1, 1)).xyz - camOrigin );
+	auto nodeDir = normalize( nodePos.xyz - float3(0, floorHeight, 0) );
+	auto cosine = -dot(camDir, nodeDir);
+	
+	if (cosine < 0) {
+		cosine = 0;
+	}
+	
+	return cosine*cosine*cosine;
+}
 
 
 vertex void unprojectSphericalVertex(
@@ -405,17 +420,18 @@ vertex void unprojectSphericalVertex(
 		if (md.lock == 1)
 			return;
 		
-		auto direction = (uniforms.localToWorld*float4(0, 0, 0, 1)).xyz - (uniforms.localToWorld*float4(0, 1, 0, 1)).xyz;
-		auto nodeDirection = (restoreFromSphericalTable(floorHeight, val, vertexID) - restoreFromSphericalTable(floorHeight, 0, 0)).xyx;
-		
-		
-		if (dot(normalize(direction), normalize(nodeDirection)) > cos(M_PI_F/6))
-			return;
+//		auto nodePos = restoreFromSphericalTable(floorHeight, val, vertexID).xyz;
+//		if ( calcCosine(uniforms, nodePos) > cos(M_PI_F/6) )
+//			return;
 		
 		
 		MedianSearcher(&md).appendNewValue(val);
         markSphericalMeshNodes(md, i);
     }
+}
+
+float4 shineDirection(float4 inColor, float mixFactor) {
+	return mix(inColor, float4(1, 1, 0, 1), mixFactor);
 }
 
 vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
@@ -428,9 +444,13 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
     auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
     auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
     
+	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
+	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
+	float4 shined = shineDirection(color, mixFactor);
+	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
-    pOut.color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
+	pOut.color = shined;
     return pOut;
 }
 
