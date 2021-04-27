@@ -420,9 +420,8 @@ vertex void unprojectSphericalVertex(
 		if (md.lock == 1)
 			return;
 		
-//		auto nodePos = restoreFromSphericalTable(floorHeight, val, vertexID).xyz;
-//		if ( calcCosine(uniforms, nodePos) > cos(M_PI_F/6) )
-//			return;
+		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.5 )
+			return;
 		
 		
 		MedianSearcher(&md).appendNewValue(val);
