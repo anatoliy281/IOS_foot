@@ -351,7 +351,7 @@ class Renderer {
         } else {
             interval = Float2(0, -2)
         }
-        var i:Int = 1
+//        var i:Int = 1
         
         while interval.x - interval.y > delta {
             // генерация массива Gistro для каждого узла
@@ -368,12 +368,12 @@ class Renderer {
             } else {
                 interval.x = c
             }
-            i += 1
+//            i += 1
             if interval.x - interval.y <= delta {
                 print("   (\(resGistro.mn[0]), \(resGistro.mn[1]))")
             }
         }
-        return (interval.x + interval.y) / 2
+		return (interval.x + interval.y)*0.5
     }
     
     
