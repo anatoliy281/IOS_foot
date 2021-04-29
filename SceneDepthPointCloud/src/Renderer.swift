@@ -484,12 +484,30 @@ class Renderer {
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 		
+		
 //		if currentState == .scanning {
+//			var problem:[Int32] = .init()
+//			var problemWaite:[Int32] = .init()
 //			for node in 0..<myGridSphericalBuffer.count {
 //				let pp = myGridSphericalBuffer.buffer.contents().load(fromByteOffset: MemoryLayout<MyMeshData>.stride*node, as: MyMeshData.self)
-//				print(pp.totalSteps, pp.bufModLen)
+//				problem.append(pp.pairLen)
+//				problemWaite.append(pp.debugCall)
+//			}
+			
+//			problem.sort()
+//			for pr in problem {
+//				if pr > 80 {
+//					print(pr)
+//				}
+//			}
+//			problemWaite.sort()
+//			for pr in problemWaite {
+//				if pr > 0 {
+//					print("debugCall \(pr)")
+//				}
 //			}
 //		}
+
         
         lastCameraTransform = frame.camera.transform
     }

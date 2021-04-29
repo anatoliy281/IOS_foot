@@ -6,7 +6,8 @@
 
 using namespace metal;
 
-constant float minDistance = 0.2;
+constant float minDistance = 0.25;
+
 
 // -------------------------- BASE DEFINITIONS -----------------------------
 
@@ -23,6 +24,7 @@ public:
 	MedianSearcher(device MyMeshData* meshData): md(meshData), mdConst(nullptr) {}
 	MedianSearcher(constant MyMeshData* meshData): md(nullptr), mdConst(meshData) {}
 	void appendNewValue(float value);
+	void appendNewValueDebug(float value);
 	
 	int getLength() const;
 	
@@ -92,16 +94,65 @@ int MedianSearcher::detectShiftDirection(float median, float a, float b, bool va
 	return res;
 }
 
-void MedianSearcher::appendNewValue(float value) {
-	
-//	md->lock = 1;
 
+void MedianSearcher::appendNewValueDebug(float value) {
+	device int& plen = md->pairLen;
+	device auto& med = md->median;
+	if (md->totalSteps == 0) { // срабатывает один единственный раз
+		md->buffer[md->bufModLen] = med = value;
+		plen = 0;
+		cycle();
+
+		return;
+	}
+
+	md->pairs[(plen++) % PAIR_SIZE] = value;
+	
+	while (plen > 1) { // пара готова
+		if (md->lock == 1)
+			return;
+		md->lock = 1;
+		auto a = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
+		auto b = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
+		
+		cycle();
+		cycle();
+		
+		int p1 = md->bufModLen;
+		int p2 = incrementModulo(p1);
+		md->buffer[p1] = a;
+		md->buffer[p2] = b;
+
+		// проверка на удаление текущей медианы
+		if (md->buffer[p1] == med) {
+			p1 = incrementModulo(p1, -1);
+		}
+		if (md->buffer[p2] == med) {
+			p2 = incrementModulo(p2);
+		}
+
+		if (md->bufModLen < md->totalSteps ) {
+			auto a_old = md->buffer[p1];
+			auto b_old = md->buffer[p2];
+			// пересчет медианы при удалении
+			auto shiftToGreater = detectShiftDirection(med, a_old, b_old, false);
+			med = moveMedian(shiftToGreater);
+		}
+
+		auto shiftToGreater = detectShiftDirection(med, a, b, true);
+
+		med = moveMedian(shiftToGreater);
+		
+		md->lock = 0;
+	}
+}
+
+void MedianSearcher::appendNewValue(float value) {
 	device auto& med = md->median;
 	if (md->totalSteps == 0) { // срабатывает один единственный раз
 		md->buffer[md->bufModLen] = med = value;
 		md->pairLen = 0;
 		cycle();
-		md->lock = 0;
 		return;
 	}
 
@@ -112,7 +163,7 @@ void MedianSearcher::appendNewValue(float value) {
 		plen = 3;		//  прикрываем проходной двор для других потоков
 		int p1 = md->bufModLen;
 		int p2 = incrementModulo(p1);
-		
+
 		// проверка на удаление текущей медианы
 		if (md->buffer[p1] == med) {
 			p1 = incrementModulo(p1, -1);
@@ -120,23 +171,19 @@ void MedianSearcher::appendNewValue(float value) {
 		if (md->buffer[p2] == med) {
 			p2 = incrementModulo(p2);
 		}
-		
+
 		if (md->bufModLen < md->totalSteps ) {
 			auto a_old = md->buffer[p1];
 			auto b_old = md->buffer[p2];
 			// пересчет медианы при удалении
 			auto shiftToGreater = detectShiftDirection(med, a_old, b_old, false);
-//			cycle();
-//			cycle();
 			med = moveMedian(shiftToGreater);
 
 		}
-		
-		
-		
+
 		auto a = md->buffer[p1] = md->pairs[plen-2];
 		auto b = md->buffer[p2] = md->pairs[plen-3];
-		
+
 		cycle();
 		cycle();
 		auto shiftToGreater = detectShiftDirection(med, a, b, true);
@@ -144,7 +191,6 @@ void MedianSearcher::appendNewValue(float value) {
 		med = moveMedian(shiftToGreater);
 		plen = 0;
 	}
-//	md->lock = 0;
 }
 
 int MedianSearcher::getLength() const {
@@ -426,7 +472,7 @@ vertex void unprojectSphericalVertex(
 			return;
 		
 		
-		MedianSearcher(&md).appendNewValue(val);
+		MedianSearcher(&md).appendNewValueDebug(val);
         markSphericalMeshNodes(md, i);
     }
 }

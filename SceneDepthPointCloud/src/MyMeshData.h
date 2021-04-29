@@ -21,6 +21,8 @@ extern "C" {
 
     #define GROUPS_COUNT 3
 
+
+#define PAIR_SIZE 256
     enum Group {
         Unknown,
         Floor,
@@ -28,12 +30,14 @@ extern "C" {
     };
 
     struct MyMeshData {
+
 		int lock;
         float buffer[MAX_MESH_STATISTIC];  	// актуальные данные буфера
         int bufModLen;                         // текущее значение для заполнения
 		int totalSteps;					// текущая длина буфера без модульного деления
-        float pairs[2];       				// поступающая пара для пересчета медианы
+        float pairs[PAIR_SIZE];       				// поступающая пара для пересчета медианы
         int pairLen;                        // длина промежуточного буфера пар
+		int debugCall;
         float median;                       // медиана
         enum Group group;
     };

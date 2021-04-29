@@ -14,6 +14,7 @@ struct MyMeshData initMyMeshData(float valInit) {
 	md.pairs[0] = 0;
 	md.pairs[1] = 0;
 	md.pairLen = 0;
+	md.debugCall = 0;
 	md.median = 0;
 	md.group = Unknown;
 	return md;
