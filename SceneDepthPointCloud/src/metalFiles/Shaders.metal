@@ -301,7 +301,7 @@ vertex void unprojectCartesianVertex(
 			return;
 		
 		auto shr = MedianSearcher(&md);
-		shr.appendNewValue(val);
+		shr.appendNewValueDebug(val);
 		
         markCartesianMeshNodes(md, floorHeight);
     }
