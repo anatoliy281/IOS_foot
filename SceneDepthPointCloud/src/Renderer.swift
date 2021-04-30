@@ -514,24 +514,27 @@ class Renderer {
 }
 
 private extension Renderer {
-    /// Makes sample points on camera image, also precompute the anchor point for animation
-    func makeGridPoints() -> [Float2] {
-        let deltaX = Int(round(cameraResolution.x))
-        let deltaY = Int(round(cameraResolution.y))
-        
-        var points = [Float2]()
-        for gridY in 0 ..< deltaY {
-            let alternatingOffsetX = Float(gridY % 2) / 2
-            for gridX in 0 ..< deltaX {
-                let cameraPoint = Float2(alternatingOffsetX + (Float(gridX) + 0.5), (Float(gridY) + 0.5))
-                
-                points.append(cameraPoint)
-            }
-        }
-        
-        return points
-    }
-    
+	
+	/// Makes sample points on camera image, also precompute the anchor point for animation
+	func makeGridPoints() -> [Float2] {
+		let numGridPoints = 250_000;
+		let gridArea = cameraResolution.x * cameraResolution.y
+		let spacing = sqrt(gridArea / Float(numGridPoints))
+		let deltaX = Int(round(cameraResolution.x / spacing))
+		let deltaY = Int(round(cameraResolution.y / spacing))
+		
+		var points = [Float2]()
+		for gridY in 0 ..< deltaY {
+			let alternatingOffsetX = Float(gridY % 2) * spacing / 2
+			for gridX in 0 ..< deltaX {
+				let cameraPoint = Float2(alternatingOffsetX + (Float(gridX) + 0.5) * spacing, (Float(gridY) + 0.5) * spacing)
+				
+				points.append(cameraPoint)
+			}
+		}
+		
+		return points
+	}
     
     func makeAxisIndeces() -> [UInt16] {
         let zero = UInt16(0)

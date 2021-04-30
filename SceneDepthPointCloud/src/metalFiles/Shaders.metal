@@ -297,8 +297,6 @@ vertex void unprojectCartesianVertex(
         }
         
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-		if (md.lock == 1)
-			return;
 		
 		auto shr = MedianSearcher(&md);
 		shr.appendNewValueDebug(val);
@@ -343,19 +341,7 @@ void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thre
     
     i = round( theta / THETA_STEP );
     j = round( phi / PHI_STEP );
-//    value = (abs(theta - PI/2) > (3*PI/180))? length( float3(spos.xyz) ): 0;
-    const auto l = length( float3(spos.xyz) );
-    
-//    const float kA = 1500;
-//    const float kB = 1000;
-//    const float lA = 0.36;
-//    const float lB = 0.04;
-//    const auto alpha = ( kA*(l - lB)/(lA - lB) + kB*(l - lA)/(lB - lA) )*l;
-//    const auto eps = 0.0005;
-//    const auto x = theta - M_PI_2_F + log( (1-eps)/eps ) / alpha;
-    float sigma = 1;// / ( exp(alpha*x) + 1 );
-    
-    value = sigma*l;
+	value = length(spos.xyz);
 }
 
 float4 restoreFromSphericalTable(float floorHeight, float rho, int index) {
@@ -465,8 +451,8 @@ vertex void unprojectSphericalVertex(
 
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
 		
-		if (md.lock == 1)
-			return;
+//		if (md.lock == 1)
+//			return;
 		
 		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.75 )
 			return;
