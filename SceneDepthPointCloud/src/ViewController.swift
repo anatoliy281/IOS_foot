@@ -312,13 +312,17 @@ final class ViewController: UIViewController, ARSessionDelegate {
             var res = ""
             var table = fullTable(data)
 			smooth(&table)
-//			truncateTheFloor(table: &table)
+			truncateTheFloor(table: &table)
             for i in 0..<dim {
                 for j in 0..<dim {
                     var str = ""
                     if table[i][j] != Float() {
 						let pos = calcCoords(i, j, &table)
-						str = "v \(pos.x) \(pos.y) \(pos.z)\n"
+//						if (pos.z > 8) {
+							str = "v \(pos.x) \(pos.y) \(pos.z)\n"
+//						} else {
+//							str = nullsStr
+//						}
                     } else {
                         if (renderer.currentState != .separate) {
                             str = nullsStr
