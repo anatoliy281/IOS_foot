@@ -39,11 +39,6 @@ struct PointCloudUniforms {
     simd_float2 cameraResolution;
 };
 
-struct ColoredPoint {
-    simd_float3 position;
-    simd_int4 color;
-};
-
 struct CameraView {
     simd_float2 viewVertices;
     simd_float2 viewTexCoords;
