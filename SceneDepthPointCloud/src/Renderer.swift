@@ -2,9 +2,7 @@ import Metal
 import MetalKit
 import ARKit
 
-
 let isDebugMode:Bool = false
-let mn:Int = 60
 
 let gridNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
 
@@ -245,7 +243,7 @@ class Renderer {
     }
     
     
-    func initializeGridIndeces() -> MetalBuffer<UInt32> {
+	func initializeGridIndeces(cyclic:Bool = true) -> MetalBuffer<UInt32> {
         
         var indecesData = [UInt32]()
         let nodeCount = UInt32(GRID_NODE_COUNT)
@@ -255,22 +253,25 @@ class Renderer {
         }
 
         func UpDown(_ j: UInt32) -> [UInt32] {
-
             var res = [UInt32]()
             for i in 0..<nodeCount-1 {
-                res.append(contentsOf: [index(i,j), index(i,j+1)])
+                res.append( contentsOf: [index(i,j), index(i,j+1)] )
             }
             res.append(index(nodeCount-1,j))
 
             return res
-
         }
 
         func DownUp(_ j: UInt32) -> [UInt32] {
 
             var res = [UInt32]()
             for i in (1..<nodeCount).reversed() {
-                res.append(contentsOf: [index(i,j), index(i,j+1)])
+				if cyclic {
+					res.append(contentsOf: [index(i, j%nodeCount), index(i,(j+1)%nodeCount)])
+				} else {
+					res.append(contentsOf: [index(i, j), index(i,j+1)])
+				}
+                
             }
             res.append(index(0,j))
 
@@ -286,10 +287,10 @@ class Renderer {
             return index(0, nodeCount-1)
         }
 
+		let cyclicNode:UInt32 = cyclic ? 1: 0
+        let endPoint:()->UInt32 = ((nodeCount + cyclicNode)%2 == 0) ? bottomRight : upRight
 
-        let endPoint:()->UInt32 = (nodeCount%2 == 0) ? bottomRight : upRight
-
-        for j in 0..<nodeCount-1 {
+        for j in 0..<nodeCount-1 + cyclicNode {
             let move:(UInt32)->[UInt32] = (j%2 == 0) ? UpDown : DownUp
             indecesData.append(contentsOf: move(j))
         }

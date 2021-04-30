@@ -3,13 +3,6 @@ import Metal
 import MetalKit
 import ARKit
 
-class GroupedData {
-    var data: [Int:String] = .init()
-}
-
-class GroupDataCoords {
-    var data: [Int:[(Int, Int, Float)]] = .init()
-}
 
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
@@ -73,12 +66,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("SEND!!!")
         
-//        smooth()
-//        renderer.separate()
-        
-        let data = separateData(mn: mn)
-        let objects = convertToObj(separated: data)
-//        let objects = exportToObjFormat()
+		let meshHoler = MeshHolder(renderer)
+		let objects = meshHoler.convertToObj()
         
         writePerId(objects)
 
@@ -91,15 +80,22 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     
-    func writePerId(_ objects:GroupedData) {
+    func writePerId(_ objects: GroupedData) {
+		var ignoreList = [Int]()
+		if renderer.currentState != .separate {
+			ignoreList.append(Int(Unknown.rawValue))
+			ignoreList.append(Int(Floor.rawValue))
+		}
+								 
         
         var fNames = [Int:String].init()
         if renderer.currentState != .separate {
             fNames.updateValue("Unknown", forKey: Int(Unknown.rawValue))
             fNames.updateValue("Floor", forKey: Int(Floor.rawValue))
             fNames.updateValue("Foot", forKey: Int(Foot.rawValue))
+			fNames.updateValue("CleanFoot", forKey: Int(Foot.rawValue)+1)
         } else {
-            for i in 0..<objects.data.count {
+			for i in 0..<objects.data.count {
                 fNames.updateValue(String("image-\(i)_"), forKey: i)
             }
         }
@@ -108,12 +104,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         var urls:[URL] = []
         guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first  else { return }
         
-        for (id, str) in objects.data {
-            if renderer.currentState != .separate {
-                if id == Int(Unknown.rawValue)
-					|| id == Int(Floor.rawValue)
-				{ continue }
-            }
+		for (id, str) in objects.data {
+			if ignoreList.contains(id) { continue }
             let fileName = fNames[id]! + "\(Int(Date().timeIntervalSince1970)).obj"
             let url = dir.appendingPathComponent(fileName)
             urls.append(url)
@@ -194,172 +186,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     
-    func separateData(mn:Int) -> GroupDataCoords {
-        let res = GroupDataCoords()
-        if renderer.currentState != .separate {
-            res.data = [ Int(Unknown.rawValue):.init(),
-                         Int(Foot.rawValue):.init(),
-                         Int(Floor.rawValue):.init() ]
-            
-            for i in 0..<renderer.myGridSphericalBuffer.count {
-                let node = renderer.myGridSphericalBuffer[i]
-                let row = Int(gridRow(Int32(i)))
-                let col = Int(gridColumn(Int32(i)))
-				let val = node.median
-                res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
 
-            }
-            
-        } else {
-            for i in 0..<MAX_MESH_STATISTIC/Int32(mn) {
-                res.data[Int(i)] = .init()
-            }
-            
-            for frame in 0..<MAX_MESH_STATISTIC/Int32(mn) {
-                for i in 0..<renderer.myGridSphericalBuffer.count {
-                    var node = renderer.myGridSphericalBuffer[i]
-                    let row = Int(gridRow(Int32(i)))
-                    let col = Int(gridColumn(Int32(i)))
-                    let val = getValue(&node, frame)
-                    res.data[Int(frame)]!.append( (row, col, val) )
-                }
-            }
-        }
-        
-        return res
-        
-    }
     
-    func convertToObj(separated data:GroupDataCoords) -> GroupedData {
-        
-        func writeEdges(input data: [(Int,Int,Float)]) -> String {
-            
-            let dim = Int(GRID_NODE_COUNT)
-			let nullsStr = "v 0 0 0\n"
-            
-            func fullTable(_ data:[(Int,Int,Float)]) -> [[Float]] {
-                var res = Array(repeating:Array(repeating: Float(), count: dim), count: dim)
-                for ( i, j, val ) in data {
-                    res[i][j] = val
-                }
-                return res
-            }
-            
-			
-			func calcCoords(_ i:Int, _  j:Int, _ table: inout [[Float]]) -> Float3 {
-				let value = table[i][j]
-				let x = -calcX(Int32(i), Int32(j), value) // flip the foot
-				let y = calcY(Int32(i), Int32(j), value)
-				let z = calcZ(Int32(i), Int32(j), value)
-				return 1000*Float3(x, y, z)
-			}
-			
-			func isSloped(_ r1: Float3, _ r2: Float3) -> Bool {
-				let dr = r2 - r1
-				return abs(dr.z) > sqrt(dr.x*dr.x + dr.y*dr.y)
-			}
-			
-			
-			func smooth(_ table: inout [[Float]]) {
-				for theta in 1..<dim-1 {
-					for phi in 1..<dim-1 {
-						var mask:[Float] = [
-							table[theta-1][phi-1], table[theta-1][phi], table[theta-1][phi+1],
-							table[theta][phi-1], table[theta][phi], table[theta][phi+1],
-							table[theta+1][phi-1], table[theta+1][phi], table[theta+1][phi+1]
-						]
-						mask.sort()
-						table[theta][phi] = mask[4]
-						if phi == 1 {
-							table[theta][0] = mask[4]
-						}
-						if phi == dim-2 {
-							table[theta][dim-1] = mask[4]
-						}
-					}
-				}
-			}
-			
-			func truncateTheFloor(table: inout [[Float]]) {
-				for j_phi in 0..<dim {
-					var iStop:Int?
-					var rhoCutted:Float?
-					for i_theta in (3..<dim-1).reversed() {
-						let r1 = calcCoords(i_theta - 3, j_phi, &table)
-						let r2 = calcCoords(i_theta - 2, j_phi, &table)
-						let r3 = calcCoords(i_theta - 1, j_phi, &table)
-						let r4 = calcCoords(i_theta, j_phi, &table)
-						if isSloped(r1, r2) &&
-						   isSloped(r2, r3) &&
-						   isSloped(r3, r4) {
-							iStop = i_theta
-							rhoCutted = table[i_theta][j_phi]
-							break
-						}
-					}
-					if let thetaFloor = iStop,
-					   let rho = rhoCutted {
-						for i_theta in thetaFloor..<dim {
-							table[i_theta][j_phi] = rho
-						}
-					}
-					
-				}
-				
-			}
-			
-			
-            var res = ""
-            var table = fullTable(data)
-			smooth(&table)
-			truncateTheFloor(table: &table)
-            for i in 0..<dim {
-                for j in 0..<dim {
-                    var str = ""
-                    if table[i][j] != Float() {
-						let pos = calcCoords(i, j, &table)
-//						if (pos.z > 8) {
-							str = "v \(pos.x) \(pos.y) \(pos.z)\n"
-//						} else {
-//							str = nullsStr
-//						}
-                    } else {
-                        if (renderer.currentState != .separate) {
-                            str = nullsStr
-                        }
-                    }
-                    res.append(str)
-                }
-            }
-            
-            if (renderer.currentState != .separate) {
-                for i in 0..<dim {
-                    for j in 0..<dim {
-                        if (table[i][j] != Float()) {
-                            if (j+1 != dim && table[i][j+1] != Float()) {
-                                let index = i*dim + j
-                                res.append("l \(index+1) \(index+2)\n")
-                            }
-                            if (i+1 != dim && table[i+1][j] != Float()) {
-                                let index = (i+1)*dim + j
-                                res.append("l \(index-dim+1) \(index+1)\n")
-                            }
-                        }
-                    }
-                }
-            }
-            
-            return res
-        }
-        
-        let res = GroupedData()
-        for (key, val) in data.data {
-            res.data[key] = writeEdges(input: val)
-        }
-        return res
-        
-    }
-
+    
 
 }
 
