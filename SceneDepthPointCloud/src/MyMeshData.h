@@ -39,6 +39,7 @@ extern "C" {
         int pairLen;                        // длина промежуточного буфера пар
 		int debugCall;
         float median;                       // медиана
+		float depth;						// глубина
         enum Group group;
     };
     

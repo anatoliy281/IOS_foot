@@ -7,7 +7,8 @@
 using namespace metal;
 
 constant float minDistance = 0.25;
-
+constant float idealDist = 0.3;
+constant float acceptanceZone = 0.2;
 
 // -------------------------- BASE DEFINITIONS -----------------------------
 
@@ -450,9 +451,7 @@ vertex void unprojectSphericalVertex(
         }
 
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-		
-//		if (md.lock == 1)
-//			return;
+		md.depth = depth;
 		
 		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.75 )
 			return;
@@ -465,6 +464,28 @@ vertex void unprojectSphericalVertex(
 
 float4 shineDirection(float4 inColor, float mixFactor) {
 	return mix(inColor, float4(1, 1, 0, 1), mixFactor);
+}
+
+
+float saturFunc(float depth) {
+	auto x = depth - idealDist;
+	auto n = 8.f;
+	auto d = acceptanceZone/8;
+	auto a = (x > 0)? (n-1)*d: d;
+	auto y = (x/a)*(x/a);
+	if (y > 1)
+		y = 1;
+	return y;
+}
+
+float4 saturateAsDistance(constant PointCloudUniforms& uniforms, float depth, const thread float4& color) {
+
+	
+	float param = saturFunc(depth);
+
+	const auto value = dot( color.rgb, float3(0.299, 0.587, 0.114) );
+	const auto gray = float4(value, value, value, 1);
+	return mix(color, gray, param);
 }
 
 vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
@@ -480,10 +501,12 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
 	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
 	float4 shined = shineDirection(color, mixFactor);
+	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
+	
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
-	pOut.color = shined;
+	pOut.color = colorised;
     return pOut;
 }
 
