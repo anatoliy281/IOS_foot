@@ -84,19 +84,27 @@ class Renderer {
                                                             index: kGridPoints.rawValue, options: [])
     
     lazy var heelAreaMesh:MTKMesh = {
-        let allocator = MTKMeshBufferAllocator(device: device)
-        let height:Float = 0.002
-        let radius:Float = 0.02
-        let mdlMesh = MDLMesh(cylinderWithExtent: [radius, height, radius],
-                                segments: [100,100],
-                                inwardNormals: false,
-                                topCap: true,
-                                bottomCap: true,
-                                geometryType: .triangles,
-                                allocator: allocator)
-        let mesh = try! MTKMesh(mesh: mdlMesh, device: device)
-        
-        return mesh
+		
+		let url = Bundle.main.url(forResource: "fittin", withExtension: "obj")!
+
+		let vertexDescriptor = MTLVertexDescriptor()
+		vertexDescriptor.attributes[0].format = .float3
+		vertexDescriptor.attributes[0].offset = 0
+		vertexDescriptor.attributes[0].bufferIndex = 0
+		vertexDescriptor.layouts[0].stride = MemoryLayout<Float3>.stride
+
+		let meshDescriptor = MTKModelIOVertexDescriptorFromMetal(vertexDescriptor)
+		(meshDescriptor.attributes[0] as! MDLVertexAttribute).name = MDLVertexAttributePosition
+
+
+
+		let asset = MDLAsset( url: url,
+							 vertexDescriptor: meshDescriptor,
+							 bufferAllocator: MTKMeshBufferAllocator(device: device) )
+
+		let mdlMesh = asset.object(at: 0) as! MDLMesh
+
+		return try! MTKMesh(mesh: mdlMesh, device: device)
     }()
     
     private lazy var axisIndeces = MetalBuffer<UInt16>(device: device, array: makeAxisIndeces(), index: 0)

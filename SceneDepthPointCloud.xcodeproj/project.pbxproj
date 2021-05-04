@@ -11,6 +11,9 @@
 		6A73C04625DE87B00007853C /* MyMeshData.c in Sources */ = {isa = PBXBuildFile; fileRef = 6A73C04425DE84950007853C /* MyMeshData.c */; };
 		8A240AE4263C2011007D70DD /* MeshHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A240AE3263C2011007D70DD /* MeshHolder.swift */; };
 		8A35C2C52630587F000D87A2 /* MyMeshDataDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A35C2C42630587F000D87A2 /* MyMeshDataDebug.swift */; };
+		8A48A523264179B800FC71A3 /* fittin.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A522264179B800FC71A3 /* fittin.jpg */; };
+		8A48A525264179BC00FC71A3 /* fittin.mtl in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A524264179BC00FC71A3 /* fittin.mtl */; };
+		8A48A527264179C100FC71A3 /* fittin.obj in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A526264179C100FC71A3 /* fittin.obj */; };
 		8A8BFCCC262038D9007F1456 /* AnyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCC8262038D9007F1456 /* AnyStates.swift */; };
 		8A8BFCCD262038D9007F1456 /* compute.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCC9262038D9007F1456 /* compute.metal */; };
 		8A8BFCCE262038D9007F1456 /* computeFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCCA262038D9007F1456 /* computeFunctions.swift */; };
@@ -33,6 +36,9 @@
 		8A240AE3263C2011007D70DD /* MeshHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeshHolder.swift; sourceTree = "<group>"; };
 		8A25657326288E3D00267A12 /* Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Header.h; sourceTree = "<group>"; };
 		8A35C2C42630587F000D87A2 /* MyMeshDataDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyMeshDataDebug.swift; sourceTree = "<group>"; };
+		8A48A522264179B800FC71A3 /* fittin.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = fittin.jpg; sourceTree = "<group>"; };
+		8A48A524264179BC00FC71A3 /* fittin.mtl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fittin.mtl; sourceTree = "<group>"; };
+		8A48A526264179C100FC71A3 /* fittin.obj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fittin.obj; sourceTree = "<group>"; };
 		8A8BFCC8262038D9007F1456 /* AnyStates.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AnyStates.swift; sourceTree = "<group>"; };
 		8A8BFCC9262038D9007F1456 /* compute.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = compute.metal; sourceTree = "<group>"; };
 		8A8BFCCA262038D9007F1456 /* computeFunctions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = computeFunctions.swift; sourceTree = "<group>"; };
@@ -72,6 +78,16 @@
 				8A35C2C42630587F000D87A2 /* MyMeshDataDebug.swift */,
 			);
 			path = DebugUtils;
+			sourceTree = "<group>";
+		};
+		8A48A5172641522800FC71A3 /* resources */ = {
+			isa = PBXGroup;
+			children = (
+				8A48A524264179BC00FC71A3 /* fittin.mtl */,
+				8A48A526264179C100FC71A3 /* fittin.obj */,
+				8A48A522264179B800FC71A3 /* fittin.jpg */,
+			);
+			path = resources;
 			sourceTree = "<group>";
 		};
 		8A8BFCC426203721007F1456 /* src */ = {
@@ -152,6 +168,7 @@
 		E73DD12F24636FEF00D77039 /* SceneDepthPointCloud */ = {
 			isa = PBXGroup;
 			children = (
+				8A48A5172641522800FC71A3 /* resources */,
 				8A8BFCC426203721007F1456 /* src */,
 				E73DD13924636FEF00D77039 /* Main.storyboard */,
 				E73DD13C24636FF100D77039 /* Assets.xcassets */,
@@ -221,6 +238,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				E73DD14024636FF100D77039 /* LaunchScreen.storyboard in Resources */,
+				8A48A523264179B800FC71A3 /* fittin.jpg in Resources */,
+				8A48A527264179C100FC71A3 /* fittin.obj in Resources */,
+				8A48A525264179BC00FC71A3 /* fittin.mtl in Resources */,
 				E73DD13D24636FF100D77039 /* Assets.xcassets in Resources */,
 				E73DD13B24636FEF00D77039 /* Main.storyboard in Resources */,
 			);

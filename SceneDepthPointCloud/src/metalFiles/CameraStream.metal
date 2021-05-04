@@ -70,5 +70,5 @@ vertex ParticleVertexOut heelMarkerAreaVertex( const VertexIn vertexIn [[ stage_
 
 fragment float4 heelMarkerAreaFragment()
 {
-    return float4(247/255, 242/255, 26/255, 1);
+    return float4(252./255, 102./255, 0./255, 1);
 }
