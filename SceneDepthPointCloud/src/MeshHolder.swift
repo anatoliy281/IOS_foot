@@ -26,6 +26,8 @@ class MeshHolder {
 		}
 		let smoothedFootKey = Int(Foot.rawValue) + 1
 		res.data[smoothedFootKey] = writeEdges(input: Int(Foot.rawValue), toSmooth: true)
+		let smoothedAndTruncFootKey = Int(Foot.rawValue) + 2
+		res.data[smoothedAndTruncFootKey] = writeEdges(input: Int(Foot.rawValue), toSmooth: true, toTruncFloor: true)
 		return res
 	}
 	
@@ -68,14 +70,16 @@ class MeshHolder {
 	}
 
 	// упаковать данные в строку
-	private func writeEdges(input key: Int, toSmooth: Bool = false) -> String {
+	private func writeEdges(input key: Int, toSmooth: Bool = false, toTruncFloor: Bool = false) -> String {
 	
 		let nullsStr = "v 0 0 0\n"
 		var res = ""
 		var table = fullTable(key)
 		if toSmooth {
 			smooth(&table)
-//			truncateTheFloor(table: &table)
+			if toTruncFloor {
+				truncateTheFloor(table: &table)
+			}
 		}
 
 		for i in 0..<dim {
@@ -130,9 +134,9 @@ class MeshHolder {
 	   return 1000*Float3(x, y, z)
    }
    
-   private func isSloped(_ r1: Float3, _ r2: Float3) -> Bool {
+	private func deriv(_ r1: Float3, _ r2: Float3) -> (rho:Float, h:Float) {
 	   let dr = r2 - r1
-	   return abs(dr.z) > sqrt(dr.x*dr.x + dr.y*dr.y)
+	   return ( sqrt(dr.x*dr.x + dr.y*dr.y), abs(dr.z) )
    }
 	   
 	   
@@ -153,33 +157,42 @@ class MeshHolder {
 	   }
    }
 	   
-   private func truncateTheFloor(table: inout [[Float]]) {
-	   for j_phi in 0..<dim {
-		   var iStop:Int?
-		   var rhoCutted:Float?
-		   for i_theta in (3..<dim-1).reversed() {
-			   let r1 = calcCoords(i_theta - 3, j_phi, &table)
-			   let r2 = calcCoords(i_theta - 2, j_phi, &table)
-			   let r3 = calcCoords(i_theta - 1, j_phi, &table)
-			   let r4 = calcCoords(i_theta, j_phi, &table)
-			   if isSloped(r1, r2) &&
-				  isSloped(r2, r3) &&
-				  isSloped(r3, r4) {
-				   iStop = i_theta
-				   rhoCutted = table[i_theta][j_phi]
-				   break
-			   }
-		   }
-		   if let thetaFloor = iStop,
+	private func truncateTheFloor(table: inout [[Float]]) {
+		let k0 = Float(3)
+		let h0 = Float(2)
+		for j_phi in 0..<dim {
+			var iStop:Int?
+			var rhoCutted:Float?
+			var dH = Float(0)
+			var dL = Float(0)
+			for i_theta in (1..<dim-1).reversed() {
+				let r0 = calcCoords(i_theta - 1, j_phi, &table)
+				let r1 = calcCoords(i_theta, j_phi, &table)
+				let dr = deriv(r0, r1)
+				if dr.rho < dr.h {
+					dH += dr.h
+					if dH > h0 {
+						break
+					}
+				} else {
+					dL += dr.rho
+					rhoCutted = table[i_theta][j_phi]
+					iStop = i_theta
+					if dL > k0*dH {
+						dH = 0
+					}
+				}
+			}
+			if let thetaFloor = iStop,
 			  let rho = rhoCutted {
 			   for i_theta in thetaFloor..<dim {
 				   table[i_theta][j_phi] = rho
 			   }
-		   }
+			}
 		   
-	   }
+		}
 	   
-   }
+	}
 	
 	
 	

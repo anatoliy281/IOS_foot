@@ -358,8 +358,8 @@ float4 restoreFromSphericalTable(float floorHeight, float rho, int index) {
 }
 
 float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
-    const float4 childUnexpected(247/255, 242/255, 26/255, 0);
-    const float4 yellow(1, 211/255, 0, 0);
+    const float4 childUnexpected(247./255, 242./255, 26./255, 0);
+    const float4 yellow(1, 211./255, 0, 0);
     float gradient = rho / RADIUS;
     float4 footColor = mix(childUnexpected, yellow, gradient);
     
@@ -393,6 +393,7 @@ void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
 
 // --------------------- SPHERICAL GRID ------------------------------------
 
+constant float maxHeight = 0.2;
 
 float detectNodeOrientationToCamera(constant PointCloudUniforms &uniforms, const thread float4& nodePos, constant float& floorHeight) {
 	constant auto& mat = uniforms.localToWorld;
@@ -436,9 +437,12 @@ vertex void unprojectSphericalVertex(
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
 
     bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
+	bool checkHeight = position.y < maxHeight;
 
     if (
         check1
+		&&
+		checkHeight
         &&
         confidence > 1
         ) {

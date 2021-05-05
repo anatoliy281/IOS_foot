@@ -94,6 +94,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
             fNames.updateValue("Floor", forKey: Int(Floor.rawValue))
             fNames.updateValue("Foot", forKey: Int(Foot.rawValue))
 			fNames.updateValue("CleanFoot", forKey: Int(Foot.rawValue)+1)
+			fNames.updateValue("TruncFloorAndCleanFoot", forKey: Int(Foot.rawValue)+2)
         } else {
 			for i in 0..<objects.data.count {
                 fNames.updateValue(String("image-\(i)_"), forKey: i)
