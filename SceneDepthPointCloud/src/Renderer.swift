@@ -197,7 +197,7 @@ class Renderer {
     
     
     var cartesianGridBuffer: MetalBuffer<MyMeshData>!
-	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces(cyclic: false)
+	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
     var sphericalGridBuffer: MetalBuffer<MyMeshData>!
     
@@ -450,7 +450,7 @@ class Renderer {
         case .scanning:
             renderEncoder.setDepthStencilState(depthStencilState)
             drawMesh(gridType: 0, renderEncoder) 	// cartesian
-//			drawMesh(gridType: 1, renderEncoder)	// spherical
+			drawMesh(gridType: 1, renderEncoder)	// spherical
         case .separate:
             renderEncoder.setDepthStencilState(depthStencilState)
             drawScanningFootAsSingleFrame(renderEncoder)

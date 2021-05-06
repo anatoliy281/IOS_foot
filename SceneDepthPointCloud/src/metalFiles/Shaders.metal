@@ -279,8 +279,8 @@ void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) 
 bool frameRegion(float4 position, float floorHeight, float factor) {
 	float L = 0.5*(frontLength + backLength);
 	float center = L - backLength;
-	bool checkOuter = abs(position.z) < (1-factor)*(maxHalfWidth + widthFloorZone) && abs(position.x - center) < (1-factor)*(L + widthFloorZone);
-	bool checkInner = abs(position.z) > (1+factor)*maxHalfWidth || abs(position.x - center) > (1+factor)*L;
+	bool checkOuter = abs(position.z) < (1-factor)*(maxHalfWidth + widthFloorZone) && abs(position.x + center) < (1-factor)*(L + widthFloorZone);
+	bool checkInner = abs(position.z) > (1+factor)*maxHalfWidth || abs(position.x + center) > (1+factor)*L;
 
 	bool frameCheck = checkInner && checkOuter;
 	bool heightCheck = abs(position.y - floorHeight) < maxHeight;
@@ -363,11 +363,6 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 	
 	
 	bool frameCheck = frameRegion(pos, floorHeight, factor);
-//	float L = 0.5*(frontLength + backLength);
-//	float center = L - backLength;
-//	bool checkOuter = abs(pos.z) < (1-factor)*(maxHalfWidth + widthFloorZone) && abs(pos.x - center) < (1-factor)*(L + widthFloorZone);
-//	bool checkInner = abs(pos.z) > (1+factor)*maxHalfWidth || abs(pos.x - center) > (1+factor)*L;
-//	auto frameCheck = checkInner && checkOuter;
 	
 	if ( check1 && frameCheck) {
 		color.a = 1;
