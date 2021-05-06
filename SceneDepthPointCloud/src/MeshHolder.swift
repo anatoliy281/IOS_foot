@@ -39,8 +39,8 @@ class MeshHolder {
 						 Int(Foot.rawValue):.init(),
 						 Int(Floor.rawValue):.init() ]
 			
-			for i in 0..<renderer.myGridSphericalBuffer.count {
-				let node = renderer.myGridSphericalBuffer[i]
+			for i in 0..<renderer.sphericalGridBuffer.count {
+				let node = renderer.sphericalGridBuffer[i]
 				let row = Int(gridRow(Int32(i)))
 				let col = Int(gridColumn(Int32(i)))
 				let val = node.median
@@ -55,8 +55,8 @@ class MeshHolder {
 			}
 			
 			for frame in 0..<MAX_MESH_STATISTIC/Int32(mn) {
-				for i in 0..<renderer.myGridSphericalBuffer.count {
-					var node = renderer.myGridSphericalBuffer[i]
+				for i in 0..<renderer.sphericalGridBuffer.count {
+					var node = renderer.sphericalGridBuffer[i]
 					let row = Int(gridRow(Int32(i)))
 					let col = Int(gridColumn(Int32(i)))
 					let val = getValue(&node, frame)
@@ -72,29 +72,21 @@ class MeshHolder {
 	// упаковать данные в строку
 	private func writeEdges(input key: Int, toSmooth: Bool = false, toTruncFloor: Bool = false) -> String {
 	
-		let nullsStr = "v 0 0 0\n"
+		
 		var res = ""
 		var table = fullTable(key)
 		if toSmooth {
 			smooth(&table)
-			if toTruncFloor {
-				truncateTheFloor(table: &table)
-			}
+//			if toTruncFloor {
+//				truncateTheFloor(table: &table)
+//			}
 		}
 
-		for i in 0..<dim {
-			for j in 0..<dim {
-				var str = ""
-				if table[i][j] != Float() {
-					let pos = calcCoords(i, j, &table)
-					str = "v \(pos.x) \(pos.y) \(pos.z)\n"
-				} else {
-					if (renderer.currentState != .separate) {
-						str = nullsStr
-					}
-				}
-				res.append(str)
-			}
+		if toTruncFloor {
+			var coords = truncateTheFloor(table: &table, h: 10)
+			writeNodes(&coords, &res)
+		} else {
+			writeNodes(&table, &res)
 		}
 		
 		if (renderer.currentState != .separate) {
@@ -157,43 +149,127 @@ class MeshHolder {
 	   }
    }
 	   
-	private func truncateTheFloor(table: inout [[Float]]) {
-		let k0 = Float(3)
-		let h0 = Float(2)
-		for j_phi in 0..<dim {
-			var iStop:Int?
-			var rhoCutted:Float?
-			var dH = Float(0)
-			var dL = Float(0)
-			for i_theta in (1..<dim-1).reversed() {
-				let r0 = calcCoords(i_theta - 1, j_phi, &table)
-				let r1 = calcCoords(i_theta, j_phi, &table)
-				let dr = deriv(r0, r1)
-				if dr.rho < dr.h {
-					dH += dr.h
-					if dH > h0 {
-						break
-					}
-				} else {
-					dL += dr.rho
-					rhoCutted = table[i_theta][j_phi]
-					iStop = i_theta
-					if dL > k0*dH {
-						dH = 0
-					}
-				}
+//	private func truncateTheFloor(table: inout [[Float]]) {
+////		let k0 = Float(3)
+//		let h0 = Float(2)
+//		for j_phi in 0..<dim {
+//			var iStop:Int?
+//			var rhoCutted:Float?
+//			var dH = Float(0)
+//			var dL = Float(0)
+//			for i_theta in (1..<dim-1).reversed() {
+//				let r0 = calcCoords(i_theta - 1, j_phi, &table)
+//				let r1 = calcCoords(i_theta, j_phi, &table)
+//				let dr = deriv(r0, r1)
+//				if dr.rho < dr.h {
+//					dH += dr.h
+//					if dH > h0 {
+//						break
+//					}
+//				} else {
+//					dL += dr.rho
+//					rhoCutted = table[i_theta][j_phi]
+//					iStop = i_theta
+////					if dL > k0*dH {
+////						dH = 0
+////					}
+//				}
+//			}
+//			if let thetaFloor = iStop,
+//			  let rho = rhoCutted {
+//			   for i_theta in thetaFloor..<dim {
+//				   table[i_theta][j_phi] = rho
+//			   }
+//			}
+//
+//		}
+//
+//	}
+	
+	private func truncateTheFloor(table: inout [[Float]], h:Float = 0) -> [Float3] {
+
+		var res:[Float3] = []
+		for i in 0..<dim {	// theta
+			for j in 0..<dim { // phi
+				let pos = calcCoords(i, j, &table)
+				res.append(pos)
 			}
-			if let thetaFloor = iStop,
-			  let rho = rhoCutted {
-			   for i_theta in thetaFloor..<dim {
-				   table[i_theta][j_phi] = rho
-			   }
-			}
-		   
 		}
-	   
+		
+		var perimeters:[Float] = []
+		let d:Float = 0.5
+		let nLayers = 60
+		for h in 0..<nLayers {
+			perimeters.append( calcFootprintPerimeter(table: &res, d*Float(h)) )
+		}
+		
+		let iLayer = checkPerimeter(perimeters)
+		
+		res.removeAll(where: {$0.z < Float(iLayer)*d})
+		
+		return res
 	}
 	
+	private func calcFootprintPerimeter(table: inout [Float3], _ h:Float) -> Float {
+		let distance:Float = 1 // 1 mm
+		var points: [Float2] = []	// without z coords only x and y
+		for i in 0..<table.count {
+			if abs(table[i].z - h) < distance {
+				points.append( Float2(table[i].x, table[i].y) )
+			}
+		}
+		if points.isEmpty {
+			return 0
+		}
+		points.append(points[0]) // close in loop
+		var res:Float = 0
+		for i in 0..<points.count-1 { // calc perimeter
+			let dr = points[i] - points[i+1]
+			res += sqrt(dot(dr, dr))
+		}
+		return res
+	}
 	
+	private func checkPerimeter (_ perimeters: [Float]) -> Int {
+		for i in 1..<perimeters.count-1 {
+			if perimeters[i-1] == Float(0) {
+				continue
+			}
+			if perimeters[i+1] / perimeters[i] > 1 &&
+			   perimeters[i-1] / perimeters[i] > 1 {	// точка минимума
+				return i
+			}
+		}
+		return perimeters.count-1
+	}
+	
+	private func writeNodes( _ table: inout [[Float]], _ res: inout String ) {
+		for i in 0..<dim {
+			for j in 0..<dim {
+				var str = ""
+				if table[i][j] != Float() {
+					let pos = calcCoords(i, j, &table)
+					str = "v \(pos.x) \(pos.y) \(pos.z)\n"
+				} else {
+					if (renderer.currentState != .separate) {
+						str = "v 0 0 0\n"
+					}
+				}
+				res.append(str)
+			}
+		}
+	}
+	
+	private func writeNodes( _ table: inout [Float3], _ res: inout String ) {
+		for i in 0..<table.count {
+			var str = ""
+			if table[i] != Float3() {
+				str = "v \(table[i].x) \(table[i].y) \(table[i].z)\n"
+			} else {
+				str = "v 0 0 0\n"
+			}
+			res.append(str)
+		}
+	}
 	
 }

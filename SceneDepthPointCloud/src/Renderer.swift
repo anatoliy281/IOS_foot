@@ -52,7 +52,7 @@ class Renderer {
     private lazy var cartesianUnprojectPipelineState = makeCartesianUnprojectPipelineState()!
     private lazy var singleFrameUnprojectPipelineState = makeSingleFrameUnprojectPipelineState()!
     
-//    private lazy var gridPipelineState = makeGridPipelineState()!
+    private lazy var cartesianGridPipelineState = makeCartesianGridPipelineState()!
     private lazy var sphericalGridPipelineState = makeSphericalGridPipelineState()!
     private lazy var singleFramePipelineState = makeSingleFramePipelineState()!
     
@@ -134,19 +134,30 @@ class Renderer {
                                             indexBufferOffset: submesh.indexBuffer.offset)
     }
     
-    func drawScanningFootAsSphericalMesh(_ renderEncoder:MTLRenderCommandEncoder) {
-        renderEncoder.setRenderPipelineState(sphericalGridPipelineState)
+	func drawMesh(gridType:Int, _ renderEncoder:MTLRenderCommandEncoder) {
+		var state: MTLRenderPipelineState
+		var buffer: MetalBuffer<MyMeshData>
+		if gridType == 1 { // Spherical
+			state = sphericalGridPipelineState
+			buffer = sphericalGridBuffer
+		} else {
+			state = cartesianGridPipelineState
+			buffer = cartesianGridBuffer
+		}
+        renderEncoder.setRenderPipelineState(state)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        
-        renderEncoder.setVertexBuffer(myGridSphericalBuffer)
+        renderEncoder.setVertexBuffer(buffer)
         renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-        renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
-                                            indexCount: myIndecesBuffer.count,
-                                            indexType: .uint32,
-                                            indexBuffer: myIndecesBuffer.buffer,
-                                            indexBufferOffset: 0)
-        
-//        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
+		if gridType == 0 {
+			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
+		} else {
+			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+												indexCount: indecesBuffer.count,
+												indexType: .uint32,
+												indexBuffer: indecesBuffer.buffer,
+												indexBufferOffset: 0)
+		}
+
     }
     
     func drawScanningFootAsSingleFrame(_ renderEncoder:MTLRenderCommandEncoder) {
@@ -154,14 +165,14 @@ class Renderer {
         
         renderEncoder.setRenderPipelineState(singleFramePipelineState)
         
-        renderEncoder.setVertexBuffer(myGridSphericalBuffer)
+        renderEncoder.setVertexBuffer(sphericalGridBuffer)
         
         renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
         renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
         renderEncoder.drawIndexedPrimitives(type: .point,
-                                            indexCount: myIndecesBuffer.count,
+                                            indexCount: indecesBuffer.count,
                                             indexType: .uint32,
-                                            indexBuffer: myIndecesBuffer.buffer,
+                                            indexBuffer: indecesBuffer.buffer,
                                             indexBufferOffset: 0)
     }
     
@@ -185,10 +196,10 @@ class Renderer {
     private lazy var lastCameraTransform = sampleFrame.camera.transform
     
     
-    var myGridBuffer: MetalBuffer<MyMeshData>!
-    lazy var myIndecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
+    var cartesianGridBuffer: MetalBuffer<MyMeshData>!
+	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces(cyclic: false)
     
-    var myGridSphericalBuffer: MetalBuffer<MyMeshData>!
+    var sphericalGridBuffer: MetalBuffer<MyMeshData>!
     
     var gistrosBuffer:MTLBuffer!
     func initializeGistrosBuffer(nodeCount:Int) {
@@ -234,9 +245,9 @@ class Renderer {
     }
     
     func initializeGridNodes(nodeCount:Int) {
-        let initVal = initMyMeshData(-0.5)
+        let initVal = initMyMeshData(0)
         let gridInitial = Array(repeating: initVal, count: nodeCount)
-        myGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+        cartesianGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
 //		for i in 0..<myGridBuffer.count {
 //			print(i)
 //			debugNode(node: i, buffer: myGridBuffer.buffer, field: .pairLen)
@@ -247,7 +258,7 @@ class Renderer {
     func initializeSphericalGridNodes(nodeCount:Int) {
         let initVal = initMyMeshData(0)
         let gridInitial = Array(repeating: initVal, count: nodeCount)
-        myGridSphericalBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+        sphericalGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
     
     
@@ -303,9 +314,9 @@ class Renderer {
             indecesData.append(contentsOf: move(j))
         }
         indecesData.append(endPoint())
-        myIndecesBuffer = .init(device: device, array: indecesData, index: 0)
+        indecesBuffer = .init(device: device, array: indecesData, index: 0)
         
-        return myIndecesBuffer
+        return indecesBuffer
         
     }
     
@@ -349,7 +360,7 @@ class Renderer {
     
     func gpuSeparate(floorInit: Float) -> Float {
         
-        let minCountOfNodes = Int(0.02*Double(myGridBuffer.count))
+        let minCountOfNodes = Int(0.02*Double(cartesianGridBuffer.count))
         
 //        var startTime, endTime: CFAbsoluteTime
         
@@ -363,8 +374,11 @@ class Renderer {
 //        var i:Int = 1
         
         while interval.x - interval.y > delta {
+			
+			print("interval: \(interval.x - interval.y)")
+			
             // генерация массива Gistro для каждого узла
-            makeConversion(bufferIn: myGridBuffer.buffer, bufferOut: &gistrosBuffer, &interval)
+            makeConversion(bufferIn: cartesianGridBuffer.buffer, bufferOut: &gistrosBuffer, &interval)
 
             let resGistro:Gistro = reductionGistrosData(gistrosBuffer)!
             
@@ -415,7 +429,7 @@ class Renderer {
                     print(" floor \(floorHeight)")
                 }
             }
-        }
+		}
                       
         if canUpdateDepthTextures(frame: currentFrame) {
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
@@ -427,22 +441,16 @@ class Renderer {
 
 			
         }
-        
-        switch currentState {
+		renderEncoder.setDepthStencilState(relaxedStencilState)
+		updateCapturedImageTextures(frame: currentFrame)
+		drawCameraStream(renderEncoder)
+		switch currentState {
         case .findFootArea:
-			
-//			for i in 0..<myGridBuffer.count {
-//				print(i)
-//				debugNode(node: i, buffer: myGridBuffer.buffer, field: .pairLen)
-//			}
-			
-            updateCapturedImageTextures(frame: currentFrame)
-            renderEncoder.setDepthStencilState(relaxedStencilState)
-            drawCameraStream(renderEncoder)
             drawHeelMarker(renderEncoder)
         case .scanning:
             renderEncoder.setDepthStencilState(depthStencilState)
-            drawScanningFootAsSphericalMesh(renderEncoder)
+            drawMesh(gridType: 0, renderEncoder) 	// cartesian
+//			drawMesh(gridType: 1, renderEncoder)	// spherical
         case .separate:
             renderEncoder.setDepthStencilState(depthStencilState)
             drawScanningFootAsSingleFrame(renderEncoder)
@@ -464,14 +472,27 @@ class Renderer {
             retainingTextures.removeAll()
         }
         
+		renderEncoder.setRenderPipelineState(cartesianUnprojectPipelineState)
+		renderEncoder.setVertexBuffer(cartesianGridBuffer)
+		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+		renderEncoder.setVertexBuffer(gridPointsBuffer)
+		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
+		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
+		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
+		
         switch currentState {
         case .findFootArea:
-            renderEncoder.setRenderPipelineState(cartesianUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(myGridBuffer)
             frameAccumulated += 1
         case .scanning:
             renderEncoder.setRenderPipelineState(sphericalUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(myGridSphericalBuffer)
+            renderEncoder.setVertexBuffer(sphericalGridBuffer)
+			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+			renderEncoder.setVertexBuffer(gridPointsBuffer)
+			renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
+			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
+			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
         case .separate:
             if frameAccumulated >= MAX_MESH_STATISTIC-1 {
 //                frameAccumulated = 0
@@ -479,44 +500,15 @@ class Renderer {
             }
             
             renderEncoder.setRenderPipelineState(singleFrameUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(myGridSphericalBuffer)
+            renderEncoder.setVertexBuffer(sphericalGridBuffer)
             renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
             
             print("frame accumulated: \(frameAccumulated)")
             frameAccumulated += 1
         }
-        
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        renderEncoder.setVertexBuffer(gridPointsBuffer)
-        renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-        renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
-        renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
-        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
+      
 		
-		
-//		if currentState == .scanning {
-//			var problem:[Int32] = .init()
-//			var problemWaite:[Int32] = .init()
-//			for node in 0..<myGridSphericalBuffer.count {
-//				let pp = myGridSphericalBuffer.buffer.contents().load(fromByteOffset: MemoryLayout<MyMeshData>.stride*node, as: MyMeshData.self)
-//				problem.append(pp.pairLen)
-//				problemWaite.append(pp.debugCall)
-//			}
-			
-//			problem.sort()
-//			for pr in problem {
-//				if pr > 80 {
-//					print(pr)
-//				}
-//			}
-//			problemWaite.sort()
-//			for pr in problemWaite {
-//				if pr > 0 {
-//					print("debugCall \(pr)")
-//				}
-//			}
-//		}
-
+	
         
         lastCameraTransform = frame.camera.transform
     }

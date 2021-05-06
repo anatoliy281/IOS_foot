@@ -10,6 +10,14 @@ constant float minDistance = 0.25;
 constant float idealDist = 0.3;
 constant float acceptanceZone = 0.2;
 
+
+constant float maxHeight = 0.2;
+constant float maxHalfWidth = 0.08;
+constant float backLength = 0.07;
+constant float frontLength = 0.3;
+
+constant float widthFloorZone = 0.03;
+
 // -------------------------- BASE DEFINITIONS -----------------------------
 
 class MedianSearcher {
@@ -244,11 +252,18 @@ float4 restoreFromCartesianTable(float h, int index) {
     return pos;
 }
 
-//float4 colorCartesianPoint(constant MyMeshData& md) {
-//    float4 color(0.1, 0.3, 0.1, 0);
-//    color.a = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
-//    return color;
-//}
+float4 colorCartesianPoint(float floorDist, float saturation) {
+	float floorGrad = 1;
+	if ( floorDist < MAX_GRAD_H ) {
+		floorGrad = floorDist / MAX_GRAD_H;
+	}
+	
+	const float4 green(0.1, 0.3, 0.1, 0);
+	const float4 yellow(0.5, 0, 0, 0);
+	float4 color = mix(green, yellow, floorGrad);
+    color.a = saturation;
+    return color;
+}
 
 void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) {
     auto h = md.median;
@@ -258,6 +273,19 @@ void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) 
     } else {
         md.group = Foot;
     }
+}
+
+
+bool frameRegion(float4 position, float floorHeight, float factor) {
+	float L = 0.5*(frontLength + backLength);
+	float center = L - backLength;
+	bool checkOuter = abs(position.z) < (1-factor)*(maxHalfWidth + widthFloorZone) && abs(position.x - center) < (1-factor)*(L + widthFloorZone);
+	bool checkInner = abs(position.z) > (1+factor)*maxHalfWidth || abs(position.x - center) > (1+factor)*L;
+
+	bool frameCheck = checkInner && checkOuter;
+	bool heightCheck = abs(position.y - floorHeight) < maxHeight;
+	
+	return frameCheck && heightCheck;
 }
 
 vertex void unprojectCartesianVertex(
@@ -282,12 +310,20 @@ vertex void unprojectCartesianVertex(
     // With a 2D point plus depth, we can now get its 3D position
     const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
+	
     bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
-    
+	
+	bool frameCheck = frameRegion(position, floorHeight, 0);
+	if (floorHeight == -10) {
+		frameCheck = true;
+	}
+	
     if (
-        check1
-        &&
-        confidence > 1
+		check1
+		&&
+		frameCheck
+		&&
+		confidence == 2
         ) {
         
         int i, j;
@@ -302,11 +338,48 @@ vertex void unprojectCartesianVertex(
 		auto shr = MedianSearcher(&md);
 		shr.appendNewValueDebug(val);
 		
-        markCartesianMeshNodes(md, floorHeight);
+//        markCartesianMeshNodes(md, floorHeight);
     }
 }
 
+vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
+									 constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
+									 constant float& floorHeight [[ buffer(kHeight) ]],
+									 unsigned int vid [[ vertex_id ]] ) {
+	constant auto &md = myMeshData[vid];
 
+	const auto nodeVal = md.median;
+	auto pos = restoreFromCartesianTable(nodeVal, vid);
+	auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
+	
+	float4 color = colorCartesianPoint(pos.y - floorHeight, saturation);
+//	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
+//	float4 shined = shineDirection(color, mixFactor);
+//	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
+
+	float factor = 0.001;
+	bool check1 = pos.x*pos.x + pos.z*pos.z < (1-factor)*(1-factor)*RADIUS*RADIUS;
+	
+	
+	
+	bool frameCheck = frameRegion(pos, floorHeight, factor);
+//	float L = 0.5*(frontLength + backLength);
+//	float center = L - backLength;
+//	bool checkOuter = abs(pos.z) < (1-factor)*(maxHalfWidth + widthFloorZone) && abs(pos.x - center) < (1-factor)*(L + widthFloorZone);
+//	bool checkInner = abs(pos.z) > (1+factor)*maxHalfWidth || abs(pos.x - center) > (1+factor)*L;
+//	auto frameCheck = checkInner && checkOuter;
+	
+	if ( check1 && frameCheck) {
+		color.a = 1;
+	} else {
+		color.a = 0;
+	}
+	
+	ParticleVertexOut pOut;
+	pOut.position = projectOnScreen(uniforms, pos);
+	pOut.color = color;
+	return pOut;
+}
 
 // ------------------------- BASE SPHERICAL -------------------------------
 
@@ -370,7 +443,7 @@ float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
     
     const float4 green(0.1, 0.3, 0.1, 0);
     float4 color = mix(green, footColor, floorGrad);
-    color.a = saturation;
+    color.a = 0.5*saturation;
 
     return color;
 }
@@ -392,8 +465,6 @@ void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
 
 
 // --------------------- SPHERICAL GRID ------------------------------------
-
-constant float maxHeight = 0.2;
 
 float detectNodeOrientationToCamera(constant PointCloudUniforms &uniforms, const thread float4& nodePos, constant float& floorHeight) {
 	constant auto& mat = uniforms.localToWorld;
@@ -437,14 +508,20 @@ vertex void unprojectSphericalVertex(
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
 
     bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
-	bool checkHeight = position.y < maxHeight;
+	bool checkHeight = position.y - floorHeight < maxHeight;
+	bool checkWidth = abs(position.z) < maxHalfWidth;
+	bool checkLength = (position.x < 0)? position.x > -frontLength: position.x < backLength;
 
     if (
         check1
 		&&
 		checkHeight
         &&
-        confidence > 1
+		checkWidth
+		&&
+		checkLength
+		&&
+        confidence == 2
         ) {
 
         int i, j;
@@ -457,8 +534,8 @@ vertex void unprojectSphericalVertex(
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
 		md.depth = depth;
 		
-		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.75 )
-			return;
+//		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.75 )
+//			return;
 		
 		
 		MedianSearcher(&md).appendNewValueDebug(val);
@@ -503,14 +580,14 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
     auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
     
 	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
-	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
-	float4 shined = shineDirection(color, mixFactor);
-	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
+//	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
+//	float4 shined = shineDirection(color, mixFactor);
+//	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
 	
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
-	pOut.color = colorised;
+	pOut.color = color;
     return pOut;
 }
 

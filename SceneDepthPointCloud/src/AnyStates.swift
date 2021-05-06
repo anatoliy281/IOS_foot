@@ -69,6 +69,10 @@ extension Renderer {
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
     
+	public func makeCartesianGridPipelineState() -> MTLRenderPipelineState? {
+		return makeBaseGridPipelineState(functions: ["gridCartesianMeshVertex", "gridFragment"])
+	}
+	
     public func makeSphericalGridPipelineState() -> MTLRenderPipelineState? {
         return makeBaseGridPipelineState(functions: ["gridSphericalMeshVertex", "gridFragment"])
     }
