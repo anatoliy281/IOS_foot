@@ -24,6 +24,6 @@ func debugNode(node:Int, buffer:MTLBuffer, field: MeshDataField) {
 	case .pairLen:
 		print("pair length: \(meshData.pairLen)")
 	}
-	
+
 	
 }

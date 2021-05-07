@@ -20,10 +20,6 @@ struct MyMeshData initMyMeshData(float valInit) {
 	return md;
 }
 
-void setGroup(struct MyMeshData md, enum Group group) {
-    md.group = group;
-}
-
 int gridRow(int index) {
     return index / GRID_NODE_COUNT;
 }

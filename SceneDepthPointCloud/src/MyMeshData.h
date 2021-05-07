@@ -44,8 +44,6 @@ extern "C" {
     };
     
     struct MyMeshData initMyMeshData(float valInit);
-   
-    void setGroup(struct MyMeshData md, enum Group group);
 
     int gridRow(int index);
     int gridColumn(int index);

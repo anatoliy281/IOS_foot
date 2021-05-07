@@ -360,7 +360,7 @@ class Renderer {
     
     func gpuSeparate(floorInit: Float) -> Float {
         
-        let minCountOfNodes = Int(0.02*Double(cartesianGridBuffer.count))
+        let minCountOfNodes = Int(0.001*Double(cartesianGridBuffer.count))
         
 //        var startTime, endTime: CFAbsoluteTime
         
@@ -372,31 +372,39 @@ class Renderer {
             interval = Float2(0, -2)
         }
 //        var i:Int = 1
-        
+        print(" ++++++++++++++++++++++++++++++++++++++++++ ")
+		var c = floorInit
         while interval.x - interval.y > delta {
 			
 			print("interval: \(interval.x - interval.y)")
-			
             // генерация массива Gistro для каждого узла
             makeConversion(bufferIn: cartesianGridBuffer.buffer, bufferOut: &gistrosBuffer, &interval)
-
             let resGistro:Gistro = reductionGistrosData(gistrosBuffer)!
+			print("count detected floor nodes")
+			var counter = Int2(0)
+			for i in 0..<cartesianGridBuffer.count {
+				if cartesianGridBuffer[i].group == Unknown {
+					counter[1] += 1
+				} else {
+					counter[0] += 1
+				}
+			}
+			print("-------- floor: \(counter[0]) vs unknown: \(counter[1]) --------------")
             
-            let c = (interval.x + interval.y)*0.5
-            if (resGistro.mn.max() < minCountOfNodes) {
-                return floorInit
+            c = (interval.x + interval.y)*0.5
+			if ( resGistro.mn.max() < minCountOfNodes) {
+				let a = resGistro.mn[0]
+				let b = resGistro.mn[1]
+                return c
             }
             if resGistro.mn[0] > resGistro.mn[1] {
                 interval.y = c
             } else {
                 interval.x = c
             }
-//            i += 1
-            if interval.x - interval.y <= delta {
-                print("   (\(resGistro.mn[0]), \(resGistro.mn[1]))")
-            }
+			print("\(interval.x) *** \(interval.y)")
         }
-		return (interval.x + interval.y)*0.5
+		return c
     }
     
     

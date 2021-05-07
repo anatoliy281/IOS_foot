@@ -32,7 +32,6 @@ class MedianSearcher {
 public:
 	MedianSearcher(device MyMeshData* meshData): md(meshData), mdConst(nullptr) {}
 	MedianSearcher(constant MyMeshData* meshData): md(nullptr), mdConst(meshData) {}
-	void appendNewValue(float value);
 	void appendNewValueDebug(float value);
 	
 	int getLength() const;
@@ -156,51 +155,6 @@ void MedianSearcher::appendNewValueDebug(float value) {
 	}
 }
 
-void MedianSearcher::appendNewValue(float value) {
-	device auto& med = md->median;
-	if (md->totalSteps == 0) { // срабатывает один единственный раз
-		md->buffer[md->bufModLen] = med = value;
-		md->pairLen = 0;
-		cycle();
-		return;
-	}
-
-	device int& plen = md->pairLen;
-	if (plen < 2)
-		md->pairs[plen++] = value;
-	if (plen == 2) { // пара готова
-		plen = 3;		//  прикрываем проходной двор для других потоков
-		int p1 = md->bufModLen;
-		int p2 = incrementModulo(p1);
-
-		// проверка на удаление текущей медианы
-		if (md->buffer[p1] == med) {
-			p1 = incrementModulo(p1, -1);
-		}
-		if (md->buffer[p2] == med) {
-			p2 = incrementModulo(p2);
-		}
-
-		if (md->bufModLen < md->totalSteps ) {
-			auto a_old = md->buffer[p1];
-			auto b_old = md->buffer[p2];
-			// пересчет медианы при удалении
-			auto shiftToGreater = detectShiftDirection(med, a_old, b_old, false);
-			med = moveMedian(shiftToGreater);
-
-		}
-
-		auto a = md->buffer[p1] = md->pairs[plen-2];
-		auto b = md->buffer[p2] = md->pairs[plen-3];
-
-		cycle();
-		cycle();
-		auto shiftToGreater = detectShiftDirection(med, a, b, true);
-
-		med = moveMedian(shiftToGreater);
-		plen = 0;
-	}
-}
 
 int MedianSearcher::getLength() const {
 	auto totalSteps = (mdConst)? mdConst->totalSteps: md->totalSteps;
@@ -284,6 +238,7 @@ bool frameRegion(float4 position, float floorHeight, float factor) {
 
 	bool frameCheck = checkInner && checkOuter;
 	bool heightCheck = abs(position.y - floorHeight) < maxHeight;
+	heightCheck = true;
 	
 	return frameCheck && heightCheck;
 }
@@ -314,9 +269,9 @@ vertex void unprojectCartesianVertex(
     bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
 	
 	bool frameCheck = frameRegion(position, floorHeight, 0);
-	if (floorHeight == -10) {
-		frameCheck = true;
-	}
+//	if (floorHeight == -10) {
+//		frameCheck = true;
+//	}
 	
     if (
 		check1
@@ -337,7 +292,7 @@ vertex void unprojectCartesianVertex(
 		
 		auto shr = MedianSearcher(&md);
 		shr.appendNewValueDebug(val);
-		
+		md.group = Floor;
 //        markCartesianMeshNodes(md, floorHeight);
     }
 }
@@ -535,6 +490,7 @@ vertex void unprojectSphericalVertex(
 		
 		MedianSearcher(&md).appendNewValueDebug(val);
         markSphericalMeshNodes(md, i);
+		md.group = Foot;
     }
 }
 

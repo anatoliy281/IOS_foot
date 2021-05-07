@@ -20,17 +20,22 @@ kernel void convert_gistro( constant MyMeshData* in [[ buffer(0) ]],
     constant auto& md = in[index];
     device auto& gistro = out[index];
     
-    if ( min(md.totalSteps, MAX_MESH_STATISTIC) == 0 ) {
-        gistro.mn = int2(0);
-    } else {
+//    if ( min(md.totalSteps, MAX_MESH_STATISTIC) == 0 ) {
+//        gistro.mn = int2(0);
+//    } else {
         const auto x = md.median;
-        const auto c = (interval.x + interval.y)*0.5f;
-        if ( x > interval.x || x < interval.y ) {
+        const auto c = 0.5f*(interval[0] + interval[1]);
+        if (
+			md.group == Unknown
+			||
+			x > interval[0] ||
+			x < interval[1]
+			) {
             gistro.mn = int2(0);
         } else if ( x < c ) {
             gistro.mn = int2(0, 1);
         } else {
             gistro.mn = int2(1, 0);
         }
-    }
+//    }
 }
