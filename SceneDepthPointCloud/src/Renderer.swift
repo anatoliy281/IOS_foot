@@ -369,54 +369,7 @@ class Renderer {
 		return sum / count
 	}
 	
-//    func gpuSeparate(floorInit: Float) -> Float {
-//
-//        let minCountOfNodes = Int(0.001*Double(cartesianGridBuffer.count))
-//
-////        var startTime, endTime: CFAbsoluteTime
-//
-//        let delta = Float(1e-3)
-//        var interval = Float2()
-//        if floorInit != -10 {
-//            interval = Float2(floorInit + 0.75*delta, floorInit - 0.75*delta);
-//        } else {
-//            interval = Float2(0, -2)
-//        }
-////        var i:Int = 1
-//        print(" ++++++++++++++++++++++++++++++++++++++++++ ")
-//		var c = floorInit
-//        while interval.x - interval.y > delta {
-//
-//			print("interval: \(interval.x - interval.y)")
-//            // генерация массива Gistro для каждого узла
-//            makeConversion(bufferIn: cartesianGridBuffer.buffer, bufferOut: &gistrosBuffer, &interval)
-//            let resGistro:Gistro = reductionGistrosData(gistrosBuffer)!
-//			print("count detected floor nodes")
-//			var counter = Int2(0)
-//			for i in 0..<cartesianGridBuffer.count {
-//				if cartesianGridBuffer[i].group == Unknown {
-//					counter[1] += 1
-//				} else {
-//					counter[0] += 1
-//				}
-//			}
-//			print("-------- floor: \(counter[0]) vs unknown: \(counter[1]) --------------")
-//
-//            c = (interval.x + interval.y)*0.5
-//			if ( resGistro.mn.max() < minCountOfNodes) {
-//				let a = resGistro.mn[0]
-//				let b = resGistro.mn[1]
-//                return c
-//            }
-//            if resGistro.mn[0] > resGistro.mn[1] {
-//                interval.y = c
-//            } else {
-//                interval.x = c
-//            }
-//			print("\(interval.x) *** \(interval.y)")
-//        }
-//		return c
-//    }
+
     
     
     
@@ -443,13 +396,11 @@ class Renderer {
         
 //        if currentState == .findFootArea {
 //            if frameAccumulated > 10 {
-		if ( frameAccumulated%10 == 0 && frameAccumulated != 0 ) {
-//                    floorHeight = gpuSeparate(floorInit: floorHeight)
+		let nc:Int32 = 10
+		if ( frameAccumulated%nc == 0 && frameAccumulated != 0 ) {
 			floorHeight = Float(cpuCalcFloor())
-			print(" floor \(floorHeight)")
+//			print("\(frameAccumulated/nc) floor \(floorHeight)")
 		}
-//            }
-//		}
                       
         if canUpdateDepthTextures(frame: currentFrame) {
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
@@ -501,10 +452,8 @@ class Renderer {
 		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 		
-        switch currentState {
-        case .findFootArea:
-            frameAccumulated += 1
-        case .scanning:
+		frameAccumulated += 1
+		if currentState == .scanning {
             renderEncoder.setRenderPipelineState(sphericalUnprojectPipelineState)
             renderEncoder.setVertexBuffer(sphericalGridBuffer)
 			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
@@ -513,7 +462,7 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
-        case .separate:
+		} else if currentState == .separate {
             if frameAccumulated >= MAX_MESH_STATISTIC-1 {
 //                frameAccumulated = 0
                 return
@@ -524,8 +473,7 @@ class Renderer {
             renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
             
             print("frame accumulated: \(frameAccumulated)")
-            frameAccumulated += 1
-        }
+		} else {}
       
 		
 	
