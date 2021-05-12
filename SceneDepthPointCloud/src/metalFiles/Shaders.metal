@@ -188,19 +188,21 @@ float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float
 
 
 // ------------------------------------- CARTESIAN ------------------------------------
-
+constant int gridNodeCount = GRID_NODE_COUNT;		// 500
+constant float halfLength = RADIUS;					// 0.5
+constant float gridNodeDist = 2*halfLength / gridNodeCount;
 
 
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value) {
-    i = round(position.x/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
-    j = round(position.z/GRID_NODE_DISTANCE) + GRID_NODE_COUNT/2;
+    i = round(position.x/gridNodeDist) + gridNodeCount/2;
+    j = round(position.z/gridNodeDist) + gridNodeCount/2;
     value = position.y;
 }
 
 float4 restoreFromCartesianTable(float h, int index) {
     float4 pos(1);
-    pos.x = (index/GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
-    pos.z = (index%GRID_NODE_COUNT)*GRID_NODE_DISTANCE - RADIUS;
+    pos.x = (index/gridNodeCount)*gridNodeDist - halfLength;
+    pos.z = (index%gridNodeCount)*gridNodeDist - halfLength;
     pos.y = h;
     
     return pos;
@@ -238,7 +240,8 @@ bool frameRegion(float4 position, float floorHeight, float factor) {
 
 	bool frameCheck = checkInner && checkOuter;
 	bool heightCheck = abs(position.y - floorHeight) < maxHeight;
-	heightCheck = true;
+	if ( floorHeight == -10 )
+		heightCheck = true;
 	
 	return frameCheck && heightCheck;
 }
@@ -266,13 +269,10 @@ vertex void unprojectCartesianVertex(
     const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
 	
-    bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
+    bool check1 = position.x*position.x + position.z*position.z < halfLength*halfLength;
 	
 	bool frameCheck = frameRegion(position, floorHeight, 0);
-//	if (floorHeight == -10) {
-//		frameCheck = true;
-//	}
-	
+
     if (
 		check1
 		&&
@@ -284,11 +284,11 @@ vertex void unprojectCartesianVertex(
         int i, j;
         float val;
         mapToCartesianTable(position, i, j, val);
-        if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
+        if ( i < 0 || j < 0 || i > gridNodeCount-1 || j > gridNodeCount-1 ) {
             return ;
         }
         
-        device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
+        device auto& md = myMeshData[i*gridNodeCount + j];
 		
 		auto shr = MedianSearcher(&md);
 		shr.appendNewValueDebug(val);
@@ -313,7 +313,7 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 //	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
 
 	float factor = 0.001;
-	bool check1 = pos.x*pos.x + pos.z*pos.z < (1-factor)*(1-factor)*RADIUS*RADIUS;
+	bool check1 = pos.x*pos.x + pos.z*pos.z < (1-factor)*(1-factor)*halfLength*halfLength;
 	
 	
 	
@@ -382,7 +382,7 @@ float4 restoreFromSphericalTable(float floorHeight, float rho, int index) {
 
 float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
     const float4 childUnexpected(247./255, 242./255, 26./255, 0);
-    const float4 yellow(1, 211./255, 0, 0);
+    const float4 yellow(0.9, 0.1, 0, 0);
     float gradient = rho / RADIUS;
     float4 footColor = mix(childUnexpected, yellow, gradient);
     
@@ -484,13 +484,12 @@ vertex void unprojectSphericalVertex(
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
 		md.depth = depth;
 		
-//		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.75 )
-//			return;
+		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.75 )
+			return;
 		
 		
 		MedianSearcher(&md).appendNewValueDebug(val);
         markSphericalMeshNodes(md, i);
-		md.group = Foot;
     }
 }
 
@@ -531,14 +530,14 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
     auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
     
 	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
-//	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
-//	float4 shined = shineDirection(color, mixFactor);
-//	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
+	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
+	float4 shined = shineDirection(color, mixFactor);
+	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
 	
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
-	pOut.color = color;
+	pOut.color = colorised;
     return pOut;
 }
 

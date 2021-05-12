@@ -66,10 +66,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         print("SEND!!!")
         
-		let meshHoler = MeshHolder(renderer)
-		let objects = meshHoler.convertToObj()
-        
-        writePerId(objects)
+		let meshHolder = MeshHolder(renderer)
+        writePerId(meshHolder)
 
 //        renderer.currentState = Renderer.RendererState.findFootArea
         renderer.currentState.nextState()
@@ -80,31 +78,22 @@ final class ViewController: UIViewController, ARSessionDelegate {
     }
     
     
-    func writePerId(_ objects: GroupedData) {
+    func writePerId(_ meshHolder: MeshHolder) {
+		
+		// список игнорирования данных для записи
 		var ignoreList = [Int]()
 		if renderer.currentState != .separate {
 			ignoreList.append(Int(Unknown.rawValue))
 			ignoreList.append(Int(Floor.rawValue))
 		}
-								 
-        
-        var fNames = [Int:String].init()
-        if renderer.currentState != .separate {
-            fNames.updateValue("Unknown", forKey: Int(Unknown.rawValue))
-            fNames.updateValue("Floor", forKey: Int(Floor.rawValue))
-            fNames.updateValue("Foot", forKey: Int(Foot.rawValue))
-			fNames.updateValue("CleanFoot", forKey: Int(Foot.rawValue)+1)
-			fNames.updateValue("TruncFloorAndCleanFoot", forKey: Int(Foot.rawValue)+2)
-        } else {
-			for i in 0..<objects.data.count {
-                fNames.updateValue(String("image-\(i)_"), forKey: i)
-            }
-        }
-
-        
+		let objects = meshHolder.convertToObj()
+        let fNames = generateFileCaptionDict(meshHolder)
+		
+		// запись данных meshHolder в соответствующие файлы с именами из fNames
         var urls:[URL] = []
         guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first  else { return }
         
+
 		for (id, str) in objects.data {
 			if ignoreList.contains(id) { continue }
             let fileName = fNames[id]! + "\(Int(Date().timeIntervalSince1970)).obj"
@@ -122,6 +111,39 @@ final class ViewController: UIViewController, ARSessionDelegate {
         activity.isModalInPresentation = true
         present(activity, animated: true, completion: nil)
     }
+	
+	private func generateFileCaptionDict(_ meshHolder: MeshHolder) -> [Int:String] {
+		var fNames = [Int:String].init()
+		if renderer.currentState != .separate {
+			fNames.updateValue("Unknown", forKey: Int(Unknown.rawValue))
+			fNames.updateValue("Floor", forKey: Int(Floor.rawValue))
+			fNames.updateValue("Foot", forKey: Int(Foot.rawValue))
+			
+			// отладочные файлы сеток
+			fNames.updateValue("CleanFoot", forKey: meshHolder.debugMeshesId[0])
+			fNames.updateValue("TruncFloorAndCleanFoot", forKey: meshHolder.debugMeshesId[1])
+			
+
+			
+			// contours id  все начинаются с 3 + 2 (см. MeshHolder::convertToObj)
+			let shiftId = 5
+			// отладочные файлы контуров
+			let contoursId = meshHolder.contoursId
+			for i in contoursId {
+				fNames.updateValue("contour-\(i - shiftId)_", forKey: i)
+			}
+			fNames.updateValue("contour-\(meshHolder.cutContourId - shiftId)-CUT_", forKey: meshHolder.cutContourId)
+			
+		}
+		// временно скрыли покадровый режим
+//		else {
+//		let objects = meshHolder.convertToObj()
+//			for i in 0..<objects.data.count {
+//				fNames.updateValue(String("image-\(i)_"), forKey: i)
+//			}
+//		}
+		return fNames
+	}
     
     @objc
     func startAction(_ sender: UIButton!) {

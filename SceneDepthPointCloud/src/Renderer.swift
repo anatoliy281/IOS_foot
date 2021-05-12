@@ -245,14 +245,9 @@ class Renderer {
     }
     
     func initializeGridNodes(nodeCount:Int) {
-        let initVal = initMyMeshData(0)
+        let initVal = initMyMeshData(-2)
         let gridInitial = Array(repeating: initVal, count: nodeCount)
         cartesianGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
-//		for i in 0..<myGridBuffer.count {
-//			print(i)
-//			debugNode(node: i, buffer: myGridBuffer.buffer, field: .pairLen)
-//		}
-//		print(nodeCount, myGridBuffer.count)
     }
     
     func initializeSphericalGridNodes(nodeCount:Int) {
@@ -358,54 +353,70 @@ class Renderer {
         pointCloudUniforms.cameraIntrinsicsInversed = cameraIntrinsicsInversed
     }
     
-    func gpuSeparate(floorInit: Float) -> Float {
-        
-        let minCountOfNodes = Int(0.001*Double(cartesianGridBuffer.count))
-        
-//        var startTime, endTime: CFAbsoluteTime
-        
-        let delta = Float(1e-3)
-        var interval = Float2()
-        if floorInit != -10 {
-            interval = Float2(floorInit + 0.75*delta, floorInit - 0.75*delta);
-        } else {
-            interval = Float2(0, -2)
-        }
-//        var i:Int = 1
-        print(" ++++++++++++++++++++++++++++++++++++++++++ ")
-		var c = floorInit
-        while interval.x - interval.y > delta {
-			
-			print("interval: \(interval.x - interval.y)")
-            // генерация массива Gistro для каждого узла
-            makeConversion(bufferIn: cartesianGridBuffer.buffer, bufferOut: &gistrosBuffer, &interval)
-            let resGistro:Gistro = reductionGistrosData(gistrosBuffer)!
-			print("count detected floor nodes")
-			var counter = Int2(0)
-			for i in 0..<cartesianGridBuffer.count {
-				if cartesianGridBuffer[i].group == Unknown {
-					counter[1] += 1
-				} else {
-					counter[0] += 1
-				}
+	
+	func cpuCalcFloor() -> Double {
+		var sum:Double = 0
+		var count:Double = 0
+		for i in 0..<cartesianGridBuffer.count {
+			if cartesianGridBuffer[i].group == Floor {
+				sum += Double(cartesianGridBuffer[i].median)
+				count += Double(1)
 			}
-			print("-------- floor: \(counter[0]) vs unknown: \(counter[1]) --------------")
-            
-            c = (interval.x + interval.y)*0.5
-			if ( resGistro.mn.max() < minCountOfNodes) {
-				let a = resGistro.mn[0]
-				let b = resGistro.mn[1]
-                return c
-            }
-            if resGistro.mn[0] > resGistro.mn[1] {
-                interval.y = c
-            } else {
-                interval.x = c
-            }
-			print("\(interval.x) *** \(interval.y)")
-        }
-		return c
-    }
+		}
+		if (count == 0) {
+			return -10;
+		}
+		return sum / count
+	}
+	
+//    func gpuSeparate(floorInit: Float) -> Float {
+//
+//        let minCountOfNodes = Int(0.001*Double(cartesianGridBuffer.count))
+//
+////        var startTime, endTime: CFAbsoluteTime
+//
+//        let delta = Float(1e-3)
+//        var interval = Float2()
+//        if floorInit != -10 {
+//            interval = Float2(floorInit + 0.75*delta, floorInit - 0.75*delta);
+//        } else {
+//            interval = Float2(0, -2)
+//        }
+////        var i:Int = 1
+//        print(" ++++++++++++++++++++++++++++++++++++++++++ ")
+//		var c = floorInit
+//        while interval.x - interval.y > delta {
+//
+//			print("interval: \(interval.x - interval.y)")
+//            // генерация массива Gistro для каждого узла
+//            makeConversion(bufferIn: cartesianGridBuffer.buffer, bufferOut: &gistrosBuffer, &interval)
+//            let resGistro:Gistro = reductionGistrosData(gistrosBuffer)!
+//			print("count detected floor nodes")
+//			var counter = Int2(0)
+//			for i in 0..<cartesianGridBuffer.count {
+//				if cartesianGridBuffer[i].group == Unknown {
+//					counter[1] += 1
+//				} else {
+//					counter[0] += 1
+//				}
+//			}
+//			print("-------- floor: \(counter[0]) vs unknown: \(counter[1]) --------------")
+//
+//            c = (interval.x + interval.y)*0.5
+//			if ( resGistro.mn.max() < minCountOfNodes) {
+//				let a = resGistro.mn[0]
+//				let b = resGistro.mn[1]
+//                return c
+//            }
+//            if resGistro.mn[0] > resGistro.mn[1] {
+//                interval.y = c
+//            } else {
+//                interval.x = c
+//            }
+//			print("\(interval.x) *** \(interval.y)")
+//        }
+//		return c
+//    }
     
     
     
@@ -430,14 +441,15 @@ class Renderer {
         currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
         pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
         
-        if currentState == .findFootArea {
-            if frameAccumulated > 10 {
-                if ( frameAccumulated%10 == 0 ) {
-                    floorHeight = gpuSeparate(floorInit: floorHeight)
-                    print(" floor \(floorHeight)")
-                }
-            }
+//        if currentState == .findFootArea {
+//            if frameAccumulated > 10 {
+		if ( frameAccumulated%10 == 0 && frameAccumulated != 0 ) {
+//                    floorHeight = gpuSeparate(floorInit: floorHeight)
+			floorHeight = Float(cpuCalcFloor())
+			print(" floor \(floorHeight)")
 		}
+//            }
+//		}
                       
         if canUpdateDepthTextures(frame: currentFrame) {
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
