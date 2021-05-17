@@ -369,10 +369,6 @@ class Renderer {
 		return sum / count
 	}
 	
-
-    
-    
-    
     func draw() {
         guard let currentFrame = session.currentFrame,
             let renderDescriptor = renderDestination.currentRenderPassDescriptor,
@@ -420,7 +416,7 @@ class Renderer {
             drawHeelMarker(renderEncoder)
         case .scanning:
             renderEncoder.setDepthStencilState(depthStencilState)
-            drawMesh(gridType: 0, renderEncoder) 	// cartesian
+//            drawMesh(gridType: 0, renderEncoder) 	// cartesian
 			drawMesh(gridType: 1, renderEncoder)	// spherical
         case .separate:
             renderEncoder.setDepthStencilState(depthStencilState)
@@ -452,7 +448,10 @@ class Renderer {
 		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 		
-		frameAccumulated += 1
+		
+		if currentState != .scanning {
+			frameAccumulated += 1
+		}
 		if currentState == .scanning {
             renderEncoder.setRenderPipelineState(sphericalUnprojectPipelineState)
             renderEncoder.setVertexBuffer(sphericalGridBuffer)

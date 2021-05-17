@@ -104,55 +104,57 @@ int MedianSearcher::detectShiftDirection(float median, float a, float b, bool va
 
 
 void MedianSearcher::appendNewValueDebug(float value) {
-	device int& plen = md->pairLen;
-	device auto& med = md->median;
-	if (md->totalSteps == 0) { // срабатывает один единственный раз
-		md->buffer[md->bufModLen] = med = value;
-		plen = 0;
-		cycle();
-
-		return;
-	}
-
-	md->pairs[(plen++) % PAIR_SIZE] = value;
 	
-	while (plen > 1) { // пара готова
-		if (md->lock == 1)
-			return;
-		md->lock = 1;
-		auto a = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
-		auto b = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
-		
-		cycle();
-		cycle();
-		
-		int p1 = md->bufModLen;
-		int p2 = incrementModulo(p1);
-		md->buffer[p1] = a;
-		md->buffer[p2] = b;
-
-		// проверка на удаление текущей медианы
-		if (md->buffer[p1] == med) {
-			p1 = incrementModulo(p1, -1);
-		}
-		if (md->buffer[p2] == med) {
-			p2 = incrementModulo(p2);
-		}
-
-		if (md->bufModLen < md->totalSteps ) {
-			auto a_old = md->buffer[p1];
-			auto b_old = md->buffer[p2];
-			// пересчет медианы при удалении
-			auto shiftToGreater = detectShiftDirection(med, a_old, b_old, false);
-			med = moveMedian(shiftToGreater);
-		}
-
-		auto shiftToGreater = detectShiftDirection(med, a, b, true);
-
-		med = moveMedian(shiftToGreater);
-		
-		md->lock = 0;
-	}
+	md->median = value;
+//	device int& plen = md->pairLen;
+//	device auto& med = md->median;
+//	if (md->totalSteps == 0) { // срабатывает один единственный раз
+//		md->buffer[md->bufModLen] = med = value;
+//		plen = 0;
+//		cycle();
+//
+//		return;
+//	}
+//
+//	md->pairs[(plen++) % PAIR_SIZE] = value;
+//
+//	while (plen > 1) { // пара готова
+//		if (md->lock == 1)
+//			return;
+//		md->lock = 1;
+//		auto a = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
+//		auto b = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
+//
+//		cycle();
+//		cycle();
+//
+//		int p1 = md->bufModLen;
+//		int p2 = incrementModulo(p1);
+//		md->buffer[p1] = a;
+//		md->buffer[p2] = b;
+//
+//		// проверка на удаление текущей медианы
+//		if (md->buffer[p1] == med) {
+//			p1 = incrementModulo(p1, -1);
+//		}
+//		if (md->buffer[p2] == med) {
+//			p2 = incrementModulo(p2);
+//		}
+//
+//		if (md->bufModLen < md->totalSteps ) {
+//			auto a_old = md->buffer[p1];
+//			auto b_old = md->buffer[p2];
+//			// пересчет медианы при удалении
+//			auto shiftToGreater = detectShiftDirection(med, a_old, b_old, false);
+//			med = moveMedian(shiftToGreater);
+//		}
+//
+//		auto shiftToGreater = detectShiftDirection(med, a, b, true);
+//
+//		med = moveMedian(shiftToGreater);
+//
+//		md->lock = 0;
+//	}
 }
 
 
@@ -191,6 +193,7 @@ float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float
 constant int gridNodeCount = GRID_NODE_COUNT;		// 500
 constant float halfLength = RADIUS;					// 0.5
 constant float gridNodeDist = 2*halfLength / gridNodeCount;
+constant float gridNodeDistCylindricalZ = 0.5*gridNodeDist;
 
 
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value) {
@@ -380,9 +383,38 @@ float4 restoreFromSphericalTable(float floorHeight, float rho, int index) {
     return shiftCoordsBack(floorHeight)*pos;
 }
 
+
+// cylindrical mapping
+void mapToCylindricalTable(float floorHeight, float4 position, thread int& i, thread int& j, thread float& value) {
+	const auto spos = shiftCoords(floorHeight)*position;
+	
+	auto phi = atan( spos.y / spos.x );
+	if ( spos.x < 0 ) {
+		phi += PI;
+	} else if ( spos.y < 0 && spos.x > 0) {
+		phi += 2*PI;
+	} else {}
+	
+	i = round(spos.z/gridNodeDistCylindricalZ);
+	j = round( phi / PHI_STEP );
+	value = length(spos.xz);
+}
+
+float4 restoreFromCylindricalTable(float floorHeight, float rho, int index) {
+	const auto z = (index/GRID_NODE_COUNT)*gridNodeDistCylindricalZ;
+	const auto phi = (index%GRID_NODE_COUNT)*PHI_STEP;
+	
+	float4 pos(1);
+	pos.x = rho*cos(phi);
+	pos.y = rho*sin(phi);
+	pos.z = z;
+
+	return shiftCoordsBack(floorHeight)*pos;
+}
+
 float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
     const float4 childUnexpected(247./255, 242./255, 26./255, 0);
-    const float4 yellow(0.9, 0.1, 0, 0);
+    const float4 yellow(1, 0, 0, 0);
     float gradient = rho / RADIUS;
     float4 footColor = mix(childUnexpected, yellow, gradient);
     
@@ -416,18 +448,35 @@ void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
 
 // --------------------- SPHERICAL GRID ------------------------------------
 
-float detectNodeOrientationToCamera(constant PointCloudUniforms &uniforms, const thread float4& nodePos, constant float& floorHeight) {
+enum Direction {
+	North,
+	South,
+	West,
+	East,
+	NotDefined
+};
+
+Direction detectCameraOrientation(constant PointCloudUniforms &uniforms) {
 	constant auto& mat = uniforms.localToWorld;
 	auto camOrigin = (mat*float4(0, 0, 0, 1)).xyz;
-	auto camDir = normalize( (mat*float4(0, 0, 1, 1)).xyz - camOrigin );
-	auto nodeDir = normalize( nodePos.xyz - float3(0, floorHeight, 0) );
-	auto cosine = -dot(camDir, nodeDir);
-	
-	if (cosine < 0) {
-		cosine = 0;
+	auto camPos = normalize(camOrigin);
+	auto camDirEnd = (mat*float4(0, 0, 1, 1)).xyz;
+	auto camDir = normalize(camDirEnd - camOrigin);
+	Direction res = NotDefined;
+	if (abs(camPos.x) > abs(camPos.z)) {
+		if (camPos.x < 0 && camDir.x > 0) {
+			res = North;
+		} else if ( camPos.x > 0 && camDir.x < 0 ) {
+			res = South;
+		}
+	} else {
+		if (camPos.z > 0 && camDir.z < 0) {
+			res = West;
+		} else if (camPos.z < 0 && camDir.z > 0) {
+			res = East;
+		}
 	}
-	
-	return cosine*cosine*cosine;
+	return res;
 }
 
 
@@ -443,6 +492,10 @@ vertex void unprojectSphericalVertex(
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
     const auto gridPoint = gridPoints[vertexID];
+//
+	
+
+	
 	
     const auto texCoord = gridPoint / uniforms.cameraResolution;
     // Sample the depth map to get the depth value
@@ -454,7 +507,21 @@ vertex void unprojectSphericalVertex(
 
     // With a 2D point plus depth, we can now get its 3D position
     const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
-
+	
+	auto location = detectCameraOrientation(uniforms);
+	if (location == North && position.x > 0) {
+		return;
+	}
+	if (location == South && position.x < 0) {
+		return;
+	}
+	if (location == East && position.z > 0) {
+		return;
+	}
+	if (location == West && position.z < 0) {
+		return;
+	}
+	
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
 
     bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
@@ -483,9 +550,7 @@ vertex void unprojectSphericalVertex(
 
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
 		md.depth = depth;
-		
-		if ( detectNodeOrientationToCamera(uniforms, position, floorHeight) < 0.75 )
-			return;
+
 		
 		
 		MedianSearcher(&md).appendNewValueDebug(val);
@@ -528,16 +593,29 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
     const auto nodeVal = md.median;
     auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
     auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
-    
+	saturation = 0.5;
 	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
-	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
-	float4 shined = shineDirection(color, mixFactor);
-	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
+//	float mixFactor = detectCameraOrientation(uniforms, pos, floorHeight);
+//	float4 shined = shineDirection(color, mixFactor);
+//	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
+	
+//	auto location = detectCameraOrientation(uniforms);
+//
+//	if (location == North) {
+//		color = float4(0,0,1,.1);
+//	} else if (location == South) {
+//		color = float4(1,0,0,.1);
+//	} else if (location == East) {
+//		color = float4(1,1,0,.1);
+//	} else {
+//		color = float4(0,1,0,.1);
+//	}
+	
 	
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
-	pOut.color = colorised;
+	pOut.color = color;
     return pOut;
 }
 

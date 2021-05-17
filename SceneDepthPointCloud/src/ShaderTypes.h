@@ -28,7 +28,6 @@ enum BufferIndices {
     kViewToCam = 6,
     kPointCloudUniforms = 8,
     kGistros = 9,
-    kStateNum = 10,
     kFrame = 11
 };
 
@@ -37,11 +36,6 @@ struct PointCloudUniforms {
     matrix_float4x4 localToWorld;
     matrix_float3x3 cameraIntrinsicsInversed;
     simd_float2 cameraResolution;
-};
-
-struct ColoredPoint {
-    simd_float3 position;
-    simd_int4 color;
 };
 
 struct CameraView {
