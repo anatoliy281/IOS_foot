@@ -7,11 +7,16 @@ let isDebugMode:Bool = false
 let gridNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
 
 class Renderer {
+	
+	var deltaX:Int = 0
+	var deltaY:Int = 0
     
+	var calcIsNotFreezed = false
+	
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
     private let cameraRotationThreshold = cos(2 * .degreesToRadian)
-    private let cameraTranslationThreshold: Float = pow(0.02, 2)   // (meter-squared)
+	private let cameraTranslationThreshold: Float = 0.02*0.02   // (meter-squared)
     // The max number of command buffers in flight
     private let maxInFlightBuffers = 3
     
@@ -71,8 +76,7 @@ class Renderer {
     private var currentBufferIndex = 0
     
     
-    lazy var gistroReductionState: MTLComputePipelineState = makeReductionComputeState()!
-    lazy var toGistroConvertState: MTLComputePipelineState = makeConvertionComputeState()!
+    lazy var computeNormalsState: MTLComputePipelineState = makeComputeNormalsState()!
     var floorHeight:Float = -10
     
     
@@ -147,7 +151,8 @@ class Renderer {
         renderEncoder.setRenderPipelineState(state)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(buffer)
-        renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+        renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
 		if gridType == 0 {
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
 		} else {
@@ -332,6 +337,20 @@ class Renderer {
         return true
     }
     
+	private func shouldAccumulate(frame: ARFrame) -> Bool {
+		let cameraTransform = frame.camera.transform
+//		return dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
+//			|| distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) >= cameraTranslationThreshold
+		
+		let a = cameraTransform.columns.2
+		let b = lastCameraTransform.columns.2
+		
+		let aa = [a[0], a[1], a[2], a[3]]
+		let bb = [b[0], b[1], b[2], b[3]]
+		
+		return dot(a, b) > cameraRotationThreshold
+	}
+	
     private func updateCapturedImageTextures(frame: ARFrame) {
         let pixelBuffer = frame.capturedImage
         guard CVPixelBufferGetPlaneCount(pixelBuffer) >= 2 else {
@@ -399,14 +418,10 @@ class Renderer {
 		}
                       
         if canUpdateDepthTextures(frame: currentFrame) {
-            accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
-//			for i in 0..<myGridBuffer.count {
-//				print(i)
-//				debugNode(node: i, buffer: myGridBuffer.buffer, field: .pairLen)
-//			}
-//			print("")
-
-			
+			calcIsNotFreezed = shouldAccumulate(frame: currentFrame)
+			if calcIsNotFreezed {
+				accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
+			}
         }
 		renderEncoder.setDepthStencilState(relaxedStencilState)
 		updateCapturedImageTextures(frame: currentFrame)
@@ -458,9 +473,16 @@ class Renderer {
 			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 			renderEncoder.setVertexBuffer(gridPointsBuffer)
 			renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+			
+//			renderEncoder.setVertexBytes(&deltaX, length: MemoryLayout<Float>.stride, index: Int(kImgWidth.rawValue))
+//			renderEncoder.setVertexBytes(&deltaY, length: MemoryLayout<Float>.stride, index: Int(kImgHeight.rawValue))
+			
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
+			
+			calcNormals(bufferIn: sphericalGridBuffer)
+			
 		} else if currentState == .separate {
             if frameAccumulated >= MAX_MESH_STATISTIC-1 {
 //                frameAccumulated = 0
@@ -488,8 +510,8 @@ private extension Renderer {
 		let numGridPoints = 250_000;
 		let gridArea = cameraResolution.x * cameraResolution.y
 		let spacing = sqrt(gridArea / Float(numGridPoints))
-		let deltaX = Int(round(cameraResolution.x / spacing))
-		let deltaY = Int(round(cameraResolution.y / spacing))
+		deltaX = Int(round(cameraResolution.x / spacing))
+		deltaY = Int(round(cameraResolution.y / spacing))
 		
 		var points = [Float2]()
 		for gridY in 0 ..< deltaY {

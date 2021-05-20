@@ -3,22 +3,12 @@ import MetalKit
 
 extension Renderer {
     
-    public func makeReductionComputeState() -> MTLComputePipelineState? {
-        let function: MTLFunction! = library.makeFunction(name: "addition_gistro") // Grab our gpu function
+    public func makeComputeNormalsState() -> MTLComputePipelineState? {
+        let function: MTLFunction! = library.makeFunction(name: "computeNormals") // Grab our gpu function
         guard let res = try? device.makeComputePipelineState(function: function) else {
             fatalError()
         }
         return res
-    }
-
-    public func makeConvertionComputeState() -> MTLComputePipelineState? {
-
-        let function = library.makeFunction(name: "convert_gistro")
-        do {
-            return try device.makeComputePipelineState(function: function!)
-        } catch {
-            fatalError()
-        }
     }
 }
 

@@ -122,6 +122,12 @@ extension MTLRenderCommandEncoder {
     }
 }
 
+extension MTLComputeCommandEncoder {
+	func setBuffer<T>(_ vertexBuffer: MetalBuffer<T>, offset: Int = 0) {
+		setBuffer(vertexBuffer.buffer, offset: offset, index: vertexBuffer.index)
+	}
+}
+
 struct Texture: Resource {
     typealias Element = Any
     

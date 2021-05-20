@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define MAX_MESH_STATISTIC 101
+#define MAX_MESH_STATISTIC 11
 
 #define RADIUS 0.5
 #define GRID_NODE_COUNT 500
@@ -13,6 +13,8 @@ extern "C" {
 #define EPS_H 3e-3
 #define MAX_GRAD_H 27e-3
 #define PI 3.14159
+
+#include <simd/simd.h>
 
 
 #define PHI_STEP ((2*PI) / GRID_NODE_COUNT)
@@ -41,6 +43,7 @@ extern "C" {
         float median;                       // медиана
 		float depth;						// глубина
         enum Group group;
+		simd_float3 normal;
     };
     
     struct MyMeshData initMyMeshData(float valInit);
