@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define MAX_MESH_STATISTIC 11
+#define MAX_MESH_STATISTIC 21
 
 #define RADIUS 0.5
 #define GRID_NODE_COUNT 500
@@ -54,9 +54,9 @@ extern "C" {
     int gridRow(int index);
     int gridColumn(int index);
 //    void calcXY(int i, int j, float* x, float* y);
-    float calcX(int i, int j, float val);
-    float calcY(int i, int j, float val);
-    float calcZ(int i, int j, float val);
+    float calcX(/*int i,*/ int j, float val);
+    float calcY(/*int i, */int j, float val);
+    float calcZ(int i/*, int j, float val*/);
     int indexPos(int row, int column);
 
     float toCoordinate(int pos);

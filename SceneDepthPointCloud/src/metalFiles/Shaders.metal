@@ -447,7 +447,7 @@ float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
     
     const float4 green(0.1, 0.3, 0.1, 0);
     float4 color = mix(green, footColor, floorGrad);
-    color.a = 0.5*saturation;
+    color.a = saturation;
 
     return color;
 }
@@ -543,28 +543,63 @@ float calcOrientation(float floorHeight,
 	return dot(normal, camLocation);
 }
 
-
+// вычисление  угла градиента
 float calcGrad(uint vid,
 				constant float2 *gridPoints,
 				constant PointCloudUniforms &uniforms,
 				texture2d<float, access::sample> depthTexture,
 				int imgWidth,
 				int imgHeight) {
-	// вычисление градиента
-	const auto v11 = vid;
-	const auto v21 = v11 + imgWidth; // изменение вдоль Y
-	const auto v12 = v11 + 1;
-	if ( v21 >= static_cast<unsigned int>(imgWidth*imgHeight) )
-		return 0;
-	const auto t12 = gridPoints[v12] / uniforms.cameraResolution;
-	const auto t21 = gridPoints[v21] / uniforms.cameraResolution;
-	const auto t11 = gridPoints[v11] / uniforms.cameraResolution;
-	// Sample the depth map to get the depth value
-	const auto depth11 = depthTexture.sample(depthSampler, t11).r;
-	const auto depth12 = depthTexture.sample(depthSampler, t12).r;
-	const auto depth21 = depthTexture.sample(depthSampler, t21).r;
 	
-	return atan (length( float2(depth11 - depth12, depth11 - depth21) ) / length( float2((t11 - t12).x, (t11 - t21).y) ) );
+	float res = 0;
+	if (
+		static_cast<unsigned int>(imgWidth) <= vid &&
+		vid < static_cast<unsigned int>(imgWidth*(imgHeight - 1))
+		) {
+		
+		const auto v11 = vid;
+
+		const auto v01 = v11 - imgWidth; // изменение вдоль Y
+		const auto v00 = v01 - 1;
+		const auto v02 = v01 + 1;
+		
+		const auto v10 = v11 - 1;
+		const auto v12 = v11 + 1;
+		
+		const auto v21 = v11 + imgWidth; // изменение вдоль Y
+		const auto v20 = v21 - 1;
+		const auto v22 = v21 + 1;
+		
+		
+		
+		const auto t00 = gridPoints[v00] / uniforms.cameraResolution;
+		const auto t01 = gridPoints[v01] / uniforms.cameraResolution;
+		const auto t02 = gridPoints[v02] / uniforms.cameraResolution;
+//		const auto t11 = gridPoints[v11] / uniforms.cameraResolution;
+		const auto t10 = gridPoints[v10] / uniforms.cameraResolution;
+		const auto t12 = gridPoints[v12] / uniforms.cameraResolution;
+		
+		const auto t20 = gridPoints[v20] / uniforms.cameraResolution;
+		const auto t21 = gridPoints[v21] / uniforms.cameraResolution;
+		const auto t22 = gridPoints[v22] / uniforms.cameraResolution;
+		
+		const auto dr = float2((t00 - t02).x, (t02 - t22).y);
+		
+		// Sample the depth map to get the depth value
+		const auto f00 = depthTexture.sample(depthSampler, t00).r;
+		const auto f01 = depthTexture.sample(depthSampler, t01).r;
+		const auto f02 = depthTexture.sample(depthSampler, t02).r;
+		const auto f10 = depthTexture.sample(depthSampler, t10).r;
+		const auto f12 = depthTexture.sample(depthSampler, t12).r;
+		const auto f20 = depthTexture.sample(depthSampler, t20).r;
+		const auto f21 = depthTexture.sample(depthSampler, t21).r;
+		const auto f22 = depthTexture.sample(depthSampler, t22).r;
+		
+		const auto df = 0.25*float2(f00 - f20 + 2*(f01 - f21) + f02 - f22,
+							   f02 - f00 + 2*(f12 - f10) + f22 - f20);
+		res = atan ( sqrt( dot(df, df) / dot(dr, dr) ) );
+	}
+	return res;
 }
 
 
@@ -598,18 +633,18 @@ vertex void unprojectSphericalVertex(
 
     bool check1 = pointLocation.x*pointLocation.x + pointLocation.z*pointLocation.z < RADIUS*RADIUS;
 	bool checkHeight = pointLocation.y - floorHeight < maxHeight;
-//	bool checkWidth = abs(pointLocation.z) < maxHalfWidth;
-//	bool checkLength = (pointLocation.x < 0)? pointLocation.x > -frontLength: pointLocation.x < backLength;
+	bool checkWidth = abs(pointLocation.z) < maxHalfWidth;
+	bool checkLength = (pointLocation.x < 0)? pointLocation.x > -frontLength: pointLocation.x < backLength;
 
     if (
         check1
 		&&
 		checkHeight
         &&
-//		checkWidth
-//		&&
-//		checkLength
-//		&&
+		checkWidth
+		&&
+		checkLength
+		&&
         confidence == 2
         ) {
 
@@ -625,7 +660,7 @@ vertex void unprojectSphericalVertex(
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
 		
 		auto grad = calcGrad(vertexID, gridPoints, uniforms, depthTexture, imgWidth, imgHeight);
-		md.gradVal = grad;
+
 		
 //		const auto normal = md.normal;
 //		// направление обзора камеры в СК связанной с объектом наблюдения
@@ -634,10 +669,13 @@ vertex void unprojectSphericalVertex(
 //													-
 //													( toObjectCartesianBasis(floorHeight)*pointLocation ).xyz
 //													);
-		auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vertexID);
-		if (orient <= 0) {
+//		auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vertexID);
+		if (
+//			orient <= 0 ||
+			grad > 0.1*M_PI_2_F) {
 			return;
 		}
+		md.gradVal = grad;
 		md.depth = depth;
 
 		
@@ -694,13 +732,14 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 //										(toObjectCartesianBasis(floorHeight)*(pos)).xyz
 //									);
 	// нормаль в данном узле
-	const auto normal = md.normal;
+//	const auto normal = md.normal;
 //	auto orient = dot(normal, camLocation);
 	
-	auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vid);
+//	auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vid);
 //	const auto saturation = (orient < 0)? 0: 0.7*orient;
-	const auto saturation = orient;
-//	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
+//	const auto saturation = orient;
+	const auto saturation = 1;
+	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
 	
 //    auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
 	
@@ -722,12 +761,16 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 	
 //	auto color = float4(normal, saturation);
 	
-	auto h = md.gradVal;
-	auto color = float4(h, 0., 0., 1.);
 	
-	if (!isNotFreezed) {
-		color = float4(0.5, 0.5, 0., saturation);
-	}
+	
+//	auto color = float4(h, 0., 0., 1);
+//	auto color = mix(float4(1., 0., 0., 1.),
+//					 float4(0.,0.,1., 1.), orient);
+
+	
+//	if (!isNotFreezed) {
+//		color = float4(0.5, 0.5, 0., saturation);
+//	}
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);

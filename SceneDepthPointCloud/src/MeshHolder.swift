@@ -138,11 +138,16 @@ class MeshHolder {
 	   
 	   
    private func calcCoords(_ i:Int, _  j:Int, _ table: inout [[Float]]) -> Float3 {
-	   let value = table[i][j]
-	   let x = -calcX(Int32(i), Int32(j), value) // flip the foot
-	   let y = calcY(Int32(i), Int32(j), value)
-	   let z = calcZ(Int32(i), Int32(j), value)
-	   return 1000*Float3(x, y, z)
+		let value = table[i][j]
+//	   let x = -calcX(Int32(i), Int32(j), value) // flip the foot
+//	   let y = calcY(Int32(i), Int32(j), value)
+//	   let z = calcZ(Int32(i), Int32(j), value)
+	
+		let x = -calcX(Int32(j), value) // flip the foot
+		let y = calcY(Int32(j), value)
+		let z = calcZ(Int32(i))
+	
+		return 1000*Float3(x, y, z)
    }
    
 	private func deriv(_ r1: Float3, _ r2: Float3) -> (rho:Float, h:Float) {
