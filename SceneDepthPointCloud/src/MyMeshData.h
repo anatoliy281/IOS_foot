@@ -41,7 +41,10 @@ extern "C" {
         int pairLen;                        // длина промежуточного буфера пар
 		int debugCall;
         float median;                       // медиана
+//		float minimum;
+//		float maximum;
 		float depth;						// глубина
+		float gradVal;
         enum Group group;
 		simd_float3 normal;
     };

@@ -8,15 +8,15 @@ let gridNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
 
 class Renderer {
 	
-	var deltaX:Int = 0
-	var deltaY:Int = 0
+	var deltaX:Int32 = 0
+	var deltaY:Int32 = 0
     
 	var calcIsNotFreezed = false
 	
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
     private let cameraRotationThreshold = cos(2 * .degreesToRadian)
-	private let cameraTranslationThreshold: Float = 0.02*0.02   // (meter-squared)
+	private let cameraTranslationThreshold: Float = 0.001*0.001   // (meter-squared)
     // The max number of command buffers in flight
     private let maxInFlightBuffers = 3
     
@@ -152,7 +152,9 @@ class Renderer {
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(buffer)
 		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-        renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
+		if gridType == 1 {
+			renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
+		}
 		if gridType == 0 {
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
 		} else {
@@ -338,17 +340,28 @@ class Renderer {
     }
     
 	private func shouldAccumulate(frame: ARFrame) -> Bool {
+		
+		if currentState == .findFootArea {
+			return true
+		}
+		
 		let cameraTransform = frame.camera.transform
 //		return dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
 //			|| distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) >= cameraTranslationThreshold
 		
-		let a = cameraTransform.columns.2
-		let b = lastCameraTransform.columns.2
+		let a = cameraTransform.columns.3
+		let b = lastCameraTransform.columns.3
 		
-		let aa = [a[0], a[1], a[2], a[3]]
-		let bb = [b[0], b[1], b[2], b[3]]
 		
-		return dot(a, b) > cameraRotationThreshold
+		let distMoved = distance_squared(a, b) < cameraTranslationThreshold
+//		if distMoved {
+//
+//			print( distance_squared(a, b) )
+//			print(a, b)
+//		}
+		  
+		lastCameraTransform = frame.camera.transform
+		return distMoved
 	}
 	
     private func updateCapturedImageTextures(frame: ARFrame) {
@@ -473,9 +486,10 @@ class Renderer {
 			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 			renderEncoder.setVertexBuffer(gridPointsBuffer)
 			renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-			
-//			renderEncoder.setVertexBytes(&deltaX, length: MemoryLayout<Float>.stride, index: Int(kImgWidth.rawValue))
-//			renderEncoder.setVertexBytes(&deltaY, length: MemoryLayout<Float>.stride, index: Int(kImgHeight.rawValue))
+		
+			// передача габаритов изображения для восстановления сетки
+			renderEncoder.setVertexBytes(&deltaX, length: MemoryLayout<Int32>.stride, index: Int(kImgWidth.rawValue))
+			renderEncoder.setVertexBytes(&deltaY, length: MemoryLayout<Int32>.stride, index: Int(kImgHeight.rawValue))
 			
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
@@ -495,11 +509,11 @@ class Renderer {
             
             print("frame accumulated: \(frameAccumulated)")
 		} else {}
-      
-		
-	
-        
-        lastCameraTransform = frame.camera.transform
+//
+//
+//
+//
+//        lastCameraTransform = frame.camera.transform
     }
 }
 
@@ -510,8 +524,8 @@ private extension Renderer {
 		let numGridPoints = 250_000;
 		let gridArea = cameraResolution.x * cameraResolution.y
 		let spacing = sqrt(gridArea / Float(numGridPoints))
-		deltaX = Int(round(cameraResolution.x / spacing))
-		deltaY = Int(round(cameraResolution.y / spacing))
+		deltaX = Int32(round(cameraResolution.x / spacing))
+		deltaY = Int32(round(cameraResolution.y / spacing))
 		
 		var points = [Float2]()
 		for gridY in 0 ..< deltaY {

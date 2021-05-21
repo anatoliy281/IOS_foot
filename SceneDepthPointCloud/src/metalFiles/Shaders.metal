@@ -105,11 +105,20 @@ int MedianSearcher::detectShiftDirection(float median, float a, float b, bool va
 
 void MedianSearcher::appendNewValueDebug(float value) {
 	
+//	if ( md->maximum - md->minimum < 0.002 &&
+//		md->totalSteps > MAX_MESH_STATISTIC ) {
+//		return;
+//	}
+	
 //	md->median = value;
 	device int& plen = md->pairLen;
 	device auto& med = md->median;
+//	device auto& minimum = md->minimum;
+//	device auto& maximum = md->maximum;
+	
 	if (md->totalSteps == 0) { // срабатывает один единственный раз
 		md->buffer[md->bufModLen] = med = value;
+//		md->buffer[md->bufModLen] = med = minimum = maximum = value;
 		plen = 0;
 		cycle();
 
@@ -125,6 +134,9 @@ void MedianSearcher::appendNewValueDebug(float value) {
 		auto a = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
 		auto b = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
 
+//		minimum = min3(a, b, minimum);
+//		maximum = max3(a, b, maximum);
+		
 		cycle();
 		cycle();
 
@@ -497,6 +509,65 @@ float4 detectCameraPosition(constant PointCloudUniforms &uniforms) {
 //	return dot(rhoCam, rhoPoint);
 //}
 
+float calcOrientation(float floorHeight,
+					  constant PointCloudUniforms &uniforms, constant MyMeshData* mesh, int vid ) {
+	
+	const auto nodeVal = mesh[vid].median;
+	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
+	// направление обзора камеры в СК связанной с объектом наблюдения
+	const auto camLocation = normalize(
+									 (toObjectCartesianBasis(floorHeight)*detectCameraPosition(uniforms)).xyz
+									 -
+									 (toObjectCartesianBasis(floorHeight)*(pos)).xyz
+								 );
+	// нормаль в данном узле
+	const auto normal = mesh[vid].normal;
+	
+	return dot(normal, camLocation);
+}
+
+float calcOrientation(float floorHeight,
+					  constant PointCloudUniforms &uniforms, device MyMeshData* mesh, int vid ) {
+	
+	const auto nodeVal = mesh[vid].median;
+	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
+	// направление обзора камеры в СК связанной с объектом наблюдения
+	const auto camLocation = normalize(
+									 (toObjectCartesianBasis(floorHeight)*detectCameraPosition(uniforms)).xyz
+									 -
+									 (toObjectCartesianBasis(floorHeight)*(pos)).xyz
+								 );
+	// нормаль в данном узле
+	const auto normal = mesh[vid].normal;
+	
+	return dot(normal, camLocation);
+}
+
+
+float calcGrad(uint vid,
+				constant float2 *gridPoints,
+				constant PointCloudUniforms &uniforms,
+				texture2d<float, access::sample> depthTexture,
+				int imgWidth,
+				int imgHeight) {
+	// вычисление градиента
+	const auto v11 = vid;
+	const auto v21 = v11 + imgWidth; // изменение вдоль Y
+	const auto v12 = v11 + 1;
+	if ( v21 >= static_cast<unsigned int>(imgWidth*imgHeight) )
+		return 0;
+	const auto t12 = gridPoints[v12] / uniforms.cameraResolution;
+	const auto t21 = gridPoints[v21] / uniforms.cameraResolution;
+	const auto t11 = gridPoints[v11] / uniforms.cameraResolution;
+	// Sample the depth map to get the depth value
+	const auto depth11 = depthTexture.sample(depthSampler, t11).r;
+	const auto depth12 = depthTexture.sample(depthSampler, t12).r;
+	const auto depth21 = depthTexture.sample(depthSampler, t21).r;
+	
+	return atan (length( float2(depth11 - depth12, depth11 - depth21) ) / length( float2((t11 - t12).x, (t11 - t21).y) ) );
+}
+
+
 vertex void unprojectSphericalVertex(
                             uint vertexID [[vertex_id]],
 
@@ -504,34 +575,20 @@ vertex void unprojectSphericalVertex(
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
                             constant float& floorHeight[[ buffer(kHeight) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-
+							constant int& imgWidth [[ buffer(kImgWidth) ]],
+							constant int& imgHeight [[ buffer(kImgHeight) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
     const auto gridPoint = gridPoints[vertexID];
 	
-//	const auto vertexIDX = vertexID + imgWidth;
-//	const auto vertexIDY = vertexID + 1;
-//	if ( vertexIDX >= static_cast<unsigned int>(imgWidth*imgHeight) )
-//		return;
-//	const auto tcX = gridPoints[vertexIDX] / uniforms.cameraResolution;;
-//	const auto tcY = gridPoints[vertexIDY] / uniforms.cameraResolution;;
-	
     const auto texCoord = gridPoint / uniforms.cameraResolution;
     // Sample the depth map to get the depth value
-    const auto depth = depthTexture.gather(depthSampler, texCoord).r;
-//	const auto depthX = depthTexture.sample(depthSampler, tcX).r;
-//	const auto depthY = depthTexture.sample(depthSampler, tcY).r;
-	
-//	const auto gradDepth = depthTexture.gather(depthSampler, texCoord);
+    const auto depth = depthTexture.sample(depthSampler, texCoord).r;
 
     if (depth < minDistance ) {
         return;
     }
-	
-//	if ( abs(depthX - depth) > 0.02 || abs(depthY - depth) > 0.02 ) {
-//		return;
-//	}
 
     // With a 2D point plus depth, we can now get its 3D position
     const auto pointLocation = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
@@ -566,6 +623,10 @@ vertex void unprojectSphericalVertex(
 
 		
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
+		
+		auto grad = calcGrad(vertexID, gridPoints, uniforms, depthTexture, imgWidth, imgHeight);
+		md.gradVal = grad;
+		
 //		const auto normal = md.normal;
 //		// направление обзора камеры в СК связанной с объектом наблюдения
 //		const auto camViewFromTheVertex = normalize(
@@ -573,10 +634,10 @@ vertex void unprojectSphericalVertex(
 //													-
 //													( toObjectCartesianBasis(floorHeight)*pointLocation ).xyz
 //													);
-//		auto orient = dot(normal, camViewFromTheVertex);
-//		if (orient <= 0.85) {
-//			return;
-//		}
+		auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vertexID);
+		if (orient <= 0) {
+			return;
+		}
 		md.depth = depth;
 
 		
@@ -612,6 +673,8 @@ float4 saturateAsDistance(constant PointCloudUniforms& uniforms, float depth, co
 	return mix(color, gray, param);
 }
 
+
+
 vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
                                      constant float& floorHeight [[ buffer(kHeight) ]],
@@ -625,16 +688,18 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
 //
 //	// направление обзора камеры в СК связанной с объектом наблюдения
-	const auto camLocation = normalize(
-										(toObjectCartesianBasis(floorHeight)*detectCameraPosition(uniforms)).xyz
-										-
-										(toObjectCartesianBasis(floorHeight)*(pos)).xyz
-									);
+//	const auto camLocation = normalize(
+//										(toObjectCartesianBasis(floorHeight)*detectCameraPosition(uniforms)).xyz
+//										-
+//										(toObjectCartesianBasis(floorHeight)*(pos)).xyz
+//									);
 	// нормаль в данном узле
 	const auto normal = md.normal;
-	auto orient = dot(normal, camLocation);
+//	auto orient = dot(normal, camLocation);
+	
+	auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vid);
 //	const auto saturation = (orient < 0)? 0: 0.7*orient;
-	const auto saturation = isNotFreezed? orient: 0;
+	const auto saturation = orient;
 //	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
 	
 //    auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
@@ -655,7 +720,14 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 //		color = float4(0,1,0,.1);
 //	}
 	
-	float4 color = float4(normal, saturation);
+//	auto color = float4(normal, saturation);
+	
+	auto h = md.gradVal;
+	auto color = float4(h, 0., 0., 1.);
+	
+	if (!isNotFreezed) {
+		color = float4(0.5, 0.5, 0., saturation);
+	}
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);

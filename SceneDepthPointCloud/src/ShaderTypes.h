@@ -30,6 +30,8 @@ enum BufferIndices {
     kGistros = 9,
     kFrame = 11,
 	kIsNotFreezed = 12,
+	kImgWidth = 13,
+	kImgHeight = 14
 };
 
 struct PointCloudUniforms {
