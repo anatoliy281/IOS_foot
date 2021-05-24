@@ -26,15 +26,15 @@ class MedianSearcher {
 	
 	void cycle();
 	int incrementModulo(int x, int step = 1);
-	float moveMedian(int greater);
-	int detectShiftDirection(float median, float a, float b, bool add);
+//	float moveMedian(int greater);
+//	int detectShiftDirection(float median, float a, float b, bool add);
 	
 public:
 	MedianSearcher(device MyMeshData* meshData): md(meshData), mdConst(nullptr) {}
 	MedianSearcher(constant MyMeshData* meshData): md(nullptr), mdConst(meshData) {}
-	void appendNewValueDebug(float value);
+	void newValue(float value);
 	
-	int getLength() const;
+//	int getLength() const;
 	
 };
 
@@ -49,131 +49,93 @@ int MedianSearcher::incrementModulo(int x, int step) {
 	return (x + step + MAX_MESH_STATISTIC)%MAX_MESH_STATISTIC;
 }
 
-float MedianSearcher::moveMedian(int greater) {
-	const auto med = md->median;
-	auto newMed = med;
-	
-	bool firstCathed = false;
-	
-	if ( greater == 1 ) {	// стараемся найти ближайшую справа
-		for (int i = 0; i < getLength(); ++i) {
-			const auto deviation = md->buffer[i] - med;
-			if ( deviation > 0 ) {
-				if ( !firstCathed ) {
-					newMed = md->buffer[i];
-					firstCathed = true;
-				} else if ( abs(deviation) < abs(newMed - med) ) {
-					newMed = md->buffer[i];
-				}
-			}
-		}
-	} else if ( greater == -1 ) {	// стараемся найти ближайшую слева
-		for (int i=0; i < getLength(); ++i) {
-			const auto deviation = md->buffer[i] - med;
-			if ( deviation < 0 ) {
-				if ( !firstCathed ) {
-					newMed = md->buffer[i];
-					firstCathed = true;
-				} else if ( abs(deviation) < abs(med - newMed)) {
-					newMed = md->buffer[i];
-				}
-			}
-		}
-	} else {}
-
-	return newMed;
-}
-
-int MedianSearcher::detectShiftDirection(float median, float a, float b, bool valuesAdded) {
-	
-	auto pairMin = min(a, b);
-	auto pairMax = max(a, b);
-	
-	int res = 0;
-	if ( median < pairMin ) { // сдвинуть медану на ближайшее значение вправо
-		res = 1;
-	} else if ( median > pairMax ) { // сдвинуться влево
-		res = -1;
-	}
-	
-	if (!valuesAdded)
-		res = -1*res;
-	
-	return res;
-}
-
-
-void MedianSearcher::appendNewValueDebug(float value) {
-	
-//	if ( md->maximum - md->minimum < 0.002 &&
-//		md->totalSteps > MAX_MESH_STATISTIC ) {
-//		return;
+//float MedianSearcher::moveMedian(int greater) {
+//	const auto med = md->mean;
+//	auto newMed = med;
+//
+//	bool firstCathed = false;
+//
+//	if ( greater == 1 ) {	// стараемся найти ближайшую справа
+//		for (int i = 0; i < getLength(); ++i) {
+//			const auto deviation = md->buffer[i] - med;
+//			if ( deviation > 0 ) {
+//				if ( !firstCathed ) {
+//					newMed = md->buffer[i];
+//					firstCathed = true;
+//				} else if ( abs(deviation) < abs(newMed - med) ) {
+//					newMed = md->buffer[i];
+//				}
+//			}
+//		}
+//	} else if ( greater == -1 ) {	// стараемся найти ближайшую слева
+//		for (int i=0; i < getLength(); ++i) {
+//			const auto deviation = md->buffer[i] - med;
+//			if ( deviation < 0 ) {
+//				if ( !firstCathed ) {
+//					newMed = md->buffer[i];
+//					firstCathed = true;
+//				} else if ( abs(deviation) < abs(med - newMed)) {
+//					newMed = md->buffer[i];
+//				}
+//			}
+//		}
+//	} else {}
+//
+//	return newMed;
+//}
+//
+//int MedianSearcher::detectShiftDirection(float median, float a, float b, bool valuesAdded) {
+//
+//	auto pairMin = min(a, b);
+//	auto pairMax = max(a, b);
+//
+//	int res = 0;
+//	if ( median < pairMin ) { // сдвинуть медану на ближайшее значение вправо
+//		res = 1;
+//	} else if ( median > pairMax ) { // сдвинуться влево
+//		res = -1;
 //	}
-	
-//	md->median = value;
-	device int& plen = md->pairLen;
-	device auto& med = md->median;
-//	device auto& minimum = md->minimum;
-//	device auto& maximum = md->maximum;
-	
-	if (md->totalSteps == 0) { // срабатывает один единственный раз
-		md->buffer[md->bufModLen] = med = value;
-//		md->buffer[md->bufModLen] = med = minimum = maximum = value;
-		plen = 0;
-		cycle();
+//
+//	if (!valuesAdded)
+//		res = -1*res;
+//
+//	return res;
+//}
 
-		return;
+
+void MedianSearcher::newValue(float value) {
+	device auto& mean = md->mean;
+	device auto& meanSquared = md->meanSquared;
+
+	int n = md->bufModLen;
+	md->buffer[n] = value;
+	cycle();
+	if ( md->bufModLen == md->totalSteps ) {
+		mean = (mean*n + value) / (n + 1.f);
+		meanSquared = (meanSquared*n + value*value) / (n + 1.f);
+	} else if (md->bufModLen == 0) {
+		float newMean = 0;
+		float newMeanSquared = 0;
+		for (int i = 0; i < MAX_MESH_STATISTIC; ++i) {
+			newMean += md->buffer[i];
+			newMeanSquared += md->buffer[i]*md->buffer[i];
+		}
+		newMean /= MAX_MESH_STATISTIC;
+		newMeanSquared /= MAX_MESH_STATISTIC;
+		auto dispersion = meanSquared - mean*mean;
+		auto newDispersion = newMeanSquared - newMean*newMean;
+		if (newDispersion < dispersion) {
+			mean = newMean;
+		}
 	}
 
-	md->pairs[(plen++) % PAIR_SIZE] = value;
-
-	while (plen > 1) { // пара готова
-		if (md->lock == 1)
-			return;
-		md->lock = 1;
-		auto a = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
-		auto b = md->pairs[(--plen + PAIR_SIZE)%PAIR_SIZE];
-
-//		minimum = min3(a, b, minimum);
-//		maximum = max3(a, b, maximum);
-		
-		cycle();
-		cycle();
-
-		int p1 = md->bufModLen;
-		int p2 = incrementModulo(p1);
-		md->buffer[p1] = a;
-		md->buffer[p2] = b;
-
-		// проверка на удаление текущей медианы
-		if (md->buffer[p1] == med) {
-			p1 = incrementModulo(p1, -1);
-		}
-		if (md->buffer[p2] == med) {
-			p2 = incrementModulo(p2);
-		}
-
-		if (md->bufModLen < md->totalSteps ) {
-			auto a_old = md->buffer[p1];
-			auto b_old = md->buffer[p2];
-			// пересчет медианы при удалении
-			auto shiftToGreater = detectShiftDirection(med, a_old, b_old, false);
-			med = moveMedian(shiftToGreater);
-		}
-
-		auto shiftToGreater = detectShiftDirection(med, a, b, true);
-
-		med = moveMedian(shiftToGreater);
-
-		md->lock = 0;
-	}
 }
 
 
-int MedianSearcher::getLength() const {
-	auto totalSteps = (mdConst)? mdConst->totalSteps: md->totalSteps;
-	return min(totalSteps, MAX_MESH_STATISTIC);
-}
+//int MedianSearcher::getLength() const {
+//	auto totalSteps = (mdConst)? mdConst->totalSteps: md->totalSteps;
+//	return min(totalSteps, MAX_MESH_STATISTIC);
+//}
 
 
 //// Particle vertex shader outputs and fragment shader inputs
@@ -239,7 +201,7 @@ float4 colorCartesianPoint(float floorDist, float saturation) {
 }
 
 void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) {
-    auto h = md.median;
+    auto h = md.mean;
     auto heightDeviation = abs(h - floorHeight);
     if ( heightDeviation < 2*EPS_H ) {
         md.group = Floor;
@@ -308,7 +270,7 @@ vertex void unprojectCartesianVertex(
         device auto& md = myMeshData[i*gridNodeCount + j];
 		
 		auto shr = MedianSearcher(&md);
-		shr.appendNewValueDebug(val);
+		shr.newValue(val);
 		md.group = Floor;
 //        markCartesianMeshNodes(md, floorHeight);
     }
@@ -320,9 +282,10 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 									 unsigned int vid [[ vertex_id ]] ) {
 	constant auto &md = myMeshData[vid];
 
-	const auto nodeVal = md.median;
+	const auto nodeVal = md.mean;
 	auto pos = restoreFromCartesianTable(nodeVal, vid);
-	auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
+//	auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
+	auto saturation = 1;
 	
 	float4 color = colorCartesianPoint(pos.y - floorHeight, saturation);
 //	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
@@ -455,7 +418,7 @@ float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
 
 void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
     
-    auto h = md.median;
+    auto h = md.mean;
     auto heightDeviation = abs(h*cos(thetaIndex*THETA_STEP));
     if ( heightDeviation < 2*EPS_H ) {
         md.group = Floor;
@@ -512,7 +475,7 @@ float4 detectCameraPosition(constant PointCloudUniforms &uniforms) {
 float calcOrientation(float floorHeight,
 					  constant PointCloudUniforms &uniforms, constant MyMeshData* mesh, int vid ) {
 	
-	const auto nodeVal = mesh[vid].median;
+	const auto nodeVal = mesh[vid].mean;
 	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
 	// направление обзора камеры в СК связанной с объектом наблюдения
 	const auto camLocation = normalize(
@@ -529,7 +492,7 @@ float calcOrientation(float floorHeight,
 float calcOrientation(float floorHeight,
 					  constant PointCloudUniforms &uniforms, device MyMeshData* mesh, int vid ) {
 	
-	const auto nodeVal = mesh[vid].median;
+	const auto nodeVal = mesh[vid].mean;
 	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
 	// направление обзора камеры в СК связанной с объектом наблюдения
 	const auto camLocation = normalize(
@@ -661,26 +624,21 @@ vertex void unprojectSphericalVertex(
 		
 		auto grad = calcGrad(vertexID, gridPoints, uniforms, depthTexture, imgWidth, imgHeight);
 
-		
-//		const auto normal = md.normal;
-//		// направление обзора камеры в СК связанной с объектом наблюдения
-//		const auto camViewFromTheVertex = normalize(
-//													( toObjectCartesianBasis(floorHeight)*detectCameraPosition(uniforms) ).xyz
-//													-
-//													( toObjectCartesianBasis(floorHeight)*pointLocation ).xyz
-//													);
-//		auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vertexID);
 		if (
 //			orient <= 0 ||
-			grad > 0.1*M_PI_2_F) {
+			grad > 0.2*M_PI_2_F) {
 			return;
 		}
+		
+		auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vertexID);
+		if (orient > M_PI_4_F) {
+			return;
+		}
+		
 		md.gradVal = grad;
 		md.depth = depth;
 
-		
-		
-		MedianSearcher(&md).appendNewValueDebug(val);
+		MedianSearcher(&md).newValue(val);
         markSphericalMeshNodes(md, i);
     }
 }
@@ -720,7 +678,7 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
                                      unsigned int vid [[ vertex_id ]] ) {
     constant auto &md = myMeshData[vid];
 
-    const auto nodeVal = md.median;
+    const auto nodeVal = md.mean;
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
 	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
@@ -738,8 +696,8 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 //	auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vid);
 //	const auto saturation = (orient < 0)? 0: 0.7*orient;
 //	const auto saturation = orient;
-	const auto saturation = 1;
-	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
+//	const auto saturation = 0.5;
+//	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
 	
 //    auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
 	
@@ -762,8 +720,8 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 //	auto color = float4(normal, saturation);
 	
 	
-	
-//	auto color = float4(h, 0., 0., 1);
+	auto h = md.gradVal;
+	auto color = float4(h, 0, 0., 0.5);
 //	auto color = mix(float4(1., 0., 0., 1.),
 //					 float4(0.,0.,1., 1.), orient);
 

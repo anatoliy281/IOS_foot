@@ -78,7 +78,7 @@ class MeshHolder {
 				let node = renderer.sphericalGridBuffer[i]
 				let row = Int(gridRow(Int32(i)))
 				let col = Int(gridColumn(Int32(i)))
-				let val = node.median
+				let val = node.mean
 				res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
 
 			}

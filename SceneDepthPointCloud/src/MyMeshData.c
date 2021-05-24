@@ -15,7 +15,7 @@ struct MyMeshData initMyMeshData(float valInit) {
 	md.pairs[1] = 0;
 	md.pairLen = 0;
 	md.debugCall = 0;
-	md.median = valInit;
+	md.mean = valInit;
 	md.group = Unknown;
 	return md;
 }
@@ -37,36 +37,19 @@ int indexPos(int row, int column) {
 }
 
 
-float calcX(/*int i, */int j, float val) {
-    
-//    float rho = val;
-//    float theta = i*THETA_STEP;
-//    float phi = j*PHI_STEP;
-//
-//    return rho*sin(theta)*cos(phi);
-	
+float calcX(int j, float val) {
 	float rho = val;
-//	float theta = i*THETA_STEP;
 	float phi = j*PHI_STEP;
-	
 	return rho*cos(phi);
 }
-float calcY(/*int i, */int j, float val) {
-//    float rho = val;
-//    float theta = i*THETA_STEP;
-//    float phi = j*PHI_STEP;
-//
-//    return rho*sin(theta)*sin(phi);
+
+float calcY(int j, float val) {
 	float rho = val;
 	float phi = j*PHI_STEP;
-
 	return rho*sin(phi);
 }
-float calcZ(int i/*, int j, float val*/) {
-//    float rho = val;
-//    float theta = i*THETA_STEP;
-//
-//    return rho*cos(theta);
-	return i*RADIUS/GRID_NODE_COUNT;
+
+float calcZ(int i) {
+	return i*RADIUS / GRID_NODE_COUNT;
 }
 

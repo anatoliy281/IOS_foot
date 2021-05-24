@@ -40,23 +40,22 @@ extern "C" {
         float pairs[PAIR_SIZE];       				// поступающая пара для пересчета медианы
         int pairLen;                        // длина промежуточного буфера пар
 		int debugCall;
-        float median;                       // медиана
-//		float minimum;
-//		float maximum;
+
 		float depth;						// глубина
 		float gradVal;
         enum Group group;
 		simd_float3 normal;
+		float mean;
+		float meanSquared;
     };
     
     struct MyMeshData initMyMeshData(float valInit);
 
     int gridRow(int index);
     int gridColumn(int index);
-//    void calcXY(int i, int j, float* x, float* y);
-    float calcX(/*int i,*/ int j, float val);
-    float calcY(/*int i, */int j, float val);
-    float calcZ(int i/*, int j, float val*/);
+    float calcX(int j, float val);
+    float calcY(int j, float val);
+    float calcZ(int i);
     int indexPos(int row, int column);
 
     float toCoordinate(int pos);

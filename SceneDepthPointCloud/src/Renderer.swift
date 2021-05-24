@@ -391,7 +391,7 @@ class Renderer {
 		var count:Double = 0
 		for i in 0..<cartesianGridBuffer.count {
 			if cartesianGridBuffer[i].group == Floor {
-				sum += Double(cartesianGridBuffer[i].median)
+				sum += Double(cartesianGridBuffer[i].mean)
 				count += Double(1)
 			}
 		}

@@ -8,7 +8,7 @@ func debugNode(node:Int, buffer:MTLBuffer, field: MeshDataField) {
 	let meshData = buffer.contents().load(fromByteOffset: MemoryLayout<MyMeshData>.stride*node, as: MyMeshData.self)
 	switch (field) {
 	case .median:
-		print("median: \(meshData.median)")
+		print("median: \(meshData.mean)")
 	case .length:
 		print("position: \(meshData.bufModLen) / \(meshData.totalSteps)")
 	case .pairs:

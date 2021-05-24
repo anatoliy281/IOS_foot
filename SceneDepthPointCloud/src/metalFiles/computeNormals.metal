@@ -18,7 +18,7 @@ constant float gridNodeDist = halfLength / gridNodeCount;
 
 float3 restoreNode(device MyMeshData* meshData, uint index, uint i, uint j) {
 	const auto indexIJ = index + i*GRID_NODE_COUNT + j;
-	const auto rho = meshData[indexIJ].median;
+	const auto rho = meshData[indexIJ].mean;
 	const auto z = (index/GRID_NODE_COUNT + i)*gridNodeDist;
 	const auto phi = (index%GRID_NODE_COUNT + j)*PHI_STEP;
 	
