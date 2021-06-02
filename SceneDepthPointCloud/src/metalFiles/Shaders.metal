@@ -331,35 +331,6 @@ float4x4 fromObjectCartesianBasis(float h) {
                     );
 }
 
-void mapToSphericalTable(float floorHeight, float4 position, thread int& i, thread int& j, thread float& value) {
-    
-    const auto spos = toObjectCartesianBasis(floorHeight)*position;
-    
-    auto theta = atan2( length( float2(spos.xy) ), spos.z );
-    auto phi = atan( spos.y / spos.x );
-    if ( spos.x < 0 ) {
-        phi += PI;
-    } else if ( spos.y < 0 && spos.x > 0) {
-        phi += 2*PI;
-    } else {}
-    
-    i = round( theta / THETA_STEP );
-    j = round( phi / PHI_STEP );
-	value = length(spos.xyz);
-}
-
-float4 restoreFromSphericalTable(float floorHeight, float rho, int index) {
-    const auto theta = (index/GRID_NODE_COUNT)*THETA_STEP;
-    const auto phi = (index%GRID_NODE_COUNT)*PHI_STEP;
-    
-    float4 pos(1);
-    pos.x = rho*sin(theta)*cos(phi);
-    pos.y = rho*sin(theta)*sin(phi);
-    pos.z = rho*cos(theta);
-
-    return fromObjectCartesianBasis(floorHeight)*pos;
-}
-
 
 // cylindrical mapping
 void mapToCylindricalTable(float floorHeight, float4 position, thread int& i, thread int& j, thread float& value) {
@@ -697,7 +668,7 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 //	const auto saturation = (orient < 0)? 0: 0.7*orient;
 //	const auto saturation = orient;
 //	const auto saturation = 0.5;
-//	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, saturation);
+	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, 0.6);
 	
 //    auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
 	
@@ -720,8 +691,8 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 //	auto color = float4(normal, saturation);
 	
 	
-	auto h = md.gradVal;
-	auto color = float4(h, 0, 0., 0.5);
+//	auto h = md.gradVal;
+//	auto color = float4(h, 0, 0., 0.5);
 //	auto color = mix(float4(1., 0., 0., 1.),
 //					 float4(0.,0.,1., 1.), orient);
 
@@ -735,79 +706,6 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 	pOut.color = color;
     return pOut;
 }
-
-
-
-// -------------------------------------- SINGLE FRAME (IN SPHERICAL COORDS) ---------------------------------------------
-
-
-
-void populateUnorderd( device MyMeshData& md, float value, constant int& frame) {
-    if (frame >= MAX_MESH_STATISTIC) {
-        return;
-    }
-    md.buffer[frame] = value;
-}
-
-vertex void unprojectSingleFrameVertex(
-                            uint vertexID [[vertex_id]],
-                            constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
-                            constant float2 *gridPoints [[ buffer(kGridPoints) ]],
-                            constant float& floorHeight[[ buffer(kHeight) ]],
-                            constant int& frame [[ buffer(kFrame) ]],
-                            device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-                            texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
-                            texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
-                            ) {
-    const auto gridPoint = gridPoints[vertexID];
-
-    const auto texCoord = gridPoint / uniforms.cameraResolution;
-    // Sample the depth map to get the depth value
-    const auto depth = depthTexture.sample(colorSampler, texCoord).r;
-    if (depth < 0.15 ) {
-        return;
-    }
-
-    // With a 2D point plus depth, we can now get its 3D position
-    const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
-    const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
-
-    bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
-    if ( !check1 || confidence < 2 ) {
-        return;
-        
-    }
-    int i, j;
-    float val;
-    mapToSphericalTable(floorHeight, position, i, j, val);
-    if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
-        return ;
-    }
-    device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
-    populateUnorderd(md, val, frame);
-    markSphericalMeshNodes(md, i);
-}
-
-
-vertex ParticleVertexOut singleFrameVertex(
-                                        constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
-                                        constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-                                        constant float& floorHeight [[ buffer(kHeight) ]],
-                                        constant int& frame [[ buffer(kFrame) ]],
-                                        unsigned int vid [[ vertex_id ]]
-                                           ) {
-    constant auto &md = myMeshData[vid];
-
-    const auto nodeVal = md.buffer[frame-1];
-    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
-
-    ParticleVertexOut pOut;
-    pOut.position = projectOnScreen(uniforms, pos);
-    pOut.color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, 1);
-    return pOut;
-}
-
-
 
 // --------------------------------- BASE FRAGMENT SHADER ------------------------------------------
 
