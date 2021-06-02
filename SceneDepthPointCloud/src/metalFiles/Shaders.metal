@@ -315,7 +315,7 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 
 
 
-float4x4 toObjectCartesianBasis(float h) {
+float4x4 fromGlobalToObjectCS(float h) {
     return float4x4( float4( 1, 0, 0, 0),
                      float4( 0, 0, 1, 0),
                      float4( 0, 1, 0, 0),
@@ -323,7 +323,7 @@ float4x4 toObjectCartesianBasis(float h) {
                     );
 }
 
-float4x4 fromObjectCartesianBasis(float h) {
+float4x4 fromObjectToGlobalCS(float h) {
     return float4x4( float4( 1, 0, 0, 0),
                      float4( 0, 0, 1, 0),
                      float4( 0, 1, 0, 0),
@@ -334,7 +334,7 @@ float4x4 fromObjectCartesianBasis(float h) {
 
 // cylindrical mapping
 void mapToCylindricalTable(float floorHeight, float4 position, thread int& i, thread int& j, thread float& value) {
-	const auto spos = toObjectCartesianBasis(floorHeight)*position;
+	const auto spos = fromGlobalToObjectCS(floorHeight)*position;
 	
 //	if (spos.y < 0) {
 //		i = GRID_NODE_COUNT;
@@ -356,7 +356,7 @@ void mapToCylindricalTable(float floorHeight, float4 position, thread int& i, th
 	value = length(spos.xy);
 }
 
-float4 restoreFromCylindricalTable(float floorHeight, float rho, int index) {
+float4 fromCylindricalToCartesian(float rho, int index) {
 	const auto z = (index/GRID_NODE_COUNT)*gridNodeDistCylindricalZ;
 	const auto phi = (index%GRID_NODE_COUNT)*PHI_STEP;
 	
@@ -365,7 +365,7 @@ float4 restoreFromCylindricalTable(float floorHeight, float rho, int index) {
 	pos.y = rho*sin(phi);
 	pos.z = z;
 
-	return fromObjectCartesianBasis(floorHeight)*pos;
+	return pos;
 }
 
 float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
@@ -447,12 +447,12 @@ float calcOrientation(float floorHeight,
 					  constant PointCloudUniforms &uniforms, constant MyMeshData* mesh, int vid ) {
 	
 	const auto nodeVal = mesh[vid].mean;
-	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
+	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
 	// направление обзора камеры в СК связанной с объектом наблюдения
 	const auto camLocation = normalize(
-									 (toObjectCartesianBasis(floorHeight)*detectCameraPosition(uniforms)).xyz
+									 (fromGlobalToObjectCS(floorHeight)*detectCameraPosition(uniforms)).xyz
 									 -
-									 (toObjectCartesianBasis(floorHeight)*(pos)).xyz
+									 (fromGlobalToObjectCS(floorHeight)*(pos)).xyz
 								 );
 	// нормаль в данном узле
 	const auto normal = mesh[vid].normal;
@@ -464,12 +464,12 @@ float calcOrientation(float floorHeight,
 					  constant PointCloudUniforms &uniforms, device MyMeshData* mesh, int vid ) {
 	
 	const auto nodeVal = mesh[vid].mean;
-	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
+	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
 	// направление обзора камеры в СК связанной с объектом наблюдения
 	const auto camLocation = normalize(
-									 (toObjectCartesianBasis(floorHeight)*detectCameraPosition(uniforms)).xyz
+									 (fromGlobalToObjectCS(floorHeight)*detectCameraPosition(uniforms)).xyz
 									 -
-									 (toObjectCartesianBasis(floorHeight)*(pos)).xyz
+									 (fromGlobalToObjectCS(floorHeight)*(pos)).xyz
 								 );
 	// нормаль в данном узле
 	const auto normal = mesh[vid].normal;
@@ -652,7 +652,7 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
     const auto nodeVal = md.mean;
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
-	auto pos = restoreFromCylindricalTable(floorHeight, nodeVal, vid);
+	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
 //
 //	// направление обзора камеры в СК связанной с объектом наблюдения
 //	const auto camLocation = normalize(
