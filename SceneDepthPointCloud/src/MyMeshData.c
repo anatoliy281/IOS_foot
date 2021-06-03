@@ -5,16 +5,12 @@
 
 struct MyMeshData initMyMeshData(float valInit) {
 	struct MyMeshData md;
-	md.lock = 0;
 	for (int i=0; i < MAX_MESH_STATISTIC; ++i) {
 		md.buffer[i] = valInit;
 	}
 	md.bufModLen = 0;
 	md.totalSteps = 0;
-	md.pairs[0] = 0;
-	md.pairs[1] = 0;
-	md.pairLen = 0;
-	md.debugCall = 0;
+
 	md.mean = valInit;
 	md.group = Unknown;
 	return md;

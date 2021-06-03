@@ -34,8 +34,6 @@ public:
 	MedianSearcher(constant MyMeshData* meshData): md(nullptr), mdConst(meshData) {}
 	void newValue(float value);
 	
-//	int getLength() const;
-	
 };
 
 
@@ -77,12 +75,6 @@ void MedianSearcher::newValue(float value) {
 	}
 
 }
-
-
-//int MedianSearcher::getLength() const {
-//	auto totalSteps = (mdConst)? mdConst->totalSteps: md->totalSteps;
-//	return min(totalSteps, MAX_MESH_STATISTIC);
-//}
 
 
 //// Particle vertex shader outputs and fragment shader inputs

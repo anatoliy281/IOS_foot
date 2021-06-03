@@ -34,17 +34,10 @@ extern "C" {
     };
 
     struct MyMeshData {
-
-		int lock;
         float buffer[MAX_MESH_STATISTIC];  	// актуальные данные буфера
         int bufModLen;                         // текущее значение для заполнения
 		int totalSteps;					// текущая длина буфера без модульного деления
-        float pairs[PAIR_SIZE];       				// поступающая пара для пересчета медианы
-        int pairLen;                        // длина промежуточного буфера пар
-		int debugCall;
 
-		float depth;						// глубина
-		float gradVal;
         enum Group group;
 		simd_float3 normal;
 		float mean;
