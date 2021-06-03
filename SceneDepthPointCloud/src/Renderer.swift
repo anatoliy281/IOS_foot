@@ -117,11 +117,6 @@ class Renderer {
     
     private lazy var axisIndeces = MetalBuffer<UInt16>(device: device, array: makeAxisIndeces(), index: 0)
     
-   
-    
-	
-	
-	
 
     
     // Point Cloud buffer
@@ -394,12 +389,12 @@ class Renderer {
         currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
         pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
         
-//        if currentState == .findFootArea {
-//            if frameAccumulated > 10 {
-		let nc:Int32 = 10
-		if ( frameAccumulated%nc == 0 && frameAccumulated != 0 ) {
-			floorHeight = Float(cpuCalcFloor())
-//			print("\(frameAccumulated/nc) floor \(floorHeight)")
+        if currentState == .findFootArea {
+			let nc:Int32 = 10
+			if ( frameAccumulated%nc == 0 && frameAccumulated != 0 ) {
+				floorHeight = Float(cpuCalcFloor())
+					print("\(frameAccumulated/nc) floor \(floorHeight)")
+			}
 		}
                       
         if canUpdateDepthTextures(frame: currentFrame) {
@@ -479,6 +474,7 @@ class Renderer {
 			print("-------------- Length \(Int(round(1000*lengthOfFoot))) --------------------")
 			
 		} else if currentState == .separate {
+			
             if frameAccumulated >= MAX_MESH_STATISTIC-1 {
 //                frameAccumulated = 0
                 return

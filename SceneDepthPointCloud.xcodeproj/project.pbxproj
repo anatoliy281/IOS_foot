@@ -11,7 +11,6 @@
 		6A73C04625DE87B00007853C /* MyMeshData.c in Sources */ = {isa = PBXBuildFile; fileRef = 6A73C04425DE84950007853C /* MyMeshData.c */; };
 		8A1DFC972668ADB90029D02B /* drawFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1DFC962668ADB90029D02B /* drawFunctions.swift */; };
 		8A240AE4263C2011007D70DD /* MeshHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A240AE3263C2011007D70DD /* MeshHolder.swift */; };
-		8A35C2C52630587F000D87A2 /* MyMeshDataDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A35C2C42630587F000D87A2 /* MyMeshDataDebug.swift */; };
 		8A48A523264179B800FC71A3 /* fittin.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A522264179B800FC71A3 /* fittin.jpg */; };
 		8A48A525264179BC00FC71A3 /* fittin.mtl in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A524264179BC00FC71A3 /* fittin.mtl */; };
 		8A48A527264179C100FC71A3 /* fittin.obj in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A526264179C100FC71A3 /* fittin.obj */; };
@@ -37,7 +36,6 @@
 		8A1DFC962668ADB90029D02B /* drawFunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = drawFunctions.swift; sourceTree = "<group>"; };
 		8A240AE3263C2011007D70DD /* MeshHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeshHolder.swift; sourceTree = "<group>"; };
 		8A25657326288E3D00267A12 /* Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Header.h; sourceTree = "<group>"; };
-		8A35C2C42630587F000D87A2 /* MyMeshDataDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyMeshDataDebug.swift; sourceTree = "<group>"; };
 		8A48A522264179B800FC71A3 /* fittin.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = fittin.jpg; sourceTree = "<group>"; };
 		8A48A524264179BC00FC71A3 /* fittin.mtl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fittin.mtl; sourceTree = "<group>"; };
 		8A48A526264179C100FC71A3 /* fittin.obj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fittin.obj; sourceTree = "<group>"; };
@@ -74,14 +72,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		8A35C2C3263057D1000D87A2 /* DebugUtils */ = {
-			isa = PBXGroup;
-			children = (
-				8A35C2C42630587F000D87A2 /* MyMeshDataDebug.swift */,
-			);
-			path = DebugUtils;
-			sourceTree = "<group>";
-		};
 		8A48A5172641522800FC71A3 /* resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -95,7 +85,6 @@
 		8A8BFCC426203721007F1456 /* src */ = {
 			isa = PBXGroup;
 			children = (
-				8A35C2C3263057D1000D87A2 /* DebugUtils */,
 				8A8BFCD42620418A007F1456 /* metalFiles */,
 				8A8BFCC6262037DF007F1456 /* parallel */,
 				6A73C04425DE84950007853C /* MyMeshData.c */,
@@ -258,7 +247,6 @@
 			files = (
 				8A1DFC972668ADB90029D02B /* drawFunctions.swift in Sources */,
 				8A8BFCCC262038D9007F1456 /* AnyStates.swift in Sources */,
-				8A35C2C52630587F000D87A2 /* MyMeshDataDebug.swift in Sources */,
 				6A2489AD26146C6300A1F3A9 /* CameraStream.metal in Sources */,
 				E73DD13324636FEF00D77039 /* Shaders.metal in Sources */,
 				8A8BFCCE262038D9007F1456 /* computeFunctions.swift in Sources */,

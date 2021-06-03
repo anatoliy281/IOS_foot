@@ -24,6 +24,9 @@ class MedianSearcher {
 	device MyMeshData* md;
 	constant MyMeshData* mdConst;
 	
+	void modification(float value);
+	void moreModification(float value);
+	
 	void cycle();
 	int incrementModulo(int x, int step = 1);
 //	float moveMedian(int greater);
@@ -50,30 +53,66 @@ int MedianSearcher::incrementModulo(int x, int step) {
 
 void MedianSearcher::newValue(float value) {
 	device auto& mean = md->mean;
-	device auto& meanSquared = md->meanSquared;
+//	device auto& meanSquared = md->meanSquared;
 
 	int n = md->bufModLen;
 	md->buffer[n] = value;
 	cycle();
 	if ( md->bufModLen == md->totalSteps ) {
 		mean = (mean*n + value) / (n + 1.f);
-		meanSquared = (meanSquared*n + value*value) / (n + 1.f);
+//		meanSquared = (meanSquared*n + value*value) / (n + 1.f);
 	} else if (md->bufModLen == 0) {
 		float newMean = 0;
-		float newMeanSquared = 0;
+//		float newMeanSquared = 0;
 		for (int i = 0; i < MAX_MESH_STATISTIC; ++i) {
 			newMean += md->buffer[i];
-			newMeanSquared += md->buffer[i]*md->buffer[i];
+//			newMeanSquared += md->buffer[i]*md->buffer[i];
 		}
 		newMean /= MAX_MESH_STATISTIC;
-		newMeanSquared /= MAX_MESH_STATISTIC;
-		auto dispersion = meanSquared - mean*mean;
-		auto newDispersion = newMeanSquared - newMean*newMean;
-		if (newDispersion < dispersion) {
-			mean = newMean;
-		}
+		mean = newMean;
+//		newMeanSquared /= MAX_MESH_STATISTIC;
+//		auto dispersion = meanSquared - mean*mean;
+//		auto newDispersion = newMeanSquared - newMean*newMean;
+//		if (newDispersion < dispersion) {
+//			mean = newMean;
+//		}
+		
+		
 	}
 
+}
+
+void MedianSearcher::modification(float value) {
+	device auto& mean = md->mean;
+	
+	cycle();	// пересчёт индекса массива с учётом цикличности!
+	
+//	md->totalSteps += 1;
+	if ( md->totalSteps <= MAX_MESH_STATISTIC ) { // md->totalStep пересчитан!!! и мы на первой итерации циклич. списка, т.е. продолжаем его заполнение пока его длина не достигнет MAX_MESH_STATISTIC
+		int n = md->totalSteps;	// здесь 1 <= n <= (MAX_MESH_STATISTIC - 1)
+		mean = (mean*(n-1) + value) / n;
+		md->buffer[n-1] = value;	// пополнили буфер для нужд пересчёта при проходе по циклическим шагам
+	} else {
+		const auto nc = md->bufModLen;
+//		const auto nc = md->totalSteps%MAX_MESH_STATISTIC;
+		const auto oldValue = md->buffer[nc-1];
+		md->buffer[nc-1] = value;
+		mean += ((value - oldValue) / MAX_MESH_STATISTIC);
+	}
+	
+}
+
+
+void MedianSearcher::moreModification(float value) {
+	device auto& mean = md->mean;
+	
+	cycle();	// пересчёт индекса массива с учётом цикличности!
+	
+	const auto nc = md->bufModLen;
+	const auto oldValue = md->buffer[nc-1];
+	md->buffer[nc-1] = value;
+	mean += ((value - oldValue) / MAX_MESH_STATISTIC);
+	
 }
 
 
