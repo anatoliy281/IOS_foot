@@ -506,6 +506,34 @@ float calcGrad(uint vid,
 }
 
 
+bool checkDone(device MyMeshData* mesh, int index) {
+	
+	device auto& md = mesh[index];
+	device auto& isDone = md.isDone;
+	if (isDone) {
+		return isDone;
+	}
+	
+	if (md.totalSteps > MAX_MESH_STATISTIC) {
+		const auto i = index/GRID_NODE_COUNT;
+		if ( i < 0 && i < GRID_NODE_COUNT-1 ) {
+			const auto dr1 = mesh[index - GRID_NODE_COUNT].mean - md.mean;
+			const auto dr2 = mesh[index + GRID_NODE_COUNT].mean - md.mean;
+			const auto dr3 = mesh[index - 1].mean - md.mean;
+			const auto dr4 = mesh[index + 1].mean - md.mean;
+			
+			const auto delta = 0.002;
+			if ( abs(dr1) < delta &&
+				 abs(dr2) < delta &&
+				 abs(dr3) < delta &&
+				 abs(dr4) < delta )
+				isDone = true;
+		}
+	}
+	return isDone;
+}
+
+
 vertex void unprojectCylindricalVertex(
                             uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
@@ -560,6 +588,10 @@ vertex void unprojectCylindricalVertex(
 
 		
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
+		
+		if (checkDone(myMeshData, vertexID)) {
+			return;
+		}
 		
 //		auto grad = calcGrad(vertexID, gridPoints, uniforms, depthTexture, imgWidth, imgHeight);
 //
@@ -685,6 +717,10 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 	
 	float phiArr[2] = {0, M_PI_F};
 	float zArr[2] = {0.01, 0.02};
+	
+	if (myMeshData[vid].isDone) {
+		color = float4(0.5, 0.5, 0.5, 1);
+	}
 	
 	color = colorPhi(phiArr, 2,
 					 colorHeight(zArr, 2, color, vid),

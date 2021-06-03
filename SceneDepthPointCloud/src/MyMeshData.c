@@ -10,6 +10,7 @@ struct MyMeshData initMyMeshData(float valInit) {
 	}
 	md.bufModLen = 0;
 	md.totalSteps = 0;
+	md.isDone = 0;
 
 	md.mean = valInit;
 	md.group = Unknown;
