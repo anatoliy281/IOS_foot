@@ -3,8 +3,8 @@ import MetalKit
 
 extension Renderer {
     
-    public func makeComputeNormalsState() -> MTLComputePipelineState? {
-        let function: MTLFunction! = library.makeFunction(name: "computeNormals") // Grab our gpu function
+    public func makeComputeFootMetricState() -> MTLComputePipelineState? {
+        let function: MTLFunction! = library.makeFunction(name: "computeFootMetric") // Grab our gpu function
         guard let res = try? device.makeComputePipelineState(function: function) else {
             fatalError()
         }
@@ -34,8 +34,8 @@ extension Renderer {
         return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectCartesianVertex")
     }
 
-    public func makeSphericalUnprojectPipelineState() -> MTLRenderPipelineState? {
-        return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectSphericalVertex")
+    public func makeCylindricalUnprojectPipelineState() -> MTLRenderPipelineState? {
+        return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectCylindricalVertex")
     }
     
     public func makeSingleFrameUnprojectPipelineState() -> MTLRenderPipelineState? {
@@ -63,9 +63,13 @@ extension Renderer {
 		return makeBaseGridPipelineState(functions: ["gridCartesianMeshVertex", "gridFragment"])
 	}
 	
-    public func makeSphericalGridPipelineState() -> MTLRenderPipelineState? {
-        return makeBaseGridPipelineState(functions: ["gridSphericalMeshVertex", "gridFragment"])
+    public func makeCylindricalGridPipelineState() -> MTLRenderPipelineState? {
+        return makeBaseGridPipelineState(functions: ["gridCylindricalMeshVertex", "gridFragment"])
     }
+	
+	public func makeMetricsFootPipelineState() -> MTLRenderPipelineState? {
+		return makeBaseGridPipelineState(functions: ["metricVertex", "gridFragment"])
+	}
     
     public func makeSingleFramePipelineState() -> MTLRenderPipelineState? {
         return makeBaseGridPipelineState(functions: ["singleFrameVertex", "gridFragment"])

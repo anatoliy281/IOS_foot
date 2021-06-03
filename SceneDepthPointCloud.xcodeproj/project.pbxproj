@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		6A2489AD26146C6300A1F3A9 /* CameraStream.metal in Sources */ = {isa = PBXBuildFile; fileRef = 6A2489AC26146C6300A1F3A9 /* CameraStream.metal */; };
 		6A73C04625DE87B00007853C /* MyMeshData.c in Sources */ = {isa = PBXBuildFile; fileRef = 6A73C04425DE84950007853C /* MyMeshData.c */; };
+		8A1DFC972668ADB90029D02B /* drawFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1DFC962668ADB90029D02B /* drawFunctions.swift */; };
 		8A240AE4263C2011007D70DD /* MeshHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A240AE3263C2011007D70DD /* MeshHolder.swift */; };
 		8A35C2C52630587F000D87A2 /* MyMeshDataDebug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A35C2C42630587F000D87A2 /* MyMeshDataDebug.swift */; };
 		8A48A523264179B800FC71A3 /* fittin.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A522264179B800FC71A3 /* fittin.jpg */; };
@@ -16,7 +17,7 @@
 		8A48A527264179C100FC71A3 /* fittin.obj in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A526264179C100FC71A3 /* fittin.obj */; };
 		8A8BFCCC262038D9007F1456 /* AnyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCC8262038D9007F1456 /* AnyStates.swift */; };
 		8A8BFCCE262038D9007F1456 /* computeFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCCA262038D9007F1456 /* computeFunctions.swift */; };
-		8AD4568A265268AC0013A94B /* computeNormals.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8AD45689265268AC0013A94B /* computeNormals.metal */; };
+		8AD4568A265268AC0013A94B /* computeFootMetric.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8AD45689265268AC0013A94B /* computeFootMetric.metal */; };
 		8ADDB710262DCCFD001D9B59 /* RendererState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ADDB70F262DCCFD001D9B59 /* RendererState.swift */; };
 		E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13024636FEF00D77039 /* AppDelegate.swift */; };
 		E73DD13324636FEF00D77039 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13224636FEF00D77039 /* Shaders.metal */; };
@@ -33,6 +34,7 @@
 		6A2489AC26146C6300A1F3A9 /* CameraStream.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraStream.metal; sourceTree = "<group>"; };
 		6A73C04225DE70C00007853C /* MyMeshData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyMeshData.h; sourceTree = "<group>"; };
 		6A73C04425DE84950007853C /* MyMeshData.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = MyMeshData.c; sourceTree = "<group>"; };
+		8A1DFC962668ADB90029D02B /* drawFunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = drawFunctions.swift; sourceTree = "<group>"; };
 		8A240AE3263C2011007D70DD /* MeshHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeshHolder.swift; sourceTree = "<group>"; };
 		8A25657326288E3D00267A12 /* Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Header.h; sourceTree = "<group>"; };
 		8A35C2C42630587F000D87A2 /* MyMeshDataDebug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyMeshDataDebug.swift; sourceTree = "<group>"; };
@@ -41,7 +43,7 @@
 		8A48A526264179C100FC71A3 /* fittin.obj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fittin.obj; sourceTree = "<group>"; };
 		8A8BFCC8262038D9007F1456 /* AnyStates.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AnyStates.swift; sourceTree = "<group>"; };
 		8A8BFCCA262038D9007F1456 /* computeFunctions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = computeFunctions.swift; sourceTree = "<group>"; };
-		8AD45689265268AC0013A94B /* computeNormals.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = computeNormals.metal; sourceTree = "<group>"; };
+		8AD45689265268AC0013A94B /* computeFootMetric.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = computeFootMetric.metal; sourceTree = "<group>"; };
 		8ADDB70F262DCCFD001D9B59 /* RendererState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendererState.swift; sourceTree = "<group>"; };
 		948146554F46E56B015690CC /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		B57D60B9736905755DECF7CE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 			isa = PBXGroup;
 			children = (
 				8A8BFCCA262038D9007F1456 /* computeFunctions.swift */,
+				8A1DFC962668ADB90029D02B /* drawFunctions.swift */,
 			);
 			path = parallel;
 			sourceTree = "<group>";
@@ -125,7 +128,7 @@
 			children = (
 				E73DD13224636FEF00D77039 /* Shaders.metal */,
 				6A2489AC26146C6300A1F3A9 /* CameraStream.metal */,
-				8AD45689265268AC0013A94B /* computeNormals.metal */,
+				8AD45689265268AC0013A94B /* computeFootMetric.metal */,
 			);
 			path = metalFiles;
 			sourceTree = "<group>";
@@ -253,6 +256,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8A1DFC972668ADB90029D02B /* drawFunctions.swift in Sources */,
 				8A8BFCCC262038D9007F1456 /* AnyStates.swift in Sources */,
 				8A35C2C52630587F000D87A2 /* MyMeshDataDebug.swift in Sources */,
 				6A2489AD26146C6300A1F3A9 /* CameraStream.metal in Sources */,
@@ -263,7 +267,7 @@
 				8A240AE4263C2011007D70DD /* MeshHolder.swift in Sources */,
 				6A73C04625DE87B00007853C /* MyMeshData.c in Sources */,
 				E73DD13624636FEF00D77039 /* Renderer.swift in Sources */,
-				8AD4568A265268AC0013A94B /* computeNormals.metal in Sources */,
+				8AD4568A265268AC0013A94B /* computeFootMetric.metal in Sources */,
 				E73DD13824636FEF00D77039 /* ViewController.swift in Sources */,
 				E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */,
 				8ADDB710262DCCFD001D9B59 /* RendererState.swift in Sources */,

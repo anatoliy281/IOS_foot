@@ -6,6 +6,8 @@ let isDebugMode:Bool = false
 
 let gridNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
 
+
+
 class Renderer {
 	
 	var deltaX:Int32 = 0
@@ -42,7 +44,7 @@ class Renderer {
     
     let commandQueue: MTLCommandQueue
     
-    private lazy var viewArea:MetalBuffer<CameraView> = {
+    internal lazy var viewArea:MetalBuffer<CameraView> = {
         let viewCorners = [
             CameraView(viewVertices: [-1,1], viewTexCoords: [0,0]),
             CameraView(viewVertices: [-1,-1], viewTexCoords: [0,1]),
@@ -53,30 +55,32 @@ class Renderer {
     }()
     
 //    private lazy var unprojectPipelineState = makeUnprojectionPipelineState()!
-    private lazy var sphericalUnprojectPipelineState = makeSphericalUnprojectPipelineState()!
+    private lazy var sphericalUnprojectPipelineState = makeCylindricalUnprojectPipelineState()!
     private lazy var cartesianUnprojectPipelineState = makeCartesianUnprojectPipelineState()!
     private lazy var singleFrameUnprojectPipelineState = makeSingleFrameUnprojectPipelineState()!
     
-    private lazy var cartesianGridPipelineState = makeCartesianGridPipelineState()!
-    private lazy var sphericalGridPipelineState = makeSphericalGridPipelineState()!
-    private lazy var singleFramePipelineState = makeSingleFramePipelineState()!
+    internal lazy var cartesianGridPipelineState = makeCartesianGridPipelineState()!
+    internal lazy var sphericalGridPipelineState = makeCylindricalGridPipelineState()!
+    internal lazy var singleFramePipelineState = makeSingleFramePipelineState()!
+	
+	internal lazy var metricPipelineState = makeMetricsFootPipelineState()!
     
-    private lazy var heelMarkerAreaPipelineState = makeHeelMarkerAreaPipelineState()!
-    private lazy var cameraImageState = makeCameraImageState()!
+    internal lazy var heelMarkerAreaPipelineState = makeHeelMarkerAreaPipelineState()!
+	internal lazy var cameraImageState = makeCameraImageState()!
     
     // texture cache for captured image
     private lazy var textureCache = makeTextureCache()
     private var depthTexture: CVMetalTexture?
     private var confidenceTexture: CVMetalTexture?
-    private var capturedImageTextureY: CVMetalTexture?
-    private var capturedImageTextureCbCr: CVMetalTexture?
+    internal var capturedImageTextureY: CVMetalTexture?
+    internal var capturedImageTextureCbCr: CVMetalTexture?
     
     // Multi-buffer rendering pipeline
     private let inFlightSemaphore: DispatchSemaphore
-    private var currentBufferIndex = 0
+    internal var currentBufferIndex = 0
     
     
-    lazy var computeNormalsState: MTLComputePipelineState = makeComputeNormalsState()!
+    lazy var computeFootMetricState: MTLComputePipelineState = makeComputeFootMetricState()!
     var floorHeight:Float = -10
     
     
@@ -113,75 +117,12 @@ class Renderer {
     
     private lazy var axisIndeces = MetalBuffer<UInt16>(device: device, array: makeAxisIndeces(), index: 0)
     
-    func drawCameraStream(_ renderEncoder:MTLRenderCommandEncoder) {
-        renderEncoder.setRenderPipelineState(cameraImageState)
-        renderEncoder.setVertexBuffer(viewArea)
-        renderEncoder.setVertexBytes(&viewToCamera, length: MemoryLayout<CGAffineTransform>.stride, index: Int(kViewToCam.rawValue))
-        renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
-        renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
-        renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: viewArea.count)
-    }
+   
     
-    func drawHeelMarker(_ renderEncoder:MTLRenderCommandEncoder) {
-        renderEncoder.setRenderPipelineState(heelMarkerAreaPipelineState)
-        renderEncoder.setVertexBuffer(heelAreaMesh.vertexBuffers[0].buffer,
-                                      offset: 0,
-                                      index: Int(kHeelArea.rawValue))
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-        
-        guard let submesh = heelAreaMesh.submeshes.first else { return }
-        renderEncoder.drawIndexedPrimitives(type: .triangle,
-                                            indexCount: submesh.indexCount,
-                                            indexType: submesh.indexType,
-                                            indexBuffer: submesh.indexBuffer.buffer,
-                                            indexBufferOffset: submesh.indexBuffer.offset)
-    }
-    
-	func drawMesh(gridType:Int, _ renderEncoder:MTLRenderCommandEncoder) {
-		var state: MTLRenderPipelineState
-		var buffer: MetalBuffer<MyMeshData>
-		if gridType == 1 { // Spherical
-			state = sphericalGridPipelineState
-			buffer = sphericalGridBuffer
-		} else {
-			state = cartesianGridPipelineState
-			buffer = cartesianGridBuffer
-		}
-        renderEncoder.setRenderPipelineState(state)
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        renderEncoder.setVertexBuffer(buffer)
-		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-		if gridType == 1 {
-			renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
-		}
-		if gridType == 0 {
-			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
-		} else {
-			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
-												indexCount: indecesBuffer.count,
-												indexType: .uint32,
-												indexBuffer: indecesBuffer.buffer,
-												indexBufferOffset: 0)
-		}
+	
+	
+	
 
-    }
-    
-    func drawScanningFootAsSingleFrame(_ renderEncoder:MTLRenderCommandEncoder) {
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        
-        renderEncoder.setRenderPipelineState(singleFramePipelineState)
-        
-        renderEncoder.setVertexBuffer(sphericalGridBuffer)
-        
-        renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-        renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
-        renderEncoder.drawIndexedPrimitives(type: .point,
-                                            indexCount: indecesBuffer.count,
-                                            indexType: .uint32,
-                                            indexBuffer: indecesBuffer.buffer,
-                                            indexBufferOffset: 0)
-    }
     
     // Point Cloud buffer
     private lazy var pointCloudUniforms: PointCloudUniforms = {
@@ -189,13 +130,13 @@ class Renderer {
         uniforms.cameraResolution = cameraResolution
         return uniforms
     }()
-    private var pointCloudUniformsBuffers = [MetalBuffer<PointCloudUniforms>]()
+    internal var pointCloudUniformsBuffers = [MetalBuffer<PointCloudUniforms>]()
     
     // Camera data
     private var sampleFrame: ARFrame { session.currentFrame! }
     private lazy var cameraResolution = Float2(Float(sampleFrame.camera.imageResolution.width), Float(sampleFrame.camera.imageResolution.height))
     
-    private lazy var viewToCamera:matrix_float3x3 = {
+    internal lazy var viewToCamera:matrix_float3x3 = {
         var mat = matrix_float3x3()
         mat.copy(from: sampleFrame.displayTransform(for: orientation, viewportSize: viewportSize).inverted())
         return mat
@@ -207,6 +148,37 @@ class Renderer {
 	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
     var sphericalGridBuffer: MetalBuffer<MyMeshData>!
+	
+	lazy var metricIndeces: MetricIndeces = {
+		let dZ = RADIUS / Double(GRID_NODE_COUNT)
+		let dPhi = 2*Float.pi / Float(GRID_NODE_COUNT)
+		let i0 = Int32(0.01 / dZ)
+		let i1 = Int32(0.02 / dZ)
+		
+		return MetricIndeces( iHeights: SIMD2<Int32>(min(i0, i1), max(i0, i1)),
+							  jPhiHeel: 0,
+							  jPhiToe: Int32(Float.pi / dPhi) )
+	}()
+	
+	lazy var jRangeForLength: (i0:Int, i1: Int) = {
+		let dZ = RADIUS / Double(GRID_NODE_COUNT)
+		let c1 = Int(0.01 / dZ)
+		let c2 = Int(0.02 / dZ)
+		return (min(c1, c2), max(c1, c2))
+	}()
+	
+	
+	lazy var frontToeBuffer: MetalBuffer<GridPoint> = {
+		let count = metricIndeces.iHeights[1] - metricIndeces.iHeights[0] + 1
+		var array = Array(repeating: GridPoint(rho: 0, index: 0), count: Int(count))
+		return .init(device: device, array: array, index: kFrontToe.rawValue )
+	}()
+	
+	lazy var backHeelBuffer: MetalBuffer<GridPoint> = {
+		let count = metricIndeces.iHeights[1] - metricIndeces.iHeights[0] + 1
+		var array = Array(repeating: GridPoint(rho: 0, index: 0), count: Int(count))
+		return .init(device: device, array: array, index: kBackHeel.rawValue )
+	}()
     
     var gistrosBuffer:MTLBuffer!
     func initializeGistrosBuffer(nodeCount:Int) {
@@ -446,6 +418,8 @@ class Renderer {
             renderEncoder.setDepthStencilState(depthStencilState)
 //            drawMesh(gridType: 0, renderEncoder) 	// cartesian
 			drawMesh(gridType: 1, renderEncoder)	// spherical
+			drawFootMetrics(metric: frontToeBuffer, renderEncoder)
+			drawFootMetrics(metric: backHeelBuffer, renderEncoder)
         case .separate:
             renderEncoder.setDepthStencilState(depthStencilState)
             drawScanningFootAsSingleFrame(renderEncoder)
@@ -495,7 +469,14 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
-			calcNormals(bufferIn: sphericalGridBuffer)
+			calcFootMetrics(bufferIn: sphericalGridBuffer,
+							heel: backHeelBuffer,
+							toe: frontToeBuffer,
+							metricIndeces: &metricIndeces)
+			
+			// debug the foot length
+			let lengthOfFoot = calcDistance(heel: backHeelBuffer, toe: frontToeBuffer)
+			print("-------------- Length \(Int(round(1000*lengthOfFoot))) --------------------")
 			
 		} else if currentState == .separate {
             if frameAccumulated >= MAX_MESH_STATISTIC-1 {

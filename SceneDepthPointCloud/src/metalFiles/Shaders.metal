@@ -49,59 +49,6 @@ int MedianSearcher::incrementModulo(int x, int step) {
 	return (x + step + MAX_MESH_STATISTIC)%MAX_MESH_STATISTIC;
 }
 
-//float MedianSearcher::moveMedian(int greater) {
-//	const auto med = md->mean;
-//	auto newMed = med;
-//
-//	bool firstCathed = false;
-//
-//	if ( greater == 1 ) {	// стараемся найти ближайшую справа
-//		for (int i = 0; i < getLength(); ++i) {
-//			const auto deviation = md->buffer[i] - med;
-//			if ( deviation > 0 ) {
-//				if ( !firstCathed ) {
-//					newMed = md->buffer[i];
-//					firstCathed = true;
-//				} else if ( abs(deviation) < abs(newMed - med) ) {
-//					newMed = md->buffer[i];
-//				}
-//			}
-//		}
-//	} else if ( greater == -1 ) {	// стараемся найти ближайшую слева
-//		for (int i=0; i < getLength(); ++i) {
-//			const auto deviation = md->buffer[i] - med;
-//			if ( deviation < 0 ) {
-//				if ( !firstCathed ) {
-//					newMed = md->buffer[i];
-//					firstCathed = true;
-//				} else if ( abs(deviation) < abs(med - newMed)) {
-//					newMed = md->buffer[i];
-//				}
-//			}
-//		}
-//	} else {}
-//
-//	return newMed;
-//}
-//
-//int MedianSearcher::detectShiftDirection(float median, float a, float b, bool valuesAdded) {
-//
-//	auto pairMin = min(a, b);
-//	auto pairMax = max(a, b);
-//
-//	int res = 0;
-//	if ( median < pairMin ) { // сдвинуть медану на ближайшее значение вправо
-//		res = 1;
-//	} else if ( median > pairMax ) { // сдвинуться влево
-//		res = -1;
-//	}
-//
-//	if (!valuesAdded)
-//		res = -1*res;
-//
-//	return res;
-//}
-
 
 void MedianSearcher::newValue(float value) {
 	device auto& mean = md->mean;
@@ -387,16 +334,7 @@ float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
 }
 
 
-void markSphericalMeshNodes(device MyMeshData& md, int thetaIndex) {
-    
-    auto h = md.mean;
-    auto heightDeviation = abs(h*cos(thetaIndex*THETA_STEP));
-    if ( heightDeviation < 2*EPS_H ) {
-        md.group = Floor;
-    } else {
-        md.group = Foot;
-    }
-}
+
 
 
 
@@ -537,9 +475,8 @@ float calcGrad(uint vid,
 }
 
 
-vertex void unprojectSphericalVertex(
+vertex void unprojectCylindricalVertex(
                             uint vertexID [[vertex_id]],
-
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
                             constant float& floorHeight[[ buffer(kHeight) ]],
@@ -593,24 +530,22 @@ vertex void unprojectSphericalVertex(
 		
         device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
 		
-		auto grad = calcGrad(vertexID, gridPoints, uniforms, depthTexture, imgWidth, imgHeight);
-
-		if (
-//			orient <= 0 ||
-			grad > 0.2*M_PI_2_F) {
-			return;
-		}
+//		auto grad = calcGrad(vertexID, gridPoints, uniforms, depthTexture, imgWidth, imgHeight);
+//
+//		if ( grad > 0.2*M_PI_2_F) {
+//			return;
+//		}
+//
+//		auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vertexID);
+//		if (orient > M_PI_4_F) {
+//			return;
+//		}
 		
-		auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vertexID);
-		if (orient > M_PI_4_F) {
-			return;
-		}
-		
-		md.gradVal = grad;
-		md.depth = depth;
+//		md.gradVal = grad;
+//		md.depth = depth;
 
 		MedianSearcher(&md).newValue(val);
-        markSphericalMeshNodes(md, i);
+//        markSphericalMeshNodes(md, i);
     }
 }
 
@@ -640,9 +575,25 @@ float4 saturateAsDistance(constant PointCloudUniforms& uniforms, float depth, co
 	return mix(color, gray, param);
 }
 
+float4 colorPhi(const thread float* phi, int count, float4 inColor, int index) {
+	for (int i=0; i < count; ++i) {
+		if (index%GRID_NODE_COUNT == int(phi[i]/PHI_STEP)) {
+			return float4(1, 0, 0, 1);
+		}
+	}
+	return inColor;
+}
 
+float4 colorHeight(const thread float* heights, int count, float4 inColor, int index) {
+	for (int i=0; i < count; ++i) {
+		if (index/GRID_NODE_COUNT == int(heights[i]/gridNodeDistCylindricalZ)) {
+			return float4(0, 1, 0, 1);
+		}
+	}
+	return inColor;
+}
 
-vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
+vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
                                      constant float& floorHeight [[ buffer(kHeight) ]],
 									 constant bool& isNotFreezed [[ buffer(kIsNotFreezed) ]],
@@ -701,10 +652,32 @@ vertex ParticleVertexOut gridSphericalMeshVertex( constant MyMeshData* myMeshDat
 //		color = float4(0.5, 0.5, 0., saturation);
 //	}
 	
+	float phiArr[2] = {0, M_PI_F};
+	float zArr[2] = {0.01, 0.02};
+	
+	color = colorPhi(phiArr, 2,
+					 colorHeight(zArr, 2, color, vid),
+						vid);
+	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
-	pOut.color = color;
+	pOut.color = colorPhi(phiArr, 2, color, vid);
     return pOut;
+}
+
+vertex ParticleVertexOut metricVertex(
+									constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
+									constant float& floorHeight [[ buffer(kHeight) ]],
+									constant GridPoint* metricData [[ buffer(kFrontToe) ]],
+									unsigned int vid [[ vertex_id ]] ) {
+	constant auto& md = metricData[vid];
+	const auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(md.rho, md.index);
+	
+	const auto color = float4(0, 0, 1, 1);
+	ParticleVertexOut pOut;
+	pOut.position = projectOnScreen(uniforms, pos);
+	pOut.color = color;
+	return pOut;
 }
 
 // --------------------------------- BASE FRAGMENT SHADER ------------------------------------------

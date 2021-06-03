@@ -31,7 +31,10 @@ enum BufferIndices {
     kFrame = 11,
 	kIsNotFreezed = 12,
 	kImgWidth = 13,
-	kImgHeight = 14
+	kImgHeight = 14,
+	kFrontToe = 15,
+	kBackHeel = 16,
+	kMetricIndeces = 17,
 };
 
 struct PointCloudUniforms {
@@ -48,6 +51,17 @@ struct CameraView {
 
 struct Gistro {
     simd_int2 mn;
+};
+
+struct MetricIndeces {
+	simd_int2 iHeights;
+	int jPhiHeel;
+	int jPhiToe;
+};
+
+struct GridPoint {
+	float rho;
+	int index;
 };
 
 #endif /* ShaderTypes_h */

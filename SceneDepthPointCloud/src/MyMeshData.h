@@ -18,10 +18,12 @@ extern "C" {
 
 
 #define PHI_STEP ((2*PI) / GRID_NODE_COUNT)
-#define THETA_STEP ((PI/2) / GRID_NODE_COUNT)
 #define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
 
-    #define GROUPS_COUNT 3
+#define GROUPS_COUNT 3
+
+#define Z_NODE_DIST ((RADIUS) / GRID_NODE_COUNT)
+
 
 
 #define PAIR_SIZE 256
