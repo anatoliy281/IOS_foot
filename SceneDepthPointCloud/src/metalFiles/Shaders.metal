@@ -24,7 +24,7 @@ class MedianSearcher {
 	device MyMeshData* md;
 	constant MyMeshData* mdConst;
 	
-	void modification(float value);
+
 	void moreModification(float value);
 	
 	void cycle();
@@ -35,7 +35,11 @@ class MedianSearcher {
 public:
 	MedianSearcher(device MyMeshData* meshData): md(meshData), mdConst(nullptr) {}
 	MedianSearcher(constant MyMeshData* meshData): md(nullptr), mdConst(meshData) {}
+	void oldCode(float value);
+	
 	void newValue(float value);
+	
+	void newValueModi(float value);
 	
 };
 
@@ -51,38 +55,35 @@ int MedianSearcher::incrementModulo(int x, int step) {
 }
 
 
-void MedianSearcher::newValue(float value) {
-	device auto& mean = md->mean;
-//	device auto& meanSquared = md->meanSquared;
 
+
+void MedianSearcher::newValue(float value) {
+	
+//	modification(value);
+	
+	oldCode(value);
+}
+
+void MedianSearcher::oldCode(float value) {
+	device auto& mean = md->mean;
+	
 	int n = md->bufModLen;
 	md->buffer[n] = value;
 	cycle();
 	if ( md->bufModLen == md->totalSteps ) {
 		mean = (mean*n + value) / (n + 1.f);
-//		meanSquared = (meanSquared*n + value*value) / (n + 1.f);
-	} else if (md->bufModLen == 0) {
+	} else {
 		float newMean = 0;
-//		float newMeanSquared = 0;
+		
 		for (int i = 0; i < MAX_MESH_STATISTIC; ++i) {
 			newMean += md->buffer[i];
-//			newMeanSquared += md->buffer[i]*md->buffer[i];
 		}
 		newMean /= MAX_MESH_STATISTIC;
 		mean = newMean;
-//		newMeanSquared /= MAX_MESH_STATISTIC;
-//		auto dispersion = meanSquared - mean*mean;
-//		auto newDispersion = newMeanSquared - newMean*newMean;
-//		if (newDispersion < dispersion) {
-//			mean = newMean;
-//		}
-		
-		
 	}
-
 }
 
-void MedianSearcher::modification(float value) {
+void MedianSearcher::newValueModi(float value) {
 	device auto& mean = md->mean;
 	
 	cycle();	// пересчёт индекса массива с учётом цикличности!
@@ -510,10 +511,11 @@ bool checkDone(device MyMeshData* mesh, int index) {
 	
 	device auto& md = mesh[index];
 	device auto& isDone = md.isDone;
+	
 	if (isDone) {
 		return isDone;
 	}
-	
+
 	if (md.totalSteps > MAX_MESH_STATISTIC) {
 		const auto i = index/GRID_NODE_COUNT;
 		if ( i < 0 && i < GRID_NODE_COUNT-1 ) {
@@ -521,7 +523,7 @@ bool checkDone(device MyMeshData* mesh, int index) {
 			const auto dr2 = mesh[index + GRID_NODE_COUNT].mean - md.mean;
 			const auto dr3 = mesh[index - 1].mean - md.mean;
 			const auto dr4 = mesh[index + 1].mean - md.mean;
-			
+
 			const auto delta = 0.002;
 			if ( abs(dr1) < delta &&
 				 abs(dr2) < delta &&
@@ -531,6 +533,7 @@ bool checkDone(device MyMeshData* mesh, int index) {
 		}
 	}
 	return isDone;
+
 }
 
 
@@ -606,9 +609,13 @@ vertex void unprojectCylindricalVertex(
 		
 //		md.gradVal = grad;
 //		md.depth = depth;
-
+		
+//		const auto camPos = normalize( (fromGlobalToObjectCS(floorHeight)*detectCameraPosition(uniforms)).xyz );
+//		const auto vertexPos = normalize( (fromGlobalToObjectCS(floorHeight)*pointLocation).xyz );
+//
+//		if (camPos.y*vertexPos.y > 0) {
 		MedianSearcher(&md).newValue(val);
-//        markSphericalMeshNodes(md, i);
+//		}
     }
 }
 
@@ -719,7 +726,7 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 	float zArr[2] = {0.01, 0.02};
 	
 	if (myMeshData[vid].isDone) {
-		color = float4(0.5, 0.5, 0.5, 1);
+		color.a = 1;
 	}
 	
 	color = colorPhi(phiArr, 2,

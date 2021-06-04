@@ -8,6 +8,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let sendButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     private let startButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
+	public var info = UILabel(frame: CGRect(x: 0, y: 0, width: 100, height: 50))
     private var stackView: UIStackView!
 
     private let session = ARSession()
@@ -23,7 +24,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
         startButton.backgroundColor = .green
         startButton.setTitle("Начать сканирование", for: .normal)
         startButton.addTarget(self, action: #selector(startAction), for: .touchUpInside)
-        
+		
+		info.font = UIFont(name: "Palatino", size: 30)
+		info.textColor = UIColor(red: 0, green: 1, blue: 1, alpha: 1)
+		
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("Metal is not supported on this device")
             return
@@ -46,13 +50,14 @@ final class ViewController: UIViewController, ARSessionDelegate {
             // Configure the renderer to draw to the view
             renderer = Renderer(session: session, metalDevice: device, renderDestination: view)
             renderer.drawRectResized(size: view.bounds.size)
+			renderer.label = info
         }
         
-        stackView = UIStackView(arrangedSubviews: [startButton, sendButton])
+        stackView = UIStackView(arrangedSubviews: [startButton, sendButton, info])
         sendButton.isHidden = true
         stackView.isHidden = !isUIEnabled
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.axis = .vertical
+        stackView.axis = .horizontal
         stackView.spacing = 20
         view.addSubview(stackView)
         NSLayoutConstraint.activate([

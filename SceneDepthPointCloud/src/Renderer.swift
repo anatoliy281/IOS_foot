@@ -10,6 +10,8 @@ let gridNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
 
 class Renderer {
 	
+	var label: UILabel = UILabel()
+	
 	var deltaX:Int32 = 0
 	var deltaY:Int32 = 0
     
@@ -157,8 +159,8 @@ class Renderer {
 	
 	lazy var jRangeForLength: (i0:Int, i1: Int) = {
 		let dZ = RADIUS / Double(GRID_NODE_COUNT)
-		let c1 = Int(0.01 / dZ)
-		let c2 = Int(0.02 / dZ)
+		let c1 = Int(0.003 / dZ)
+		let c2 = Int(0.01 / dZ)
 		return (min(c1, c2), max(c1, c2))
 	}()
 	
@@ -470,9 +472,12 @@ class Renderer {
 							metricIndeces: &metricIndeces)
 			
 			// debug the foot length
-			let lengthOfFoot = calcDistance(heel: backHeelBuffer, toe: frontToeBuffer)
-			print("-------------- Length \(Int(round(1000*lengthOfFoot))) --------------------")
+			let lengthOfFoot = round(1000*calcDistance(heel: backHeelBuffer, toe: frontToeBuffer))
+			if lengthOfFoot.isFinite {
+				label.text = "Длина \(Int(lengthOfFoot)) мм"
+			}
 			
+
 		} else if currentState == .separate {
 			
             if frameAccumulated >= MAX_MESH_STATISTIC-1 {

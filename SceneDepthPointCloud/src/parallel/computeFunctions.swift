@@ -33,9 +33,9 @@ extension Renderer {
 		func bufferMean(buffer: MetalBuffer<GridPoint>) -> Float {
 			var totalRho:Float = 0;
 			var cnt:Int = 0
-			for i in 0..<heel.count {
-				if (heel[i].rho > 0) {
-					totalRho += heel[i].rho
+			for i in 0..<buffer.count {
+				if (buffer[i].rho > 0) {
+					totalRho += buffer[i].rho
 					cnt += 1
 				}
 			}
