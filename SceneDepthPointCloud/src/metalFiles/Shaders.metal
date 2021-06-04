@@ -336,8 +336,8 @@ void mapToCylindricalTable(float floorHeight, float4 position, thread int& i, th
 }
 
 float4 fromCylindricalToCartesian(float rho, int index) {
-	const auto z = (index/GRID_NODE_COUNT)*gridNodeDistCylindricalZ;
-	const auto phi = (index%GRID_NODE_COUNT)*PHI_STEP;
+	const auto z = (index/PHI_GRID_NODE_COUNT)*gridNodeDistCylindricalZ;
+	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
 	
 	float4 pos(1);
 	pos.x = rho*cos(phi);
@@ -507,34 +507,34 @@ float calcGrad(uint vid,
 }
 
 
-bool checkDone(device MyMeshData* mesh, int index) {
-	
-	device auto& md = mesh[index];
-	device auto& isDone = md.isDone;
-	
-	if (isDone) {
-		return isDone;
-	}
-
-	if (md.totalSteps > MAX_MESH_STATISTIC) {
-		const auto i = index/GRID_NODE_COUNT;
-		if ( i < 0 && i < GRID_NODE_COUNT-1 ) {
-			const auto dr1 = mesh[index - GRID_NODE_COUNT].mean - md.mean;
-			const auto dr2 = mesh[index + GRID_NODE_COUNT].mean - md.mean;
-			const auto dr3 = mesh[index - 1].mean - md.mean;
-			const auto dr4 = mesh[index + 1].mean - md.mean;
-
-			const auto delta = 0.002;
-			if ( abs(dr1) < delta &&
-				 abs(dr2) < delta &&
-				 abs(dr3) < delta &&
-				 abs(dr4) < delta )
-				isDone = true;
-		}
-	}
-	return isDone;
-
-}
+//bool checkDone(device MyMeshData* mesh, int index) {
+//
+//	device auto& md = mesh[index];
+//	device auto& isDone = md.isDone;
+//
+//	if (isDone) {
+//		return isDone;
+//	}
+//
+//	if (md.totalSteps > MAX_MESH_STATISTIC) {
+//		const auto i = index/GRID_NODE_COUNT;
+//		if ( i < 0 && i < GRID_NODE_COUNT-1 ) {
+//			const auto dr1 = mesh[index - GRID_NODE_COUNT].mean - md.mean;
+//			const auto dr2 = mesh[index + GRID_NODE_COUNT].mean - md.mean;
+//			const auto dr3 = mesh[index - 1].mean - md.mean;
+//			const auto dr4 = mesh[index + 1].mean - md.mean;
+//
+//			const auto delta = 0.002;
+//			if ( abs(dr1) < delta &&
+//				 abs(dr2) < delta &&
+//				 abs(dr3) < delta &&
+//				 abs(dr4) < delta )
+//				isDone = true;
+//		}
+//	}
+//	return isDone;
+//
+//}
 
 
 vertex void unprojectCylindricalVertex(
@@ -585,17 +585,17 @@ vertex void unprojectCylindricalVertex(
         float val;
 //        mapToSphericalTable(floorHeight, position, i, j, val);
 		mapToCylindricalTable(floorHeight, pointLocation, i, j, val);
-        if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
+        if ( i < 0 || j < 0 || i > Z_GRID_NODE_COUNT-1 || j > PHI_GRID_NODE_COUNT-1 ) {
             return ;
         }
 
 		
-        device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
+        device auto& md = myMeshData[i*PHI_GRID_NODE_COUNT + j];
 		
-		if (checkDone(myMeshData, vertexID)) {
-			return;
-		}
-		
+//		if (checkDone(myMeshData, vertexID)) {
+//			return;
+//		}
+//
 //		auto grad = calcGrad(vertexID, gridPoints, uniforms, depthTexture, imgWidth, imgHeight);
 //
 //		if ( grad > 0.2*M_PI_2_F) {
@@ -614,7 +614,7 @@ vertex void unprojectCylindricalVertex(
 //		const auto vertexPos = normalize( (fromGlobalToObjectCS(floorHeight)*pointLocation).xyz );
 //
 //		if (camPos.y*vertexPos.y > 0) {
-		MedianSearcher(&md).newValue(val);
+			MedianSearcher(&md).newValue(val);
 //		}
     }
 }
@@ -647,7 +647,7 @@ float4 saturateAsDistance(constant PointCloudUniforms& uniforms, float depth, co
 
 float4 colorPhi(const thread float* phi, int count, float4 inColor, int index) {
 	for (int i=0; i < count; ++i) {
-		if (index%GRID_NODE_COUNT == int(phi[i]/PHI_STEP)) {
+		if (index%PHI_GRID_NODE_COUNT == int(phi[i]/PHI_STEP)) {
 			return float4(1, 0, 0, 1);
 		}
 	}
@@ -656,7 +656,7 @@ float4 colorPhi(const thread float* phi, int count, float4 inColor, int index) {
 
 float4 colorHeight(const thread float* heights, int count, float4 inColor, int index) {
 	for (int i=0; i < count; ++i) {
-		if (index/GRID_NODE_COUNT == int(heights[i]/gridNodeDistCylindricalZ)) {
+		if (index/PHI_GRID_NODE_COUNT == int(heights[i]/gridNodeDistCylindricalZ)) {
 			return float4(0, 1, 0, 1);
 		}
 	}
@@ -730,7 +730,7 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 	}
 	
 	color = colorPhi(phiArr, 2,
-					 colorHeight(zArr, 2, color, vid),
+					color,
 						vid);
 	
     ParticleVertexOut pOut;
@@ -747,7 +747,12 @@ vertex ParticleVertexOut metricVertex(
 	constant auto& md = metricData[vid];
 	const auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(md.rho, md.index);
 	
-	const auto color = float4(0, 0, 1, 1);
+	auto color = float4(0, 1, 0, 1);
+	
+	if (md.checked == 0) {
+		color.a = 0.1;
+	}
+	
 	ParticleVertexOut pOut;
 	pOut.position = projectOnScreen(uniforms, pos);
 	pOut.color = color;

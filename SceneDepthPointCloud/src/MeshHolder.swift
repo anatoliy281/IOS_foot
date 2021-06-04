@@ -28,7 +28,7 @@ class MeshHolder {
 	
 	
 	let renderer: Renderer
-	let dim = Int(GRID_NODE_COUNT)
+	let dim = Int(Z_GRID_NODE_COUNT)
 	lazy var coords: GroupDataCoords = separateData()
 	
 	var contoursId: [Int] = []	// содержит id контуров (для отладки)
@@ -74,8 +74,8 @@ class MeshHolder {
 						 Int(Foot.rawValue):.init(),
 						 Int(Floor.rawValue):.init() ]
 			
-			for i in 0..<renderer.sphericalGridBuffer.count {
-				let node = renderer.sphericalGridBuffer[i]
+			for i in 0..<renderer.cylindricalGridBuffer.count {
+				let node = renderer.cylindricalGridBuffer[i]
 				let row = Int(gridRow(Int32(i)))
 				let col = Int(gridColumn(Int32(i)))
 				let val = node.mean
@@ -90,8 +90,8 @@ class MeshHolder {
 			}
 			
 			for frame in 0..<MAX_MESH_STATISTIC/Int32(mn) {
-				for i in 0..<renderer.sphericalGridBuffer.count {
-					var node = renderer.sphericalGridBuffer[i]
+				for i in 0..<renderer.cylindricalGridBuffer.count {
+					var node = renderer.cylindricalGridBuffer[i]
 					let row = Int(gridRow(Int32(i)))
 					let col = Int(gridColumn(Int32(i)))
 					let val = getValue(&node, frame)

@@ -28,22 +28,31 @@ extension Renderer {
 
     }
 	
-	public func calcDistance(heel: MetalBuffer<GridPoint>, toe: MetalBuffer<GridPoint>) -> Float {
+
+	
+
+	
+	public func calcDistance(heel: inout MetalBuffer<GridPoint>, toe: inout MetalBuffer<GridPoint>) -> Float {
 		
-		func bufferMean(buffer: MetalBuffer<GridPoint>) -> Float {
+		let dRhoMax:Float = 0.002;
+		
+		func bufferMean(buffer: inout MetalBuffer<GridPoint>) -> Float {
 			var totalRho:Float = 0;
 			var cnt:Int = 0
-			for i in 0..<buffer.count {
-				if (buffer[i].rho > 0) {
+			for i in 0..<buffer.count-1 {
+				if ( abs(buffer[i].rho - buffer[i+1].rho) < dRhoMax ) {
 					totalRho += buffer[i].rho
+					buffer[i].checked = 1;
 					cnt += 1
+				} else if (cnt != 0) {
+					break;
 				}
 			}
 			return totalRho / Float(cnt)
 		}
 
-		let heelRho = bufferMean(buffer: heel)
-		let toeRho = bufferMean(buffer: toe)
+		let heelRho = bufferMean(buffer: &heel)
+		let toeRho = bufferMean(buffer: &toe)
 		
 		return toeRho + heelRho
 	}

@@ -62,6 +62,7 @@ struct MetricIndeces {
 struct GridPoint {
 	float rho;
 	int index;
+	int checked;
 };
 
 #endif /* ShaderTypes_h */

@@ -12,12 +12,6 @@
 
 using namespace metal;
 
-//constant int gridNodeCount = GRID_NODE_COUNT;		// 500
-//constant float halfLength = RADIUS;					// 0.5
-//constant float gridNodeDist = 2*halfLength / gridNodeCount;
-//constant float dZ = 0.5*gridNodeDist;
-//constant float dPhi = PHI_STEP;
-
 
 
 
@@ -28,7 +22,7 @@ kernel void computeFootMetric(
 						   device GridPoint* toe [[ buffer(kFrontToe) ]],
 						   constant MetricIndeces& metricIndeces [[ buffer(kMetricIndeces) ]]
 						   ) {
-	const int i = index/GRID_NODE_COUNT;
+	const int i = index/PHI_GRID_NODE_COUNT;
 	const auto i0 = metricIndeces.iHeights[0];
 	const auto i1 = metricIndeces.iHeights[1];
 	
@@ -36,7 +30,7 @@ kernel void computeFootMetric(
 		return;
 	}
 	
-	const int j = index%GRID_NODE_COUNT;
+	const int j = index%PHI_GRID_NODE_COUNT;
 	device GridPoint* gp;
 	if ( j == metricIndeces.jPhiHeel ) {
 		gp = heel;
@@ -49,6 +43,7 @@ kernel void computeFootMetric(
 	auto p = GridPoint();
 	p.index = index;
 	p.rho = myMeshData[index].mean;
+	p.checked = 0;
 	gp[i - i0] = p;
 	
 }

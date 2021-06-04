@@ -31,8 +31,8 @@ extension Renderer {
 		var state: MTLRenderPipelineState
 		var buffer: MetalBuffer<MyMeshData>
 		if gridType == 1 { // Spherical
-			state = sphericalGridPipelineState
-			buffer = sphericalGridBuffer
+			state = cylindricalGridPipelineState
+			buffer = cylindricalGridBuffer
 		} else {
 			state = cartesianGridPipelineState
 			buffer = cartesianGridBuffer
@@ -71,8 +71,7 @@ extension Renderer {
 		
 		renderEncoder.setRenderPipelineState(singleFramePipelineState)
 		
-		renderEncoder.setVertexBuffer(sphericalGridBuffer)
-		
+		renderEncoder.setVertexBuffer(cylindricalGridBuffer)
 		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 		renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
 		renderEncoder.drawIndexedPrimitives(type: .point,

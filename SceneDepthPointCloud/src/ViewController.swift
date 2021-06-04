@@ -154,7 +154,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     func startAction(_ sender: UIButton!) {
         
         print("START!!!")
-        if (renderer.floorHeight != -10) {
+		if (renderer.floorHeight != -10) {
 //            let nextState = isDebugMode ? Renderer.RendererState.separate: Renderer.RendererState.scanning
             renderer.currentState.nextState()
         }

@@ -6,7 +6,7 @@ let isDebugMode:Bool = false
 
 let gridNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
 
-
+let gridNodeCountCylindrical:Int = Int(Z_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT)
 
 class Renderer {
 	
@@ -62,7 +62,7 @@ class Renderer {
     private lazy var singleFrameUnprojectPipelineState = makeSingleFrameUnprojectPipelineState()!
     
     internal lazy var cartesianGridPipelineState = makeCartesianGridPipelineState()!
-    internal lazy var sphericalGridPipelineState = makeCylindricalGridPipelineState()!
+    internal lazy var cylindricalGridPipelineState = makeCylindricalGridPipelineState()!
     internal lazy var singleFramePipelineState = makeSingleFramePipelineState()!
 	
 	internal lazy var metricPipelineState = makeMetricsFootPipelineState()!
@@ -83,8 +83,8 @@ class Renderer {
     
     
     lazy var computeFootMetricState: MTLComputePipelineState = makeComputeFootMetricState()!
-    var floorHeight:Float = -10
-    
+	var floorHeight: Float = -10
+	var floorCyclicBuffer: CyclicBuffer = CyclicBuffer(count: 10)
     
     // The current viewport size
     private var viewportSize = CGSize()
@@ -144,36 +144,29 @@ class Renderer {
     var cartesianGridBuffer: MetalBuffer<MyMeshData>!
 	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
-    var sphericalGridBuffer: MetalBuffer<MyMeshData>!
+    var cylindricalGridBuffer: MetalBuffer<MyMeshData>!
 	
 	lazy var metricIndeces: MetricIndeces = {
-		let dZ = RADIUS / Double(GRID_NODE_COUNT)
-		let dPhi = 2*Float.pi / Float(GRID_NODE_COUNT)
-		let i0 = Int32(0.01 / dZ)
-		let i1 = Int32(0.02 / dZ)
+		let dZ = HEIGHT / Double(Z_GRID_NODE_COUNT)
+		let dPhi = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
+		let i0 = Int32(0.005 / dZ)
+		let i1 = Int32(0.03 / dZ)
 		
 		return MetricIndeces( iHeights: SIMD2<Int32>(min(i0, i1), max(i0, i1)),
 							  jPhiHeel: 0,
 							  jPhiToe: Int32(Float.pi / dPhi) )
 	}()
 	
-	lazy var jRangeForLength: (i0:Int, i1: Int) = {
-		let dZ = RADIUS / Double(GRID_NODE_COUNT)
-		let c1 = Int(0.003 / dZ)
-		let c2 = Int(0.01 / dZ)
-		return (min(c1, c2), max(c1, c2))
-	}()
-	
 	
 	lazy var frontToeBuffer: MetalBuffer<GridPoint> = {
 		let count = metricIndeces.iHeights[1] - metricIndeces.iHeights[0] + 1
-		var array = Array(repeating: GridPoint(rho: 0, index: 0), count: Int(count))
+		var array = Array(repeating: GridPoint(rho: 0, index: 0, checked: 0), count: Int(count))
 		return .init(device: device, array: array, index: kFrontToe.rawValue )
 	}()
 	
 	lazy var backHeelBuffer: MetalBuffer<GridPoint> = {
 		let count = metricIndeces.iHeights[1] - metricIndeces.iHeights[0] + 1
-		var array = Array(repeating: GridPoint(rho: 0, index: 0), count: Int(count))
+		var array = Array(repeating: GridPoint(rho: 0, index: 0, checked: 0), count: Int(count))
 		return .init(device: device, array: array, index: kBackHeel.rawValue )
 	}()
     
@@ -190,16 +183,18 @@ class Renderer {
             switch newValue {
             case .findFootArea:
                 frameAccumulated = 0
-                floorHeight = -10
+				floorHeight = -10
                 initializeGridNodes(nodeCount: gridNodeCount)
             case .scanning:
-                initializeSphericalGridNodes(nodeCount: gridNodeCount)
+                initializeCylindricalGridNodes(nodeCount: gridNodeCountCylindrical)
             case .separate:
                 frameAccumulated = 0
-                initializeSphericalGridNodes(nodeCount: gridNodeCount)
+                initializeCylindricalGridNodes(nodeCount: gridNodeCountCylindrical)
             }
         }
     }
+	
+	internal var footLength: CyclicBuffer = CyclicBuffer(count: 100)
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -226,17 +221,17 @@ class Renderer {
         cartesianGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
     
-    func initializeSphericalGridNodes(nodeCount:Int) {
+    func initializeCylindricalGridNodes(nodeCount:Int) {
         let initVal = initMyMeshData(0)
         let gridInitial = Array(repeating: initVal, count: nodeCount)
-        sphericalGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+        cylindricalGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
     
     
 	func initializeGridIndeces(cyclic:Bool = true) -> MetalBuffer<UInt32> {
         
         var indecesData = [UInt32]()
-        let nodeCount = UInt32(GRID_NODE_COUNT)
+        let nodeCount = UInt32(Z_GRID_NODE_COUNT)	// работает при Z_GRID_NODE_COUNT == PHI_GRID_NODE_COUNT
 
         func index(_ i:UInt32, _ j:UInt32) -> UInt32 {
             return i*nodeCount + j
@@ -393,9 +388,17 @@ class Renderer {
         
         if currentState == .findFootArea {
 			let nc:Int32 = 10
-			if ( frameAccumulated%nc == 0 && frameAccumulated != 0 ) {
-				floorHeight = Float(cpuCalcFloor())
-					print("\(frameAccumulated/nc) floor \(floorHeight)")
+			if ( frameAccumulated%nc == 0 && frameAccumulated != 0 && floorHeight == -10 ) {
+				let fv = Float(cpuCalcFloor())
+				floorCyclicBuffer.update(fv)
+				if ( floorCyclicBuffer.curLen < 10 || floorCyclicBuffer.deviation > 0.003 ) {
+					
+					print("\(frameAccumulated/nc) floor \(floorHeight) fb \(floorCyclicBuffer.deviation)")
+				} else {
+					floorHeight = fv
+					print("\(frameAccumulated/nc) floor done!!!)")
+				}
+				
 			}
 		}
                       
@@ -453,7 +456,7 @@ class Renderer {
 		}
 		if currentState == .scanning {
             renderEncoder.setRenderPipelineState(sphericalUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(sphericalGridBuffer)
+            renderEncoder.setVertexBuffer(cylindricalGridBuffer)
 			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 			renderEncoder.setVertexBuffer(gridPointsBuffer)
 			renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
@@ -466,15 +469,16 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
-			calcFootMetrics(bufferIn: sphericalGridBuffer,
+			calcFootMetrics(bufferIn: cylindricalGridBuffer,
 							heel: backHeelBuffer,
 							toe: frontToeBuffer,
 							metricIndeces: &metricIndeces)
 			
 			// debug the foot length
-			let lengthOfFoot = round(1000*calcDistance(heel: backHeelBuffer, toe: frontToeBuffer))
+			let lengthOfFoot = round(1000*calcDistance(heel: &backHeelBuffer, toe: &frontToeBuffer))
 			if lengthOfFoot.isFinite {
-				label.text = "Длина \(Int(lengthOfFoot)) мм"
+				let val = footLength.update(lengthOfFoot)
+				label.text = "Длина \( Int(val) ) мм"
 			}
 			
 
@@ -486,7 +490,7 @@ class Renderer {
             }
             
             renderEncoder.setRenderPipelineState(singleFrameUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(sphericalGridBuffer)
+            renderEncoder.setVertexBuffer(cylindricalGridBuffer)
             renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
             
             print("frame accumulated: \(frameAccumulated)")
@@ -503,7 +507,7 @@ private extension Renderer {
 	
 	/// Makes sample points on camera image, also precompute the anchor point for animation
 	func makeGridPoints() -> [Float2] {
-		let numGridPoints = 250_000;
+		let numGridPoints = 500_000;
 		let gridArea = cameraResolution.x * cameraResolution.y
 		let spacing = sqrt(gridArea / Float(numGridPoints))
 		deltaX = Int32(round(cameraResolution.x / spacing))
