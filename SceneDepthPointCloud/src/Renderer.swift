@@ -507,7 +507,7 @@ private extension Renderer {
 	
 	/// Makes sample points on camera image, also precompute the anchor point for animation
 	func makeGridPoints() -> [Float2] {
-		let numGridPoints = 500_000;
+		let numGridPoints = 3000_000;
 		let gridArea = cameraResolution.x * cameraResolution.y
 		let spacing = sqrt(gridArea / Float(numGridPoints))
 		deltaX = Int32(round(cameraResolution.x / spacing))

@@ -34,7 +34,7 @@ extension Renderer {
 	
 	public func calcDistance(heel: inout MetalBuffer<GridPoint>, toe: inout MetalBuffer<GridPoint>) -> Float {
 		
-		let dRhoMax:Float = 0.002;
+		let dRhoMax:Float = 0.001;
 		
 		func bufferMean(buffer: inout MetalBuffer<GridPoint>) -> Float {
 			var totalRho:Float = 0;
