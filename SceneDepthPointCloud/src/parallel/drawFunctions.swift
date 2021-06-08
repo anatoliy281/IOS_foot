@@ -48,11 +48,12 @@ extension Renderer {
 		if gridType == 0 {
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
 		} else {
-			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
-												indexCount: indecesBuffer.count,
-												indexType: .uint32,
-												indexBuffer: indecesBuffer.buffer,
-												indexBufferOffset: 0)
+//			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+//												indexCount: indecesBuffer.count,
+//												indexType: .uint32,
+//												indexBuffer: indecesBuffer.buffer,
+//												indexBufferOffset: 0)
+			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
 		}
 
 	}
@@ -74,11 +75,12 @@ extension Renderer {
 		renderEncoder.setVertexBuffer(cylindricalGridBuffer)
 		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 		renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
-		renderEncoder.drawIndexedPrimitives(type: .point,
-											indexCount: indecesBuffer.count,
-											indexType: .uint32,
-											indexBuffer: indecesBuffer.buffer,
-											indexBufferOffset: 0)
+//		renderEncoder.drawIndexedPrimitives(type: .point,
+//											indexCount: indecesBuffer.count,
+//											indexType: .uint32,
+//											indexBuffer: indecesBuffer.buffer,
+//											indexBufferOffset: 0)
+		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
 	}
 	
 }

@@ -585,7 +585,7 @@ vertex void unprojectCylindricalVertex(
         float val;
 
 		mapToCylindricalTable(floorHeight, pointLocation, i, j, val);
-        if ( i < 0 || j < 0 || i > Z_GRID_NODE_COUNT-1 || j > PHI_GRID_NODE_COUNT-1 ) {
+        if ( i < 0 || j < 0 || i > PHI_GRID_NODE_COUNT-1 || j > PHI_GRID_NODE_COUNT-1 ) {
             return ;
         }
 
