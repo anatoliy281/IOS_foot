@@ -29,7 +29,7 @@ class MeshHolder {
 	
 	let renderer: Renderer
 //	let dim = Int(Z_GRID_NODE_COUNT)
-	lazy var coords: GroupDataCoords = separateData()
+//	lazy var coords: GroupDataCoords = separateData()
 	
 	var contoursId: [Int] = []	// содержит id контуров (для отладки)
 	var cutContourId: Int = -1		// id контура среза
@@ -66,43 +66,43 @@ class MeshHolder {
 //		return res
 //	}
 	
-	// сгруппировать данные по группам (группа точек/номер кадра)
-	private func separateData() -> GroupDataCoords {
-		let res = GroupDataCoords()
-		if renderer.currentState != .separate {	// по группам
-			res.data = [ Int(Unknown.rawValue):.init(),
-						 Int(Foot.rawValue):.init(),
-						 Int(Floor.rawValue):.init() ]
-			
-			for i in 0..<renderer.cylindricalGridBuffer.count {
-				let node = renderer.cylindricalGridBuffer[i]
-				let row = Int(gridRow(Int32(i)))
-				let col = Int(gridColumn(Int32(i)))
-				let val = node.mean
-				res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
-
-			}
-			
-		} else {	// по номеру кадра
-			let mn = 60
-			for i in 0..<MAX_MESH_STATISTIC/Int32(mn) {
-				res.data[Int(i)] = .init()
-			}
-			
-			for frame in 0..<MAX_MESH_STATISTIC/Int32(mn) {
-				for i in 0..<renderer.cylindricalGridBuffer.count {
-					var node = renderer.cylindricalGridBuffer[i]
-					let row = Int(gridRow(Int32(i)))
-					let col = Int(gridColumn(Int32(i)))
-					let val = getValue(&node, frame)
-					res.data[Int(frame)]!.append( (row, col, val) )
-				}
-			}
-		}
-		
-		return res
-		
-	}
+//	// сгруппировать данные по группам (группа точек/номер кадра)
+//	private func separateData() -> GroupDataCoords {
+//		let res = GroupDataCoords()
+//		if renderer.currentState != .separate {	// по группам
+//			res.data = [ Int(Unknown.rawValue):.init(),
+//						 Int(Foot.rawValue):.init(),
+//						 Int(Floor.rawValue):.init() ]
+//
+//			for i in 0..<renderer.curveGridBuffer.count {
+//				let node = renderer.curveGridBuffer[i]
+//				let row = Int(gridRow(Int32(i)))
+//				let col = Int(gridColumn(Int32(i)))
+//				let val = node.mean
+//				res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
+//
+//			}
+//
+//		} else {	// по номеру кадра
+//			let mn = 60
+//			for i in 0..<MAX_MESH_STATISTIC/Int32(mn) {
+//				res.data[Int(i)] = .init()
+//			}
+//
+//			for frame in 0..<MAX_MESH_STATISTIC/Int32(mn) {
+//				for i in 0..<renderer.curveGridBuffer.count {
+//					var node = renderer.curveGridBuffer[i]
+//					let row = Int(gridRow(Int32(i)))
+//					let col = Int(gridColumn(Int32(i)))
+//					let val = getValue(&node, frame)
+//					res.data[Int(frame)]!.append( (row, col, val) )
+//				}
+//			}
+//		}
+//
+//		return res
+//
+//	}
 
 	// упаковать данные в строку
 //	private func writeEdges(input key: Int = Int(Foot.rawValue),
@@ -137,18 +137,18 @@ class MeshHolder {
 //	}
 	   
 	   
-   private func calcCoords(_ i:Int, _  j:Int, _ table: inout [[Float]]) -> Float3 {
-		let value = table[i][j]
-//	   let x = -calcX(Int32(i), Int32(j), value) // flip the foot
-//	   let y = calcY(Int32(i), Int32(j), value)
-//	   let z = calcZ(Int32(i), Int32(j), value)
-	
-		let x = -calcX(Int32(j), value) // flip the foot
-		let y = calcY(Int32(j), value)
-		let z = calcZ(Int32(i))
-	
-		return 1000*Float3(x, y, z)
-   }
+//   private func calcCoords(_ i:Int, _  j:Int, _ table: inout [[Float]]) -> Float3 {
+//		let value = table[i][j]
+////	   let x = -calcX(Int32(i), Int32(j), value) // flip the foot
+////	   let y = calcY(Int32(i), Int32(j), value)
+////	   let z = calcZ(Int32(i), Int32(j), value)
+//
+//		let x = -calcX(Int32(j), value) // flip the foot
+//		let y = calcY(Int32(j), value)
+//		let z = calcZ(Int32(i))
+//
+//		return 1000*Float3(x, y, z)
+//   }
    
 	private func deriv(_ r1: Float3, _ r2: Float3) -> (rho:Float, h:Float) {
 	   let dr = r2 - r1
