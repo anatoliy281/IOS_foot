@@ -147,14 +147,16 @@ class Renderer {
     var cylindricalGridBuffer: MetalBuffer<MyMeshData>!
 	
 	lazy var metricIndeces: MetricIndeces = {
-		let dZ = HEIGHT / Double(Z_GRID_NODE_COUNT)
-		let dPhi = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
-		let i0 = Int32(0.005 / dZ)
-		let i1 = Int32(0.03 / dZ)
+//		let dZ = HEIGHT / Double(Z_GRID_NODE_COUNT)
+//		let dPhi = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
+//		let i0 = Int32(0.005 / dZ)
+//		let i1 = Int32(0.03 / dZ)
+//
+//		return MetricIndeces( iHeights: SIMD2<Int32>(min(i0, i1), max(i0, i1)),
+//							  jPhiHeel: 0,
+//							  jPhiToe: Int32(Float.pi / dPhi) )
 		
-		return MetricIndeces( iHeights: SIMD2<Int32>(min(i0, i1), max(i0, i1)),
-							  jPhiHeel: 0,
-							  jPhiToe: Int32(Float.pi / dPhi) )
+		return MetricIndeces(iHeights: SIMD2<Int32>(0,0), jPhiHeel: 0, jPhiToe: 0)
 	}()
 	
 	
