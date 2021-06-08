@@ -32,7 +32,7 @@ extension Renderer {
 		var buffer: MetalBuffer<MyMeshData>
 		if gridType == 1 { // Spherical
 			state = cylindricalGridPipelineState
-			buffer = cylindricalGridBuffer
+			buffer = curveGridBuffer
 		} else {
 			state = cartesianGridPipelineState
 			buffer = cartesianGridBuffer
@@ -46,14 +46,14 @@ extension Renderer {
 			renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
 		}
 		if gridType == 0 {
-			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
+			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
 		} else {
 //			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
 //												indexCount: indecesBuffer.count,
 //												indexType: .uint32,
 //												indexBuffer: indecesBuffer.buffer,
 //												indexBufferOffset: 0)
-			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
+			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
 		}
 
 	}
@@ -72,7 +72,7 @@ extension Renderer {
 		
 		renderEncoder.setRenderPipelineState(singleFramePipelineState)
 		
-		renderEncoder.setVertexBuffer(cylindricalGridBuffer)
+		renderEncoder.setVertexBuffer(curveGridBuffer)
 		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 		renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
 //		renderEncoder.drawIndexedPrimitives(type: .point,
@@ -80,7 +80,7 @@ extension Renderer {
 //											indexType: .uint32,
 //											indexBuffer: indecesBuffer.buffer,
 //											indexBufferOffset: 0)
-		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridNodeCount)
+		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
 	}
 	
 }

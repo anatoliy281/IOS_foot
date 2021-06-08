@@ -4,9 +4,9 @@ import ARKit
 
 let isDebugMode:Bool = false
 
-let gridNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
 
-let gridNodeCountCylindrical:Int = Int(Z_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT)
+let gridCartesianNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
+let gridCurveNodeCount:Int = Int(U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT)
 
 class Renderer {
 	
@@ -144,7 +144,7 @@ class Renderer {
     var cartesianGridBuffer: MetalBuffer<MyMeshData>!
 //	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
-    var cylindricalGridBuffer: MetalBuffer<MyMeshData>!
+    var curveGridBuffer: MetalBuffer<MyMeshData>!
 	
 	lazy var metricIndeces: MetricIndeces = {
 //		let dZ = HEIGHT / Double(Z_GRID_NODE_COUNT)
@@ -186,12 +186,12 @@ class Renderer {
             case .findFootArea:
                 frameAccumulated = 0
 				floorHeight = -10
-                initializeGridNodes(nodeCount: gridNodeCount)
+                initializeCartesianGridNodes()
             case .scanning:
-                initializeCylindricalGridNodes(nodeCount: gridNodeCountCylindrical)
+                initializeCurveGridNodes()
             case .separate:
                 frameAccumulated = 0
-                initializeCylindricalGridNodes(nodeCount: gridNodeCountCylindrical)
+                initializeCurveGridNodes()
             }
         }
     }
@@ -213,20 +213,20 @@ class Renderer {
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         currentState = .findFootArea
-        initializeGridNodes(nodeCount: gridNodeCount)
-        initializeGistrosBuffer(nodeCount: gridNodeCount)
+        initializeCartesianGridNodes()
+        initializeGistrosBuffer(nodeCount: gridCurveNodeCount)
     }
     
-    func initializeGridNodes(nodeCount:Int) {
+    func initializeCartesianGridNodes() {
         let initVal = initMyMeshData(-2)
-        let gridInitial = Array(repeating: initVal, count: nodeCount)
+        let gridInitial = Array(repeating: initVal, count: gridCartesianNodeCount)
         cartesianGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
     
-    func initializeCylindricalGridNodes(nodeCount:Int) {
+    func initializeCurveGridNodes() {
         let initVal = initMyMeshData(0)
-        let gridInitial = Array(repeating: initVal, count: nodeCount)
-        cylindricalGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+        let gridInitial = Array(repeating: initVal, count: gridCurveNodeCount)
+        curveGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
     
     
@@ -420,8 +420,8 @@ class Renderer {
             renderEncoder.setDepthStencilState(depthStencilState)
 //            drawMesh(gridType: 0, renderEncoder) 	// cartesian
 			drawMesh(gridType: 1, renderEncoder)	// spherical
-			drawFootMetrics(metric: frontToeBuffer, renderEncoder)
-			drawFootMetrics(metric: backHeelBuffer, renderEncoder)
+//			drawFootMetrics(metric: frontToeBuffer, renderEncoder)
+//			drawFootMetrics(metric: backHeelBuffer, renderEncoder)
         case .separate:
             renderEncoder.setDepthStencilState(depthStencilState)
             drawScanningFootAsSingleFrame(renderEncoder)
@@ -448,30 +448,27 @@ class Renderer {
 		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 		renderEncoder.setVertexBuffer(gridPointsBuffer)
 		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
+
 		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
 		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
-		
+
 		
 		if currentState != .scanning {
 			frameAccumulated += 1
 		}
 		if currentState == .scanning {
             renderEncoder.setRenderPipelineState(sphericalUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(cylindricalGridBuffer)
+            renderEncoder.setVertexBuffer(curveGridBuffer)
 			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 			renderEncoder.setVertexBuffer(gridPointsBuffer)
 			renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-		
-			// передача габаритов изображения для восстановления сетки
-			renderEncoder.setVertexBytes(&deltaX, length: MemoryLayout<Int32>.stride, index: Int(kImgWidth.rawValue))
-			renderEncoder.setVertexBytes(&deltaY, length: MemoryLayout<Int32>.stride, index: Int(kImgHeight.rawValue))
 			
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
-			calcFootMetrics(bufferIn: cylindricalGridBuffer,
+			calcFootMetrics(bufferIn: curveGridBuffer,
 							heel: backHeelBuffer,
 							toe: frontToeBuffer,
 							metricIndeces: &metricIndeces)
@@ -492,7 +489,7 @@ class Renderer {
             }
             
             renderEncoder.setRenderPipelineState(singleFrameUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(cylindricalGridBuffer)
+            renderEncoder.setVertexBuffer(curveGridBuffer)
             renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
             
             print("frame accumulated: \(frameAccumulated)")

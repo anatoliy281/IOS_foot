@@ -5,33 +5,30 @@
 extern "C" {
 #endif
 
-#define MAX_MESH_STATISTIC 21
+#define MAX_MESH_STATISTIC 41
 
+// cartesian grid
 #define RADIUS 0.5
-#define HEIGHT 0.1
 #define GRID_NODE_COUNT 500
+
 #define POINT_SIZE 12
 #define EPS_H 3e-3
 #define MAX_GRAD_H 27e-3
-#define PI 3.14159
 
 #include <simd/simd.h>
 
 
 
-#define GRID_NODE_DISTANCE ((2*RADIUS) / GRID_NODE_COUNT)
-
 #define GROUPS_COUNT 3
 
-
+// giperbolic grid
 #define PHI_GRID_NODE_COUNT 100
-#define PHI_STEP ((2*PI) / PHI_GRID_NODE_COUNT)
-
-
-
-
-#define U_GRID_NODE_COUNT 400
-#define U_STEP 1
+#define PHI_STEP ((2*M_PI_F) / PHI_GRID_NODE_COUNT)
+#define U0_GRID_NODE_COUNT 150
+#define U1_GRID_NODE_COUNT 350
+#define SQUARED_LENGTH 0.5
+#define U_GRID_NODE_COUNT (U0_GRID_NODE_COUNT+U1_GRID_NODE_COUNT)
+#define U_STEP ((SQUARED_LENGTH*SQUARED_LENGTH) / U_GRID_NODE_COUNT)
 
 #define PAIR_SIZE 256
     enum Group {

@@ -290,10 +290,7 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 	return pOut;
 }
 
-// ------------------------- BASE SPHERICAL -------------------------------
-
-
-
+// ------------------------- OBJECT CS -------------------------------
 float4x4 fromGlobalToObjectCS(float h) {
     return float4x4( float4( 1, 0, 0, 0),
                      float4( 0, 0, 1, 0),
@@ -310,30 +307,6 @@ float4x4 fromObjectToGlobalCS(float h) {
                     );
 }
 
-
-// cylindrical mapping
-void mapToCylindricalTable(float floorHeight, float4 position, thread int& i, thread int& j, thread float& value) {
-	const auto spos = fromGlobalToObjectCS(floorHeight)*position;
-	
-//	if (spos.y < 0) {
-//		i = GRID_NODE_COUNT;
-//		j = i;
-//		value = 0;
-//		return;
-//	}
-
-	auto phi = atan( spos.y / spos.x );
-	if ( spos.x < 0 ) {
-		phi += M_PI_F;
-	}
-	else if (spos.x >= 0 && spos.y < 0) {
-		phi += 2*M_PI_F;
-	} else {}
-	
-	i = round(spos.z/gridNodeDistCylindricalZ);
-	j = round( phi / PHI_STEP );
-	value = length(spos.xy);
-}
 
 float4 fromCylindricalToCartesian(float rho, int index) {
 	const auto z = (index/PHI_GRID_NODE_COUNT)*gridNodeDistCylindricalZ;
@@ -537,14 +510,61 @@ float calcGrad(uint vid,
 //}
 
 
+// ------------------ GIPERBOLIC ---------------------------
+// spos - координаты точки в СК объекта наблюдения
+// index - определяет положение в таблице
+// value - усреднённое значение по поверхности
+void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
+
+	if ( spos.z < 0 ) {  // пока оставим необработанным внештатный случай, вызванный уходом за плоскость пола
+		index = 0;
+		value = 0;
+		return;
+	}
+	
+
+	auto phase = 0.f;
+	if ( spos.x < 0 ) {
+		phase = M_PI_F;
+	} else if (spos.y < 0) {
+		phase = 2*M_PI_F;
+	}
+	auto phi = atan( spos.y / spos.x ) + phase;
+	int j = round( phi / PHI_STEP );
+	
+	const auto rho = length(spos.xy);
+	int i = round( (rho*rho - spos.z*spos.z) / U_STEP )	+ U0_GRID_NODE_COUNT;
+
+	value = 2*rho*spos.z;
+	index = i*PHI_GRID_NODE_COUNT + j;
+}
+
+
+float4 fromGiperbolicToCartesian(float value, int index) {
+	const auto u_coord = ( index/PHI_GRID_NODE_COUNT - U0_GRID_NODE_COUNT )*U_STEP;
+	const auto v_coord = value;
+	
+	const auto uv_sqrt = sqrt(v_coord*v_coord + u_coord*u_coord);
+	const auto rho = sqrt(0.5f*(u_coord + uv_sqrt));
+	const auto h = sqrt(rho*rho - u_coord);
+	
+	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
+	
+	float4 pos(1);
+	pos.x = rho*cos(phi);
+	pos.y = rho*sin(phi);
+	pos.z = h;
+
+	return pos;
+}
+
+
 vertex void unprojectCylindricalVertex(
                             uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
                             constant float& floorHeight[[ buffer(kHeight) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-							constant int& imgWidth [[ buffer(kImgWidth) ]],
-							constant int& imgHeight [[ buffer(kImgHeight) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
@@ -581,16 +601,16 @@ vertex void unprojectCylindricalVertex(
         confidence == 2
         ) {
 
-        int i, j;
+        int index;
         float val;
-
-		mapToCylindricalTable(floorHeight, pointLocation, i, j, val);
-        if ( i < 0 || j < 0 || i > PHI_GRID_NODE_COUNT-1 || j > PHI_GRID_NODE_COUNT-1 ) {
+		const auto spos = fromGlobalToObjectCS(floorHeight)*pointLocation;
+		mapToGiperbolicTable(spos, index, val);
+        if ( index < 0 || index > PHI_GRID_NODE_COUNT*U_GRID_NODE_COUNT-1 ) {
             return ;
         }
 
 		
-        device auto& md = myMeshData[i*PHI_GRID_NODE_COUNT + j];
+        device auto& md = myMeshData[index];
 		
 
 		MedianSearcher(&md).newValue(val);
@@ -652,7 +672,7 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
     const auto nodeVal = md.mean;
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
-	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
+	auto pos = fromObjectToGlobalCS(floorHeight)*fromGiperbolicToCartesian(nodeVal, vid);
 //
 //	// направление обзора камеры в СК связанной с объектом наблюдения
 //	const auto camLocation = normalize(
@@ -702,7 +722,6 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 //	}
 	
 	float phiArr[2] = {0, M_PI_F};
-	float zArr[2] = {0.01, 0.02};
 	
 	if (myMeshData[vid].isDone) {
 		color.a = 1;
@@ -746,49 +765,3 @@ fragment float4 gridFragment(ParticleVertexOut in[[stage_in]]) {
     return in.color;
 }
 
-// ------------------ GIPERBOLIC ---------------------------
-// spos - координаты точки в СК объекта наблюдения
-// index - определяет положение в таблице
-// value - усреднённое значение по поверхности
-void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
-
-	if ( spos.z < 0 ) {  // пока оставим необработанным внештатный случай, вызванный уходом за плоскость пола
-		index = 0;
-		value = 0;
-		return;
-	}
-	
-	auto phi = atan( spos.y / spos.x );
-	if ( spos.x < 0 ) {
-		phi += M_PI_F;
-	}
-	else if (spos.x >= 0 && spos.y < 0) {
-		phi += 2*M_PI_F;
-	} else {}
-	int j = round( phi / PHI_STEP );
-	
-	const auto rho = length(spos.xy);
-	int i = round( (rho*rho - spos.z*spos.z) / U_STEP );
-
-	value = 2*rho*spos.z;
-	index = i*PHI_GRID_NODE_COUNT + j;
-}
-
-
-float4 fromGiperbolicToCartesian(float value, int index) {
-	const auto u_coord = (index/PHI_GRID_NODE_COUNT)*U_STEP;
-	const auto v_coord = value;
-	
-	const auto uv_sqr = sqrt(v_coord*v_coord + u_coord*u_coord);
-	const auto rho_sq = 0.5f*(u_coord + uv_sqr);
-	const auto z_sq = rho_sq - u_coord;
-	
-	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
-	
-	float4 pos(1);
-	pos.x = sqrt(rho_sq)*cos(phi);
-	pos.y = sqrt(rho_sq)*sin(phi);
-	pos.z = sqrt(z_sq);
-
-	return pos;
-}
