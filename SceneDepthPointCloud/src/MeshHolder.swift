@@ -28,7 +28,7 @@ class MeshHolder {
 	
 	
 	let renderer: Renderer
-	let dim = Int(Z_GRID_NODE_COUNT)
+//	let dim = Int(Z_GRID_NODE_COUNT)
 	lazy var coords: GroupDataCoords = separateData()
 	
 	var contoursId: [Int] = []	// содержит id контуров (для отладки)

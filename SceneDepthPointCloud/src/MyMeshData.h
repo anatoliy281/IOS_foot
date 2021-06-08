@@ -24,14 +24,14 @@ extern "C" {
 #define GROUPS_COUNT 3
 
 
-#define Z_GRID_NODE_COUNT 100
-#define Z_NODE_DIST ((HEIGHT) / Z_GRID_NODE_COUNT)
-
-
 #define PHI_GRID_NODE_COUNT 100
 #define PHI_STEP ((2*PI) / PHI_GRID_NODE_COUNT)
 
 
+
+
+#define U_GRID_NODE_COUNT 400
+#define U_STEP 1
 
 #define PAIR_SIZE 256
     enum Group {

@@ -583,7 +583,7 @@ vertex void unprojectCylindricalVertex(
 
         int i, j;
         float val;
-//        mapToSphericalTable(floorHeight, position, i, j, val);
+
 		mapToCylindricalTable(floorHeight, pointLocation, i, j, val);
         if ( i < 0 || j < 0 || i > Z_GRID_NODE_COUNT-1 || j > PHI_GRID_NODE_COUNT-1 ) {
             return ;
@@ -592,30 +592,9 @@ vertex void unprojectCylindricalVertex(
 		
         device auto& md = myMeshData[i*PHI_GRID_NODE_COUNT + j];
 		
-//		if (checkDone(myMeshData, vertexID)) {
-//			return;
-//		}
-//
-//		auto grad = calcGrad(vertexID, gridPoints, uniforms, depthTexture, imgWidth, imgHeight);
-//
-//		if ( grad > 0.2*M_PI_2_F) {
-//			return;
-//		}
-//
-//		auto orient = calcOrientation(floorHeight, uniforms, myMeshData, vertexID);
-//		if (orient > M_PI_4_F) {
-//			return;
-//		}
-		
-//		md.gradVal = grad;
-//		md.depth = depth;
-		
-//		const auto camPos = normalize( (fromGlobalToObjectCS(floorHeight)*detectCameraPosition(uniforms)).xyz );
-//		const auto vertexPos = normalize( (fromGlobalToObjectCS(floorHeight)*pointLocation).xyz );
-//
-//		if (camPos.y*vertexPos.y > 0) {
-			MedianSearcher(&md).newValue(val);
-//		}
+
+		MedianSearcher(&md).newValue(val);
+
     }
 }
 
@@ -767,3 +746,49 @@ fragment float4 gridFragment(ParticleVertexOut in[[stage_in]]) {
     return in.color;
 }
 
+// ------------------ GIPERBOLIC ---------------------------
+// spos - координаты точки в СК объекта наблюдения
+// index - определяет положение в таблице
+// value - усреднённое значение по поверхности
+void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
+
+	if ( spos.z < 0 ) {  // пока оставим необработанным внештатный случай, вызванный уходом за плоскость пола
+		index = 0;
+		value = 0;
+		return;
+	}
+	
+	auto phi = atan( spos.y / spos.x );
+	if ( spos.x < 0 ) {
+		phi += M_PI_F;
+	}
+	else if (spos.x >= 0 && spos.y < 0) {
+		phi += 2*M_PI_F;
+	} else {}
+	int j = round( phi / PHI_STEP );
+	
+	const auto rho = length(spos.xy);
+	int i = round( (rho*rho - spos.z*spos.z) / U_STEP );
+
+	value = 2*rho*spos.z;
+	index = i*PHI_GRID_NODE_COUNT + j;
+}
+
+
+float4 fromGiperbolicToCartesian(float value, int index) {
+	const auto u_coord = (index/PHI_GRID_NODE_COUNT)*U_STEP;
+	const auto v_coord = value;
+	
+	const auto uv_sqr = sqrt(v_coord*v_coord + u_coord*u_coord);
+	const auto rho_sq = 0.5f*(u_coord + uv_sqr);
+	const auto z_sq = rho_sq - u_coord;
+	
+	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
+	
+	float4 pos(1);
+	pos.x = sqrt(rho_sq)*cos(phi);
+	pos.y = sqrt(rho_sq)*sin(phi);
+	pos.z = sqrt(z_sq);
+
+	return pos;
+}
