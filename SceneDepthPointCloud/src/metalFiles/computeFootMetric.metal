@@ -12,9 +12,6 @@
 
 using namespace metal;
 
-
-
-
 kernel void computeFootMetric(
 						   uint index [[ thread_position_in_grid ]],
 						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]],
@@ -23,12 +20,6 @@ kernel void computeFootMetric(
 						   constant MetricIndeces& metricIndeces [[ buffer(kMetricIndeces) ]]
 						   ) {
 	const int i = index/PHI_GRID_NODE_COUNT;
-	const auto i0 = metricIndeces.iHeights[0];
-	const auto i1 = metricIndeces.iHeights[1];
-	
-	if ( i < i0 || i > i1 ) {
-		return;
-	}
 	
 	const int j = index%PHI_GRID_NODE_COUNT;
 	device GridPoint* gp;
@@ -44,6 +35,5 @@ kernel void computeFootMetric(
 	p.index = index;
 	p.rho = myMeshData[index].mean;
 	p.checked = 0;
-	gp[i - i0] = p;
-	
+	gp[i] = p;
 }

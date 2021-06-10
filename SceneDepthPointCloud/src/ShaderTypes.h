@@ -54,7 +54,6 @@ struct Gistro {
 };
 
 struct MetricIndeces {
-	simd_int2 iHeights;
 	int jPhiHeel;
 	int jPhiToe;
 };

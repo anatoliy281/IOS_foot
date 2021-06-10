@@ -11,12 +11,7 @@ constant float idealDist = 0.3;
 constant float acceptanceZone = 0.2;
 
 
-constant float maxHeight = 0.2;
-constant float maxHalfWidth = 0.08;
-constant float backLength = 0.07;
-constant float frontLength = 0.3;
 
-constant float widthFloorZone = 0.03;
 
 // -------------------------- BASE DEFINITIONS -----------------------------
 
@@ -191,13 +186,13 @@ void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) 
 
 
 bool frameRegion(float4 position, float floorHeight, float factor) {
-	float L = 0.5*(frontLength + backLength);
-	float center = L - backLength;
-	bool checkOuter = abs(position.z) < (1-factor)*(maxHalfWidth + widthFloorZone) && abs(position.x + center) < (1-factor)*(L + widthFloorZone);
-	bool checkInner = abs(position.z) > (1+factor)*maxHalfWidth || abs(position.x + center) > (1+factor)*L;
+	float L = 0.5*(BOX_FRONT_LENGTH + BOX_BACK_LENGTH);
+	float center = L - BOX_BACK_LENGTH;
+	bool checkOuter = abs(position.z) < (1-factor)*(BOX_HALF_WIDTH + BOX_FLOOR_ZONE) && abs(position.x + center) < (1-factor)*(L + BOX_FLOOR_ZONE);
+	bool checkInner = abs(position.z) > (1+factor)*BOX_HALF_WIDTH || abs(position.x + center) > (1+factor)*L;
 
 	bool frameCheck = checkInner && checkOuter;
-	bool heightCheck = abs(position.y - floorHeight) < maxHeight;
+	bool heightCheck = abs(position.y - floorHeight) < BOX_HEIGHT;
 	if ( floorHeight == -10 )
 		heightCheck = true;
 	
@@ -516,13 +511,6 @@ float calcGrad(uint vid,
 // value - усреднённое значение по поверхности
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 
-	if ( spos.z < 0 ) {  // пока оставим необработанным внештатный случай, вызванный уходом за плоскость пола
-		index = 0;
-		value = 0;
-		return;
-	}
-	
-
 	auto phase = 0.f;
 	if ( spos.x < 0 ) {
 		phase = M_PI_F;
@@ -585,9 +573,9 @@ vertex void unprojectCylindricalVertex(
     const auto confidence = confidenceTexture.sample(depthSampler, texCoord).r;
 
     bool check1 = pointLocation.x*pointLocation.x + pointLocation.z*pointLocation.z < RADIUS*RADIUS;
-	bool checkHeight = pointLocation.y - floorHeight < maxHeight;
-	bool checkWidth = abs(pointLocation.z) < maxHalfWidth;
-	bool checkLength = (pointLocation.x < 0)? pointLocation.x > -frontLength: pointLocation.x < backLength;
+	bool checkHeight = pointLocation.y - floorHeight < BOX_HEIGHT;
+	bool checkWidth = abs(pointLocation.z) < BOX_HALF_WIDTH;
+	bool checkLength = (pointLocation.x < 0)? pointLocation.x > -BOX_FRONT_LENGTH: pointLocation.x < BOX_BACK_LENGTH;
 
     if (
         check1
@@ -743,7 +731,7 @@ vertex ParticleVertexOut metricVertex(
 									constant GridPoint* metricData [[ buffer(kFrontToe) ]],
 									unsigned int vid [[ vertex_id ]] ) {
 	constant auto& md = metricData[vid];
-	const auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(md.rho, md.index);
+	const auto pos = fromObjectToGlobalCS(floorHeight)*fromGiperbolicToCartesian(md.rho, md.index);
 	
 	auto color = float4(0, 1, 0, 1);
 	

@@ -147,27 +147,24 @@ class Renderer {
     var curveGridBuffer: MetalBuffer<MyMeshData>!
 	
 	lazy var metricIndeces: MetricIndeces = {
-//		let dZ = HEIGHT / Double(Z_GRID_NODE_COUNT)
-//		let dPhi = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
-//		let i0 = Int32(0.005 / dZ)
-//		let i1 = Int32(0.03 / dZ)
-//
-//		return MetricIndeces( iHeights: SIMD2<Int32>(min(i0, i1), max(i0, i1)),
-//							  jPhiHeel: 0,
-//							  jPhiToe: Int32(Float.pi / dPhi) )
+		let dU = LENGTH*LENGTH / Double(U_GRID_NODE_COUNT)
+		let dPhi = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
+
+		return MetricIndeces(
+							  jPhiHeel: 0,
+							  jPhiToe: Int32(Float.pi / dPhi) )
 		
-		return MetricIndeces(iHeights: SIMD2<Int32>(0,0), jPhiHeel: 0, jPhiToe: 0)
 	}()
 	
 	
 	lazy var frontToeBuffer: MetalBuffer<GridPoint> = {
-		let count = metricIndeces.iHeights[1] - metricIndeces.iHeights[0] + 1
+		let count = U0_GRID_NODE_COUNT + U1_GRID_NODE_COUNT
 		var array = Array(repeating: GridPoint(rho: 0, index: 0, checked: 0), count: Int(count))
 		return .init(device: device, array: array, index: kFrontToe.rawValue )
 	}()
 	
 	lazy var backHeelBuffer: MetalBuffer<GridPoint> = {
-		let count = metricIndeces.iHeights[1] - metricIndeces.iHeights[0] + 1
+		let count = U0_GRID_NODE_COUNT + U1_GRID_NODE_COUNT
 		var array = Array(repeating: GridPoint(rho: 0, index: 0, checked: 0), count: Int(count))
 		return .init(device: device, array: array, index: kBackHeel.rawValue )
 	}()
@@ -420,8 +417,8 @@ class Renderer {
             renderEncoder.setDepthStencilState(depthStencilState)
 //            drawMesh(gridType: 0, renderEncoder) 	// cartesian
 			drawMesh(gridType: 1, renderEncoder)	// spherical
-//			drawFootMetrics(metric: frontToeBuffer, renderEncoder)
-//			drawFootMetrics(metric: backHeelBuffer, renderEncoder)
+			drawFootMetrics(metric: frontToeBuffer, renderEncoder)
+			drawFootMetrics(metric: backHeelBuffer, renderEncoder)
         case .separate:
             renderEncoder.setDepthStencilState(depthStencilState)
             drawScanningFootAsSingleFrame(renderEncoder)
