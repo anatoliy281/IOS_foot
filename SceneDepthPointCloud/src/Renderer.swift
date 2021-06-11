@@ -193,7 +193,8 @@ class Renderer {
         }
     }
 	
-	internal var footLength: CyclicBuffer = CyclicBuffer(count: 100)
+	internal var footLength0: CyclicBuffer = CyclicBuffer(count: 100)
+	internal var footLength1: CyclicBuffer = CyclicBuffer(count: 100)
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -403,9 +404,9 @@ class Renderer {
                       
         if canUpdateDepthTextures(frame: currentFrame) {
 			calcIsNotFreezed = shouldAccumulate(frame: currentFrame)
-			if calcIsNotFreezed {
+//			if calcIsNotFreezed {
 				accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
-			}
+//			}
         }
 		renderEncoder.setDepthStencilState(relaxedStencilState)
 		updateCapturedImageTextures(frame: currentFrame)
@@ -471,11 +472,23 @@ class Renderer {
 							metricIndeces: &metricIndeces)
 			
 			// debug the foot length
-			let lengthOfFoot = round(1000*calcDistance(heel: &backHeelBuffer, toe: &frontToeBuffer))
-			if lengthOfFoot.isFinite {
-				let val = footLength.update(lengthOfFoot)
-				label.text = "Длина \( Int(val) ) мм"
+			let dists = calcDistance(heel: &backHeelBuffer, toe: &frontToeBuffer)
+			let lengthOfFoot0 = round(1000*dists.0)
+			let lengthOfFoot1 = round(1000*dists.1)
+			
+			var report0 = ""
+			if lengthOfFoot0.isFinite {
+				let val = footLength0.update(lengthOfFoot0)
+				report0 = "Длины: \( Int(val) ) "
 			}
+			
+			var report1 = ""
+			if lengthOfFoot1.isFinite {
+				let val = footLength1.update(lengthOfFoot1)
+				report1 = " / \( Int(val) ) мм"
+			}
+			
+			label.text = report0 + report1
 			
 
 		} else if currentState == .separate {

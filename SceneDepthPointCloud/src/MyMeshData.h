@@ -24,12 +24,12 @@ extern "C" {
 // giperbolic grid
 #define PHI_GRID_NODE_COUNT 200
 #define PHI_STEP ((2*M_PI_F) / PHI_GRID_NODE_COUNT)
-#define U0_GRID_NODE_COUNT 70
-#define U1_GRID_NODE_COUNT 300
-#define LENGTH 0.4
 
+#define U0_GRID_NODE_COUNT 150
+#define U1_GRID_NODE_COUNT 650
+#define LENGTH 0.4
 #define U_GRID_NODE_COUNT (U0_GRID_NODE_COUNT+U1_GRID_NODE_COUNT)
-#define U_STEP ((LENGTH*LENGTH) / U_GRID_NODE_COUNT)
+#define U_STEP ((LENGTH*LENGTH) / (U_GRID_NODE_COUNT))
 
 // foot frame bounding rectangle
 #define BOX_HEIGHT 0.1

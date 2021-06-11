@@ -55,7 +55,7 @@ extension Renderer {
 		return checkWidth && checkHeight && checkLength
 	}
 	
-	public func calcDistance(heel: inout MetalBuffer<GridPoint>, toe: inout MetalBuffer<GridPoint>) -> Float {
+	public func calcDistance(heel: inout MetalBuffer<GridPoint>, toe: inout MetalBuffer<GridPoint>) -> (Float, Float) {
 		
 		func bufferMean(buffer: inout MetalBuffer<GridPoint>, ik:Int) -> Float3 {
 			var totalRho:Float3 = .init(0, 0, 0)
@@ -77,12 +77,56 @@ extension Renderer {
 			}
 			return totalRho / Float(cnt)
 		}
+		
+		func vMeanInRegion(buffer: MetalBuffer<GridPoint>, _ v0:Float, _ v1:Float) -> Float3 {
+			var total:Float3 = .init(0,0,0)
+			var cnt:Int = 0
+			for i in 0..<buffer.count {
+				
+				let r0 = fromGiperbolicToCartesian(value: buffer[i].rho, index: buffer[i].index)
+				if (!inFrameBoxOfFoot(pos: r0)) {
+					continue
+				}
+				
+				let v = buffer[i].rho
+				if (v >= v0 && v <= v1) {
+					total += fromGiperbolicToCartesian(value: v, index: buffer[i].index)
+					cnt += 1
+				}
+			}
+			return total / Float(cnt)
+		}
+		
+		func hMeanInRegion(buffer: MetalBuffer<GridPoint>, _ h:Float, _ dh:Float) -> Float3 {
+			var total:Float3 = .init(0,0,0)
+			var cnt:Int = 0
+			for i in 0..<buffer.count {
+				let v = buffer[i].rho
+				let r0 = fromGiperbolicToCartesian(value: v, index: buffer[i].index)
+				if (!inFrameBoxOfFoot(pos: r0)) {
+					continue
+				}
+				
+				if ( r0.z >= h && r0.z <= h+dh ) {
+					total += fromGiperbolicToCartesian(value: v, index: buffer[i].index)
+					cnt += 1
+				}
+			}
+			return total / Float(cnt)
+		}
 
 		let heelRho = bufferMean(buffer: &heel, ik: 2)
 		let toeRho = bufferMean(buffer: &toe, ik: 10)
 		let distance = heelRho - toeRho
 		
-		return length(distance)
+//		let v0:Float = 0.002
+//		let v1:Float = 0.004
+//		let dist2 = vMeanInRegion(buffer: heel, v0, v1) - vMeanInRegion(buffer: toe, v0, v1)
+		let h:Float = 0.004
+		let dh:Float = 0.004
+		let dist3 = hMeanInRegion(buffer: heel, h, dh) - hMeanInRegion(buffer: toe, h, dh)
+		
+		return ( length(distance), length(dist3) )
 	}
     
 }

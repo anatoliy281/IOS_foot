@@ -547,6 +547,12 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 }
 
 
+bool inScanArea(float4 spos) {
+	bool checkWidth = abs(spos.y) < BOX_HALF_WIDTH;
+	bool checkLength = (spos.x < 0)? spos.x > -BOX_FRONT_LENGTH: spos.x < BOX_BACK_LENGTH;
+	return checkLength && checkWidth;
+}
+
 vertex void unprojectCylindricalVertex(
                             uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
@@ -660,7 +666,10 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
     const auto nodeVal = md.mean;
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
-	auto pos = fromObjectToGlobalCS(floorHeight)*fromGiperbolicToCartesian(nodeVal, vid);
+	const auto spos = fromGiperbolicToCartesian(nodeVal, vid);
+	auto pos = fromObjectToGlobalCS(floorHeight)*spos;
+	
+	
 //
 //	// направление обзора камеры в СК связанной с объектом наблюдения
 //	const auto camLocation = normalize(
@@ -715,9 +724,15 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 		color.a = 1;
 	}
 	
-	color = colorPhi(phiArr, 2,
-					color,
-						vid);
+	if (!inScanArea(spos)) {
+		color.a = 0;
+	}
+	
+	if (nodeVal > 0.002 && nodeVal < 0.004 ) {
+		color.r = 1;
+		color.g = 0;
+		color.b = 1;
+	}
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
