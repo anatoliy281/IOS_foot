@@ -18,8 +18,9 @@ float4x4 fromObjectToGlobalCS(float h);
 float4 fromCylindricalToCartesian(float rho, int index);
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value);
 float4 fromGiperbolicToCartesian(float value, int index);
+bool inFootFrame(float4 spos);
 
-// -------------------------- BASE DEFINITIONS -----------------------------
+//// -------------------------- BASE DEFINITIONS -----------------------------
 
 class MedianSearcher {
 	device MyMeshData* md;
@@ -43,79 +44,6 @@ public:
 	void newValueModi(float value);
 	
 };
-
-
-
-void MedianSearcher::cycle() {
-	md->bufModLen = incrementModulo(md->bufModLen);
-	md->totalSteps += 1;
-}
-
-int MedianSearcher::incrementModulo(int x, int step) {
-	return (x + step + MAX_MESH_STATISTIC)%MAX_MESH_STATISTIC;
-}
-
-
-
-
-void MedianSearcher::newValue(float value) {
-	
-//	modification(value);
-	
-	oldCode(value);
-}
-
-void MedianSearcher::oldCode(float value) {
-	device auto& mean = md->mean;
-	
-	int n = md->bufModLen;
-	md->buffer[n] = value;
-	cycle();
-	if ( md->bufModLen == md->totalSteps ) {
-		mean = (mean*n + value) / (n + 1.f);
-	} else {
-		float newMean = 0;
-		
-		for (int i = 0; i < MAX_MESH_STATISTIC; ++i) {
-			newMean += md->buffer[i];
-		}
-		newMean /= MAX_MESH_STATISTIC;
-		mean = newMean;
-	}
-}
-
-void MedianSearcher::newValueModi(float value) {
-	device auto& mean = md->mean;
-	
-	cycle();	// пересчёт индекса массива с учётом цикличности!
-	
-//	md->totalSteps += 1;
-	if ( md->totalSteps <= MAX_MESH_STATISTIC ) { // md->totalStep пересчитан!!! и мы на первой итерации циклич. списка, т.е. продолжаем его заполнение пока его длина не достигнет MAX_MESH_STATISTIC
-		int n = md->totalSteps;	// здесь 1 <= n <= (MAX_MESH_STATISTIC - 1)
-		mean = (mean*(n-1) + value) / n;
-		md->buffer[n-1] = value;	// пополнили буфер для нужд пересчёта при проходе по циклическим шагам
-	} else {
-		const auto nc = md->bufModLen;
-//		const auto nc = md->totalSteps%MAX_MESH_STATISTIC;
-		const auto oldValue = md->buffer[nc-1];
-		md->buffer[nc-1] = value;
-		mean += ((value - oldValue) / MAX_MESH_STATISTIC);
-	}
-	
-}
-
-
-void MedianSearcher::moreModification(float value) {
-	device auto& mean = md->mean;
-	
-	cycle();	// пересчёт индекса массива с учётом цикличности!
-	
-	const auto nc = md->bufModLen;
-	const auto oldValue = md->buffer[nc-1];
-	md->buffer[nc-1] = value;
-	mean += ((value - oldValue) / MAX_MESH_STATISTIC);
-	
-}
 
 
 //// Particle vertex shader outputs and fragment shader inputs
@@ -161,15 +89,6 @@ float4 colorCartesianPoint(float floorDist, float saturation) {
     return color;
 }
 
-void markCartesianMeshNodes(device MyMeshData& md, constant float& floorHeight) {
-    auto h = md.mean;
-    auto heightDeviation = abs(h - floorHeight);
-    if ( heightDeviation < 2*EPS_H ) {
-        md.group = Floor;
-    } else {
-        md.group = Foot;
-    }
-}
 
 
 bool frameRegion(float4 position, float floorHeight, float factor) {
@@ -377,64 +296,6 @@ float calcOrientation(float floorHeight,
 	return dot(normal, camLocation);
 }
 
-// вычисление  угла градиента
-float calcGrad(uint vid,
-				constant float2 *gridPoints,
-				constant PointCloudUniforms &uniforms,
-				texture2d<float, access::sample> depthTexture,
-				int imgWidth,
-				int imgHeight) {
-	
-	float res = 0;
-	if (
-		static_cast<unsigned int>(imgWidth) <= vid &&
-		vid < static_cast<unsigned int>(imgWidth*(imgHeight - 1))
-		) {
-		
-		const auto v11 = vid;
-
-		const auto v01 = v11 - imgWidth; // изменение вдоль Y
-		const auto v00 = v01 - 1;
-		const auto v02 = v01 + 1;
-		
-		const auto v10 = v11 - 1;
-		const auto v12 = v11 + 1;
-		
-		const auto v21 = v11 + imgWidth; // изменение вдоль Y
-		const auto v20 = v21 - 1;
-		const auto v22 = v21 + 1;
-		
-		
-		
-		const auto t00 = gridPoints[v00] / uniforms.cameraResolution;
-		const auto t01 = gridPoints[v01] / uniforms.cameraResolution;
-		const auto t02 = gridPoints[v02] / uniforms.cameraResolution;
-//		const auto t11 = gridPoints[v11] / uniforms.cameraResolution;
-		const auto t10 = gridPoints[v10] / uniforms.cameraResolution;
-		const auto t12 = gridPoints[v12] / uniforms.cameraResolution;
-		
-		const auto t20 = gridPoints[v20] / uniforms.cameraResolution;
-		const auto t21 = gridPoints[v21] / uniforms.cameraResolution;
-		const auto t22 = gridPoints[v22] / uniforms.cameraResolution;
-		
-		const auto dr = float2((t00 - t02).x, (t02 - t22).y);
-		
-		// Sample the depth map to get the depth value
-		const auto f00 = depthTexture.sample(depthSampler, t00).r;
-		const auto f01 = depthTexture.sample(depthSampler, t01).r;
-		const auto f02 = depthTexture.sample(depthSampler, t02).r;
-		const auto f10 = depthTexture.sample(depthSampler, t10).r;
-		const auto f12 = depthTexture.sample(depthSampler, t12).r;
-		const auto f20 = depthTexture.sample(depthSampler, t20).r;
-		const auto f21 = depthTexture.sample(depthSampler, t21).r;
-		const auto f22 = depthTexture.sample(depthSampler, t22).r;
-		
-		const auto df = 0.25*float2(f00 - f20 + 2*(f01 - f21) + f02 - f22,
-							   f02 - f00 + 2*(f12 - f10) + f22 - f20);
-		res = atan ( sqrt( dot(df, df) / dot(dr, dr) ) );
-	}
-	return res;
-}
 
 
 //bool checkDone(device MyMeshData* mesh, int index) {
@@ -500,26 +361,19 @@ vertex void unprojectCylindricalVertex(
 
     const auto confidence = confidenceTexture.sample(depthSampler, texCoord).r;
 
-    bool check1 = pointLocation.x*pointLocation.x + pointLocation.z*pointLocation.z < RADIUS*RADIUS;
 	bool checkHeight = pointLocation.y - floorHeight < BOX_HEIGHT;
-	bool checkWidth = abs(pointLocation.z) < BOX_HALF_WIDTH;
-	bool checkLength = (pointLocation.x < 0)? pointLocation.x > -BOX_FRONT_LENGTH: pointLocation.x < BOX_BACK_LENGTH;
-
+	const auto spos = fromGlobalToObjectCS(floorHeight)*pointLocation;
+	bool frameCheck = inFootFrame(spos);
     if (
-        check1
-		&&
 		checkHeight
         &&
-		checkWidth
-		&&
-		checkLength
+		frameCheck
 		&&
         confidence == 2
         ) {
 
         int index;
         float val;
-		const auto spos = fromGlobalToObjectCS(floorHeight)*pointLocation;
 		mapToGiperbolicTable(spos, index, val);
         if ( index < 0 || index > PHI_GRID_NODE_COUNT*U_GRID_NODE_COUNT-1 ) {
             return ;
@@ -569,15 +423,29 @@ float4 colorPhi(const thread float* phi, int count, float4 inColor, int index) {
 	return inColor;
 }
 
-float4 colorHeight(const thread float* heights, int count, float4 inColor, int index) {
-	const auto gridNodeDistCylindricalZ = RADIUS / GRID_NODE_COUNT;
-	for (int i=0; i < count; ++i) {
-		if (index/PHI_GRID_NODE_COUNT == int(heights[i]/gridNodeDistCylindricalZ)) {
-			return float4(0, 1, 0, 1);
-		}
-	}
-	return inColor;
+float4 colorLengthDirection(float4 color, int index) {
+	float phiArr[2] = {0, M_PI_F};
+	return colorPhi(phiArr, 2, color, index);
 }
+
+float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
+	const auto group = mesh.group;
+	if (group == Border) {
+		return float4(0, 0, 1, 1);
+	}
+	if (group == Floor) {
+//		return saturate(color + float4(0.5, 0, 0, 0));
+		return float4(0, 1, 0, 1);
+	}
+	if (group == Foot) {
+		return float4(1, 0, 0, 1);
+	}
+	if (group == Unknown) {
+		return float4(1);
+	}
+	return color;
+}
+
 
 vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
@@ -608,7 +476,11 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 //	const auto saturation = (orient < 0)? 0: 0.7*orient;
 //	const auto saturation = orient;
 //	const auto saturation = 0.5;
+	
+	
 	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, 0.6);
+//	color = colorLengthDirection(color, vid);
+	color = colorByGroup(color, md);
 	
 //    auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
 	
@@ -641,25 +513,28 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 //		color = float4(0.5, 0.5, 0., saturation);
 //	}
 	
-	float phiArr[2] = {0, M_PI_F};
+	
 	
 	if (myMeshData[vid].isDone) {
 		color.a = 1;
 	}
 	
+	
+	// выводим только узлы принадлежащие рамке сканирования
 	if (!inScanArea(spos)) {
 		color.a = 0;
 	}
-	
-	if (nodeVal > 0.002 && nodeVal < 0.004 ) {
-		color.r = 1;
-		color.g = 0;
-		color.b = 1;
-	}
+
+//	Раскраска по координате v гиперболической системы
+//	if (nodeVal > 0.002 && nodeVal < 0.004 ) {
+//		color.r = 1;
+//		color.g = 0;
+//		color.b = 1;
+//	}
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
-	pOut.color = colorPhi(phiArr, 2, color, vid);
+	pOut.color = color;
     return pOut;
 }
 

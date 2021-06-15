@@ -17,6 +17,8 @@
 		8A48A527264179C100FC71A3 /* fittin.obj in Resources */ = {isa = PBXBuildFile; fileRef = 8A48A526264179C100FC71A3 /* fittin.obj */; };
 		8A8BFCCC262038D9007F1456 /* AnyStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCC8262038D9007F1456 /* AnyStates.swift */; };
 		8A8BFCCE262038D9007F1456 /* computeFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8BFCCA262038D9007F1456 /* computeFunctions.swift */; };
+		8A9FCA4E2678958B00450484 /* MedianSearcher.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8A9FCA4D2678958B00450484 /* MedianSearcher.metal */; };
+		8A9FCA50267896D000450484 /* depricatedFunctions.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8A9FCA4F267896D000450484 /* depricatedFunctions.metal */; };
 		8AB1272C2673A15A00B6C980 /* functions.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8AB1272B2673A15A00B6C980 /* functions.metal */; };
 		8AD4568A265268AC0013A94B /* computeFootMetric.metal in Sources */ = {isa = PBXBuildFile; fileRef = 8AD45689265268AC0013A94B /* computeFootMetric.metal */; };
 		8ADDB710262DCCFD001D9B59 /* RendererState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ADDB70F262DCCFD001D9B59 /* RendererState.swift */; };
@@ -44,6 +46,8 @@
 		8A48A526264179C100FC71A3 /* fittin.obj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fittin.obj; sourceTree = "<group>"; };
 		8A8BFCC8262038D9007F1456 /* AnyStates.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AnyStates.swift; sourceTree = "<group>"; };
 		8A8BFCCA262038D9007F1456 /* computeFunctions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = computeFunctions.swift; sourceTree = "<group>"; };
+		8A9FCA4D2678958B00450484 /* MedianSearcher.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MedianSearcher.metal; sourceTree = "<group>"; };
+		8A9FCA4F267896D000450484 /* depricatedFunctions.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = depricatedFunctions.metal; sourceTree = "<group>"; };
 		8AB1272B2673A15A00B6C980 /* functions.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = functions.metal; sourceTree = "<group>"; };
 		8AD45689265268AC0013A94B /* computeFootMetric.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = computeFootMetric.metal; sourceTree = "<group>"; };
 		8ADDB70F262DCCFD001D9B59 /* RendererState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendererState.swift; sourceTree = "<group>"; };
@@ -124,6 +128,8 @@
 				6A2489AC26146C6300A1F3A9 /* CameraStream.metal */,
 				8AD45689265268AC0013A94B /* computeFootMetric.metal */,
 				8AB1272B2673A15A00B6C980 /* functions.metal */,
+				8A9FCA4D2678958B00450484 /* MedianSearcher.metal */,
+				8A9FCA4F267896D000450484 /* depricatedFunctions.metal */,
 			);
 			path = metalFiles;
 			sourceTree = "<group>";
@@ -251,9 +257,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8A9FCA50267896D000450484 /* depricatedFunctions.metal in Sources */,
 				8A1DFC972668ADB90029D02B /* drawFunctions.swift in Sources */,
 				8A8BFCCC262038D9007F1456 /* AnyStates.swift in Sources */,
 				6A2489AD26146C6300A1F3A9 /* CameraStream.metal in Sources */,
+				8A9FCA4E2678958B00450484 /* MedianSearcher.metal in Sources */,
 				E73DD13324636FEF00D77039 /* Shaders.metal in Sources */,
 				8A8BFCCE262038D9007F1456 /* computeFunctions.swift in Sources */,
 				E7B7223D24809D1E002E43E8 /* Helpers.swift in Sources */,

@@ -469,14 +469,14 @@ class Renderer {
 			startSegmentation(buffer: curveGridBuffer)
 			
 			// debug the foot length
-			let dists = calcDistance(heel: &backHeelBuffer, toe: &frontToeBuffer)
-			let lengthOfFoot0 = round(1000*dists.0)
-			
+//			let dists = calcDistance(heel: &backHeelBuffer, toe: &frontToeBuffer)
+//			let lengthOfFoot0 = round(1000*dists.0)
+//
 			var report0 = ""
-			if lengthOfFoot0.isFinite {
-				let val = footLength0.update(lengthOfFoot0)
-				report0 = "Длины: \( Int(val) ) "
-			}
+//			if lengthOfFoot0.isFinite {
+//				let val = footLength0.update(lengthOfFoot0)
+//				report0 = "Длины: \( Int(val) ) "
+//			}
 			
 			label.text = report0
 			

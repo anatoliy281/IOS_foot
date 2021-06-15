@@ -101,3 +101,9 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 	return pos;
 }
 
+bool inFootFrame(float4 spos) {
+	bool checkWidth = abs(spos.y) < BOX_HALF_WIDTH;
+	bool checkLength = (spos.x < 0)? spos.x > -BOX_FRONT_LENGTH: spos.x < BOX_BACK_LENGTH;
+	return checkWidth && checkLength;
+}
+
