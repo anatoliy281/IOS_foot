@@ -82,7 +82,7 @@ class Renderer {
     internal var currentBufferIndex = 0
     
     
-    lazy var computeFootMetricState: MTLComputePipelineState = makeComputeFootMetricState()!
+    lazy var segmentationState: MTLComputePipelineState = makeComputeFootMetricState()!
 	var floorHeight: Float = -10
 	var floorCyclicBuffer: CyclicBuffer = CyclicBuffer(count: 10)
     
@@ -466,15 +466,11 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
-			calcFootMetrics(bufferIn: curveGridBuffer,
-							heel: backHeelBuffer,
-							toe: frontToeBuffer,
-							metricIndeces: &metricIndeces)
+			startSegmentation(buffer: curveGridBuffer)
 			
 			// debug the foot length
 			let dists = calcDistance(heel: &backHeelBuffer, toe: &frontToeBuffer)
 			let lengthOfFoot0 = round(1000*dists.0)
-			let lengthOfFoot1 = round(1000*dists.1)
 			
 			var report0 = ""
 			if lengthOfFoot0.isFinite {
@@ -482,13 +478,7 @@ class Renderer {
 				report0 = "Длины: \( Int(val) ) "
 			}
 			
-			var report1 = ""
-			if lengthOfFoot1.isFinite {
-				let val = footLength1.update(lengthOfFoot1)
-				report1 = " / \( Int(val) ) мм"
-			}
-			
-			label.text = report0 + report1
+			label.text = report0
 			
 
 		} else if currentState == .separate {

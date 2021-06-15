@@ -42,6 +42,7 @@ extern "C" {
     enum Group {
         Unknown,
         Floor,
+		Border,
         Foot
     };
 

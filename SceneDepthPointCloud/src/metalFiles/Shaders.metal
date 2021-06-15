@@ -11,7 +11,13 @@ constant float idealDist = 0.3;
 constant float acceptanceZone = 0.2;
 
 
-
+void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value);
+float4 restoreFromCartesianTable(float h, int index);
+float4x4 fromGlobalToObjectCS(float h);
+float4x4 fromObjectToGlobalCS(float h);
+float4 fromCylindricalToCartesian(float rho, int index);
+void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value);
+float4 fromGiperbolicToCartesian(float value, int index);
 
 // -------------------------- BASE DEFINITIONS -----------------------------
 
@@ -140,26 +146,7 @@ float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float
 
 
 // ------------------------------------- CARTESIAN ------------------------------------
-constant int gridNodeCount = GRID_NODE_COUNT;		// 500
-constant float halfLength = RADIUS;					// 0.5
-constant float gridNodeDist = 2*halfLength / gridNodeCount;
-constant float gridNodeDistCylindricalZ = 0.5*gridNodeDist;
 
-
-void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value) {
-    i = round(position.x/gridNodeDist) + gridNodeCount/2;
-    j = round(position.z/gridNodeDist) + gridNodeCount/2;
-    value = position.y;
-}
-
-float4 restoreFromCartesianTable(float h, int index) {
-    float4 pos(1);
-    pos.x = (index/gridNodeCount)*gridNodeDist - halfLength;
-    pos.z = (index%gridNodeCount)*gridNodeDist - halfLength;
-    pos.y = h;
-    
-    return pos;
-}
 
 float4 colorCartesianPoint(float floorDist, float saturation) {
 	float floorGrad = 1;
@@ -199,6 +186,8 @@ bool frameRegion(float4 position, float floorHeight, float factor) {
 	return frameCheck && heightCheck;
 }
 
+
+
 vertex void unprojectCartesianVertex(
                             uint vid [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
@@ -222,7 +211,7 @@ vertex void unprojectCartesianVertex(
     const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
 	
-    bool check1 = position.x*position.x + position.z*position.z < halfLength*halfLength;
+    bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
 	
 	bool frameCheck = frameRegion(position, floorHeight, 0);
 
@@ -237,11 +226,11 @@ vertex void unprojectCartesianVertex(
         int i, j;
         float val;
         mapToCartesianTable(position, i, j, val);
-        if ( i < 0 || j < 0 || i > gridNodeCount-1 || j > gridNodeCount-1 ) {
+        if ( i < 0 || j < 0 || i > GRID_NODE_COUNT-1 || j > GRID_NODE_COUNT-1 ) {
             return ;
         }
         
-        device auto& md = myMeshData[i*gridNodeCount + j];
+        device auto& md = myMeshData[i*GRID_NODE_COUNT + j];
 		
 		auto shr = MedianSearcher(&md);
 		shr.newValue(val);
@@ -249,6 +238,8 @@ vertex void unprojectCartesianVertex(
 //        markCartesianMeshNodes(md, floorHeight);
     }
 }
+
+
 
 vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
 									 constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
@@ -267,7 +258,7 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 //	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
 
 	float factor = 0.001;
-	bool check1 = pos.x*pos.x + pos.z*pos.z < (1-factor)*(1-factor)*halfLength*halfLength;
+	bool check1 = pos.x*pos.x + pos.z*pos.z < (1-factor)*(1-factor)*RADIUS*RADIUS;
 	
 	
 	
@@ -285,35 +276,6 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 	return pOut;
 }
 
-// ------------------------- OBJECT CS -------------------------------
-float4x4 fromGlobalToObjectCS(float h) {
-    return float4x4( float4( 1, 0, 0, 0),
-                     float4( 0, 0, 1, 0),
-                     float4( 0, 1, 0, 0),
-                     float4( 0, 0, -h, 1)
-                    );
-}
-
-float4x4 fromObjectToGlobalCS(float h) {
-    return float4x4( float4( 1, 0, 0, 0),
-                     float4( 0, 0, 1, 0),
-                     float4( 0, 1, 0, 0),
-                     float4( 0, h, 0, 1)
-                    );
-}
-
-
-float4 fromCylindricalToCartesian(float rho, int index) {
-	const auto z = (index/PHI_GRID_NODE_COUNT)*gridNodeDistCylindricalZ;
-	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
-	
-	float4 pos(1);
-	pos.x = rho*cos(phi);
-	pos.y = rho*sin(phi);
-	pos.z = z;
-
-	return pos;
-}
 
 float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
     const float4 childUnexpected(247./255, 242./255, 26./255, 0);
@@ -505,46 +467,6 @@ float calcGrad(uint vid,
 //}
 
 
-// ------------------ GIPERBOLIC ---------------------------
-// spos - координаты точки в СК объекта наблюдения
-// index - определяет положение в таблице
-// value - усреднённое значение по поверхности
-void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
-
-	auto phase = 0.f;
-	if ( spos.x < 0 ) {
-		phase = M_PI_F;
-	} else if (spos.y < 0) {
-		phase = 2*M_PI_F;
-	}
-	auto phi = atan( spos.y / spos.x ) + phase;
-	int j = round( phi / PHI_STEP );
-	
-	const auto rho = length(spos.xy);
-	int i = round( (rho*rho - spos.z*spos.z) / U_STEP )	+ U0_GRID_NODE_COUNT;
-
-	value = 2*rho*spos.z;
-	index = i*PHI_GRID_NODE_COUNT + j;
-}
-
-
-float4 fromGiperbolicToCartesian(float value, int index) {
-	const auto u_coord = ( index/PHI_GRID_NODE_COUNT - U0_GRID_NODE_COUNT )*U_STEP;
-	const auto v_coord = value;
-	
-	const auto uv_sqrt = sqrt(v_coord*v_coord + u_coord*u_coord);
-	const auto rho = sqrt(0.5f*(u_coord + uv_sqrt));
-	const auto h = sqrt(rho*rho - u_coord);
-	
-	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
-	
-	float4 pos(1);
-	pos.x = rho*cos(phi);
-	pos.y = rho*sin(phi);
-	pos.z = h;
-
-	return pos;
-}
 
 
 bool inScanArea(float4 spos) {
@@ -648,6 +570,7 @@ float4 colorPhi(const thread float* phi, int count, float4 inColor, int index) {
 }
 
 float4 colorHeight(const thread float* heights, int count, float4 inColor, int index) {
+	const auto gridNodeDistCylindricalZ = RADIUS / GRID_NODE_COUNT;
 	for (int i=0; i < count; ++i) {
 		if (index/PHI_GRID_NODE_COUNT == int(heights[i]/gridNodeDistCylindricalZ)) {
 			return float4(0, 1, 0, 1);

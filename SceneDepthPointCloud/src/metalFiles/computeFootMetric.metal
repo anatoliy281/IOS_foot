@@ -7,33 +7,22 @@
 //
 
 #include <metal_stdlib>
+#include <simd/simd.h>
 #include "../MyMeshData.h"
 #import "../ShaderTypes.h"
 
+float4 fromGiperbolicToCartesian(float value, int index);
+
 using namespace metal;
 
-kernel void computeFootMetric(
+kernel void processSegmentation(
 						   uint index [[ thread_position_in_grid ]],
-						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]],
-						   device GridPoint* heel [[ buffer(kBackHeel) ]],
-						   device GridPoint* toe [[ buffer(kFrontToe) ]],
-						   constant MetricIndeces& metricIndeces [[ buffer(kMetricIndeces) ]]
+						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]]
 						   ) {
-	const int i = index/PHI_GRID_NODE_COUNT;
+	device auto& mesh = myMeshData[index];
+	const auto r0 = fromGiperbolicToCartesian(mesh.mean, index);
 	
-	const int j = index%PHI_GRID_NODE_COUNT;
-	device GridPoint* gp;
-	if ( j == metricIndeces.jPhiHeel ) {
-		gp = heel;
-	} else if ( j == metricIndeces.jPhiToe ) {
-		gp = toe;
-	} else {
-		return;
-	}
-	
-	auto p = GridPoint();
-	p.index = index;
-	p.rho = myMeshData[index].mean;
-	p.checked = 0;
-	gp[i] = p;
+//	const int i = index/PHI_GRID_NODE_COUNT;
+//	const int j = index%PHI_GRID_NODE_COUNT;
+//
 }

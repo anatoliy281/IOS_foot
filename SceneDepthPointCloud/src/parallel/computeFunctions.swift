@@ -2,23 +2,17 @@ import MetalKit
 
 extension Renderer {
 
-	public func calcFootMetrics(bufferIn: MetalBuffer<MyMeshData>,
-								heel: MetalBuffer<GridPoint>,
-								toe: MetalBuffer<GridPoint>,
-								metricIndeces: inout MetricIndeces) {
+	public func startSegmentation(buffer: MetalBuffer<MyMeshData>) {
                 
 		guard let commandBuffer = commandQueue.makeCommandBuffer(),
 			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
 		
-        commandEncoder.setComputePipelineState(computeFootMetricState)
+        commandEncoder.setComputePipelineState(segmentationState)
         
-        commandEncoder.setBuffer(bufferIn)
-		commandEncoder.setBuffer(heel)
-		commandEncoder.setBuffer(toe)
-		commandEncoder.setBytes(&metricIndeces, length: MemoryLayout<MetricIndeces>.stride, index: Int(kMetricIndeces.rawValue))
+        commandEncoder.setBuffer(buffer)
         
-		let nTotal = MTLSize(width: bufferIn.count, height: 1, depth: 1)
-        let w = MTLSize(width: computeFootMetricState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+		let nTotal = MTLSize(width: buffer.count, height: 1, depth: 1)
+        let w = MTLSize(width: segmentationState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
         commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
         
         commandEncoder.endEncoding()
@@ -78,42 +72,43 @@ extension Renderer {
 			return totalRho / Float(cnt)
 		}
 		
-		func vMeanInRegion(buffer: MetalBuffer<GridPoint>, _ v0:Float, _ v1:Float) -> Float3 {
-			var total:Float3 = .init(0,0,0)
-			var cnt:Int = 0
-			for i in 0..<buffer.count {
-				
-				let r0 = fromGiperbolicToCartesian(value: buffer[i].rho, index: buffer[i].index)
-				if (!inFrameBoxOfFoot(pos: r0)) {
-					continue
-				}
-				
-				let v = buffer[i].rho
-				if (v >= v0 && v <= v1) {
-					total += fromGiperbolicToCartesian(value: v, index: buffer[i].index)
-					cnt += 1
-				}
-			}
-			return total / Float(cnt)
-		}
+		//	другие методики подсчета
+//		func vMeanInRegion(buffer: MetalBuffer<GridPoint>, _ v0:Float, _ v1:Float) -> Float3 {
+//			var total:Float3 = .init(0,0,0)
+//			var cnt:Int = 0
+//			for i in 0..<buffer.count {
+//
+//				let r0 = fromGiperbolicToCartesian(value: buffer[i].rho, index: buffer[i].index)
+//				if (!inFrameBoxOfFoot(pos: r0)) {
+//					continue
+//				}
+//
+//				let v = buffer[i].rho
+//				if (v >= v0 && v <= v1) {
+//					total += fromGiperbolicToCartesian(value: v, index: buffer[i].index)
+//					cnt += 1
+//				}
+//			}
+//			return total / Float(cnt)
+//		}
 		
-		func hMeanInRegion(buffer: MetalBuffer<GridPoint>, _ h:Float, _ dh:Float) -> Float3 {
-			var total:Float3 = .init(0,0,0)
-			var cnt:Int = 0
-			for i in 0..<buffer.count {
-				let v = buffer[i].rho
-				let r0 = fromGiperbolicToCartesian(value: v, index: buffer[i].index)
-				if (!inFrameBoxOfFoot(pos: r0)) {
-					continue
-				}
-				
-				if ( r0.z >= h && r0.z <= h+dh ) {
-					total += fromGiperbolicToCartesian(value: v, index: buffer[i].index)
-					cnt += 1
-				}
-			}
-			return total / Float(cnt)
-		}
+//		func hMeanInRegion(buffer: MetalBuffer<GridPoint>, _ h:Float, _ dh:Float) -> Float3 {
+//			var total:Float3 = .init(0,0,0)
+//			var cnt:Int = 0
+//			for i in 0..<buffer.count {
+//				let v = buffer[i].rho
+//				let r0 = fromGiperbolicToCartesian(value: v, index: buffer[i].index)
+//				if (!inFrameBoxOfFoot(pos: r0)) {
+//					continue
+//				}
+//
+//				if ( r0.z >= h && r0.z <= h+dh ) {
+//					total += fromGiperbolicToCartesian(value: v, index: buffer[i].index)
+//					cnt += 1
+//				}
+//			}
+//			return total / Float(cnt)
+//		}
 
 		let heelRho = bufferMean(buffer: &heel, ik: 2)
 		let toeRho = bufferMean(buffer: &toe, ik: 10)
@@ -122,11 +117,11 @@ extension Renderer {
 //		let v0:Float = 0.002
 //		let v1:Float = 0.004
 //		let dist2 = vMeanInRegion(buffer: heel, v0, v1) - vMeanInRegion(buffer: toe, v0, v1)
-		let h:Float = 0.004
-		let dh:Float = 0.004
-		let dist3 = hMeanInRegion(buffer: heel, h, dh) - hMeanInRegion(buffer: toe, h, dh)
+//		let h:Float = 0.004
+//		let dh:Float = 0.004
+//		let dist3 = hMeanInRegion(buffer: heel, h, dh) - hMeanInRegion(buffer: toe, h, dh)
 		
-		return ( length(distance), length(dist3) )
+		return ( length(distance), 0 )
 	}
     
 }

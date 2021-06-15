@@ -4,7 +4,7 @@ import MetalKit
 extension Renderer {
     
     public func makeComputeFootMetricState() -> MTLComputePipelineState? {
-        let function: MTLFunction! = library.makeFunction(name: "computeFootMetric") // Grab our gpu function
+        let function: MTLFunction! = library.makeFunction(name: "processSegmentation") // Grab our gpu function
         guard let res = try? device.makeComputePipelineState(function: function) else {
             fatalError()
         }
