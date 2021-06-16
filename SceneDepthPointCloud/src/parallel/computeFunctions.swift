@@ -2,16 +2,17 @@ import MetalKit
 
 extension Renderer {
 
-	public func startSegmentation(buffer: MetalBuffer<MyMeshData>) {
+	public func startSegmentation(grid: MetalBuffer<MyMeshData>, pointsBuffer: MetalBuffer<BorderPoints>) {
                 
 		guard let commandBuffer = commandQueue.makeCommandBuffer(),
 			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
 		
         commandEncoder.setComputePipelineState(segmentationState)
         
-        commandEncoder.setBuffer(buffer)
+        commandEncoder.setBuffer(grid)
+		commandEncoder.setBuffer(pointsBuffer)
         
-		let nTotal = MTLSize(width: buffer.count, height: 1, depth: 1)
+		let nTotal = MTLSize(width: grid.count, height: 1, depth: 1)
         let w = MTLSize(width: segmentationState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
         commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
         
@@ -22,6 +23,22 @@ extension Renderer {
 
     }
 	
+	public func reductBorderPoints(border: MetalBuffer<BorderPoints>) {
+		guard let commandBuffer = commandQueue.makeCommandBuffer(),
+			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
+		
+		commandEncoder.setComputePipelineState(reductionBorderState)
+		commandEncoder.setBuffer(border)
+		
+		let nTotal = MTLSize(width: border.count, height: 1, depth: 1)
+		let w = MTLSize(width: reductionBorderState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+		commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
+		
+		commandEncoder.endEncoding()
+		commandBuffer.commit()
+		
+		commandBuffer.waitUntilCompleted()
+	}
 
 	func fromGiperbolicToCartesian(value:Float, index:Int32) -> Float3 {
 		

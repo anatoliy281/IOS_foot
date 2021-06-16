@@ -39,6 +39,9 @@ extern "C" {
 #define BOX_FLOOR_ZONE 0.03
 #define HEIGHT_OVER_FLOOR 0.03
 
+// number border points
+#define MAX_BORDER_POINTS 32
+
     enum Group {
         Unknown,
         Floor,

@@ -3,18 +3,22 @@ import MetalKit
 
 extension Renderer {
     
-    public func makeComputeFootMetricState() -> MTLComputePipelineState? {
+    public func makeSegmentationState() -> MTLComputePipelineState? {
         let function: MTLFunction! = library.makeFunction(name: "processSegmentation") // Grab our gpu function
         guard let res = try? device.makeComputePipelineState(function: function) else {
             fatalError()
         }
         return res
     }
-}
+	
+	public func makeReductBorderState() -> MTLComputePipelineState? {
+		let function: MTLFunction! = library.makeFunction(name: "reductBorderBuffer") // Grab our gpu function
+		guard let res = try? device.makeComputePipelineState(function: function) else {
+			fatalError()
+		}
+		return res
+	}
 
-
-
-extension Renderer {
     private func makeBaseUnprojectionPipelineState(shaderFuncName:String) -> MTLRenderPipelineState? {
         guard let vertexFunction = library.makeFunction(name: shaderFuncName) else {
             return nil

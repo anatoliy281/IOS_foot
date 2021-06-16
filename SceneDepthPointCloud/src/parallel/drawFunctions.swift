@@ -58,12 +58,12 @@ extension Renderer {
 
 	}
 	
-	func drawFootMetrics(metric: MetalBuffer<GridPoint>, _ renderEncoder:MTLRenderCommandEncoder) {
+	func drawFootMetrics(_ renderEncoder:MTLRenderCommandEncoder) {
 		renderEncoder.setRenderPipelineState(metricPipelineState)
 		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
-		renderEncoder.setVertexBuffer(metric.buffer, offset: 0, index: Int(kFrontToe.rawValue))
-		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: metric.count)
+		renderEncoder.setVertexBuffer(borderBuffer)
+		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: borderBuffer.count)
 	}
 	
 	

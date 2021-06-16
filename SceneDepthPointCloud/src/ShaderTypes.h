@@ -34,7 +34,7 @@ enum BufferIndices {
 	kImgHeight = 14,
 	kFrontToe = 15,
 	kBackHeel = 16,
-	kMetricIndeces = 17,
+	kBorderBuffer = 17
 };
 
 struct PointCloudUniforms {
@@ -62,6 +62,13 @@ struct GridPoint {
 	float rho;
 	int index;
 	int checked;
+};
+
+// структура хранит массив точек для вычисления границы перехода нога-пол + текущий размер
+struct BorderPoints {
+	simd_float3 coords[MAX_BORDER_POINTS];
+	simd_float3 mean;
+	int len;
 };
 
 #endif /* ShaderTypes_h */

@@ -539,18 +539,15 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 }
 
 vertex ParticleVertexOut metricVertex(
-									constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-									constant float& floorHeight [[ buffer(kHeight) ]],
-									constant GridPoint* metricData [[ buffer(kFrontToe) ]],
-									unsigned int vid [[ vertex_id ]] ) {
-	constant auto& md = metricData[vid];
-	const auto pos = fromObjectToGlobalCS(floorHeight)*fromGiperbolicToCartesian(md.rho, md.index);
-	
-	auto color = float4(0, 1, 0, 1);
-	
-	if (md.checked == 0) {
-		color.a = 0.1;
-	}
+									  unsigned int index [[ vertex_id ]],
+									  constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
+									  constant float& floorHeight [[ buffer(kHeight) ]],
+									  constant BorderPoints* borderPoints [[ buffer(kBorderBuffer) ]]
+									) {
+	constant auto& bp = borderPoints[index];
+	const auto pos = fromObjectToGlobalCS(floorHeight)*float4(bp.mean, 1);
+	auto color = float4(1, 1, 0, 1);
+
 	
 	ParticleVertexOut pOut;
 	pOut.position = projectOnScreen(uniforms, pos);

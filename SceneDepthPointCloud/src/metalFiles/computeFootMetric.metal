@@ -42,16 +42,17 @@ float calcDzDrho(device MyMeshData* mesh,
 	
 }
 
-float calcH(device MyMeshData* mesh,
+float3 calcCoord(device MyMeshData* mesh,
 			int index) {
 	device auto& value = mesh[index].mean;
 	const auto r = fromGiperbolicToCartesian(value, index);
-	return r.z;
+	return r.xyz;
 }
 
 kernel void processSegmentation(
 						   uint index [[ thread_position_in_grid ]],
-						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]]
+						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]],
+						   device BorderPoints* borderBuffer [[ buffer(kBorderBuffer) ]]
 						   ) {
 	device auto& mesh = myMeshData[index];
 	const auto deltaN = 2;
@@ -59,12 +60,19 @@ kernel void processSegmentation(
 	const auto criticalFloorHeight = 0.005;
 	const auto criticalBorderHeight = 0.03;
 	
-	const auto h = calcH(myMeshData, index);
+	const auto j = index%PHI_GRID_NODE_COUNT;
+	device auto& bp = borderBuffer[j];
+	
+	const auto borderHeight = (bp.mean.z == 0 ) ? criticalBorderHeight : bp.mean.z;
+	
 	const auto s = calcDzDrho(myMeshData, index, deltaN);
+	const auto r = calcCoord(myMeshData, index);
+	const auto h = r.z;
 
 	if ( s > criticalSlope && h < criticalBorderHeight ) {
 		mesh.group = Border;
-	} else if ( h > criticalBorderHeight ) {
+		bp.coords[(bp.len++)%MAX_BORDER_POINTS] = r;
+	} else if ( h > borderHeight ) {
 		mesh.group = Foot;
 	} else if ( s < criticalSlope || h <= criticalFloorHeight ) {
 		mesh.group = Floor;
@@ -72,4 +80,23 @@ kernel void processSegmentation(
 		mesh.group = Unknown;
 	}
 	
+}
+
+// реализация нахождения границы
+kernel void reductBorderBuffer(
+							   uint index[[ thread_position_in_grid ]],
+							   device BorderPoints* buffer[[ buffer(kBorderBuffer) ]]
+							   ) {
+	device auto& bp = buffer[index];
+	auto len = min(bp.len, MAX_BORDER_POINTS);
+	if (len == 0) {
+		return;
+	}
+	float3 mean = 0;
+	for (int i=0; i < len; ++i) {
+		mean += bp.coords[i];
+	}
+	mean /= len;
+	
+	bp.mean = mean;
 }

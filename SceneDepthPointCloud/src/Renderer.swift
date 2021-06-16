@@ -82,7 +82,8 @@ class Renderer {
     internal var currentBufferIndex = 0
     
     
-    lazy var segmentationState: MTLComputePipelineState = makeComputeFootMetricState()!
+    lazy var segmentationState: MTLComputePipelineState = makeSegmentationState()!
+	lazy var reductionBorderState: MTLComputePipelineState = makeReductBorderState()!
 	var floorHeight: Float = -10
 	var floorCyclicBuffer: CyclicBuffer = CyclicBuffer(count: 10)
     
@@ -192,6 +193,11 @@ class Renderer {
             }
         }
     }
+	
+	lazy var borderBuffer:MetalBuffer<BorderPoints> = {
+		let arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT))
+		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
+	}()
 	
 	internal var footLength0: CyclicBuffer = CyclicBuffer(count: 100)
 	internal var footLength1: CyclicBuffer = CyclicBuffer(count: 100)
@@ -418,8 +424,7 @@ class Renderer {
             renderEncoder.setDepthStencilState(depthStencilState)
 //            drawMesh(gridType: 0, renderEncoder) 	// cartesian
 			drawMesh(gridType: 1, renderEncoder)	// spherical
-			drawFootMetrics(metric: frontToeBuffer, renderEncoder)
-			drawFootMetrics(metric: backHeelBuffer, renderEncoder)
+			drawFootMetrics(renderEncoder)
         case .separate:
             renderEncoder.setDepthStencilState(depthStencilState)
             drawScanningFootAsSingleFrame(renderEncoder)
@@ -466,7 +471,8 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
-			startSegmentation(buffer: curveGridBuffer)
+			startSegmentation(grid: curveGridBuffer, pointsBuffer: borderBuffer)
+			reductBorderPoints(border: borderBuffer)
 			
 			// debug the foot length
 //			let dists = calcDistance(heel: &backHeelBuffer, toe: &frontToeBuffer)
