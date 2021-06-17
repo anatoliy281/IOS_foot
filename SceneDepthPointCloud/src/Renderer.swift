@@ -167,7 +167,7 @@ class Renderer {
     
     
     var cartesianGridBuffer: MetalBuffer<MyMeshData>!
-//	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
+	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
     var curveGridBuffer: MetalBuffer<MyMeshData>!
     
@@ -237,64 +237,6 @@ class Renderer {
         curveGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
     }
     
-    
-//	func initializeGridIndeces(cyclic:Bool = true) -> MetalBuffer<UInt32> {
-//
-//        var indecesData = [UInt32]()
-//        let nodeCount = UInt32(Z_GRID_NODE_COUNT)	// работает при Z_GRID_NODE_COUNT == PHI_GRID_NODE_COUNT
-//
-//        func index(_ i:UInt32, _ j:UInt32) -> UInt32 {
-//            return i*nodeCount + j
-//        }
-//
-//        func UpDown(_ j: UInt32) -> [UInt32] {
-//            var res = [UInt32]()
-//            for i in 0..<nodeCount-1 {
-//                res.append( contentsOf: [index(i,j), index(i,j+1)] )
-//            }
-//            res.append(index(nodeCount-1,j))
-//
-//            return res
-//        }
-//
-//        func DownUp(_ j: UInt32) -> [UInt32] {
-//
-//            var res = [UInt32]()
-//            for i in (1..<nodeCount).reversed() {
-//				if cyclic {
-//					res.append(contentsOf: [index(i, j%nodeCount), index(i,(j+1)%nodeCount)])
-//				} else {
-//					res.append(contentsOf: [index(i, j), index(i,j+1)])
-//				}
-//
-//            }
-//            res.append(index(0,j))
-//
-//            return res
-//
-//        }
-//
-//        func bottomRight() -> UInt32 {
-//            return index(nodeCount-1, nodeCount-1)
-//        }
-//
-//        func upRight() -> UInt32 {
-//            return index(0, nodeCount-1)
-//        }
-//
-//		let cyclicNode:UInt32 = cyclic ? 1: 0
-//        let endPoint:()->UInt32 = ((nodeCount + cyclicNode)%2 == 0) ? bottomRight : upRight
-//
-//        for j in 0..<nodeCount-1 + cyclicNode {
-//            let move:(UInt32)->[UInt32] = (j%2 == 0) ? UpDown : DownUp
-//            indecesData.append(contentsOf: move(j))
-//        }
-//        indecesData.append(endPoint())
-//        indecesBuffer = .init(device: device, array: indecesData, index: 0)
-//
-//        return indecesBuffer
-//
-//    }
     
     func drawRectResized(size: CGSize) {
         viewportSize = size
@@ -426,8 +368,7 @@ class Renderer {
             drawHeelMarker(renderEncoder)
         case .scanning:
             renderEncoder.setDepthStencilState(depthStencilState)
-//            drawMesh(gridType: 0, renderEncoder) 	// cartesian
-			drawMesh(gridType: 1, renderEncoder)	// spherical
+			drawMesh(renderEncoder)
 			drawFootMetrics(renderEncoder)
         case .separate:
             renderEncoder.setDepthStencilState(depthStencilState)

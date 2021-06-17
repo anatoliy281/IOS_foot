@@ -27,34 +27,22 @@ extension Renderer {
 											indexBufferOffset: submesh.indexBuffer.offset)
 	}
 	
-	func drawMesh(gridType:Int, _ renderEncoder:MTLRenderCommandEncoder) {
-		var state: MTLRenderPipelineState
-		var buffer: MetalBuffer<MyMeshData>
-		if gridType == 1 { // Spherical
-			state = cylindricalGridPipelineState
-			buffer = curveGridBuffer
-		} else {
-			state = cartesianGridPipelineState
-			buffer = cartesianGridBuffer
-		}
-		renderEncoder.setRenderPipelineState(state)
+	func drawMesh(_ renderEncoder:MTLRenderCommandEncoder) {
+
+		renderEncoder.setRenderPipelineState(cylindricalGridPipelineState)
 		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-		renderEncoder.setVertexBuffer(buffer)
+		renderEncoder.setVertexBuffer(curveGridBuffer)
 		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 
-		if gridType == 1 {
-			renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
-		}
-		if gridType == 0 {
-			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
-		} else {
-//			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
-//												indexCount: indecesBuffer.count,
-//												indexType: .uint32,
-//												indexBuffer: indecesBuffer.buffer,
-//												indexBufferOffset: 0)
-			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
-		}
+		
+		renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
+
+		renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+												indexCount: indecesBuffer.count,
+												indexType: .uint32,
+												indexBuffer: indecesBuffer.buffer,
+												indexBufferOffset: 0)
+//		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
 
 	}
 	
