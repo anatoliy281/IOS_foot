@@ -65,7 +65,7 @@ static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float
     return worldPoint / worldPoint.w;
 }
 
-float4 projectOnScreen(constant PointCloudUniforms &uniforms, const thread float4& pos) {
+float4 projectOnScreen(constant CoordData &uniforms, const thread float4& pos) {
     float4 res = uniforms.viewProjectionMatrix * pos;
     res /= res.w;
     return res;
@@ -109,9 +109,8 @@ bool frameRegion(float4 position, float floorHeight, float factor) {
 
 vertex void unprojectCartesianVertex(
                             uint vid [[vertex_id]],
-                            constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
+                            constant CoordData &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
-                            constant float& floorHeight[[ buffer(kHeight) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
@@ -132,7 +131,7 @@ vertex void unprojectCartesianVertex(
 	
     bool check1 = position.x*position.x + position.z*position.z < RADIUS*RADIUS;
 	
-	bool frameCheck = frameRegion(position, floorHeight, 0);
+	bool frameCheck = frameRegion(position, uniforms.floorHeight, 0);
 
     if (
 		check1
@@ -161,8 +160,7 @@ vertex void unprojectCartesianVertex(
 
 
 vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
-									 constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-									 constant float& floorHeight [[ buffer(kHeight) ]],
+									 constant CoordData &uniforms [[ buffer(kPointCloudUniforms) ]],
 									 unsigned int vid [[ vertex_id ]] ) {
 	constant auto &md = myMeshData[vid];
 
@@ -171,7 +169,7 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 //	auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
 	auto saturation = 1;
 	
-	float4 color = colorCartesianPoint(pos.y - floorHeight, saturation);
+	float4 color = colorCartesianPoint(pos.y - uniforms.floorHeight, saturation);
 //	float mixFactor = detectNodeOrientationToCamera(uniforms, pos, floorHeight);
 //	float4 shined = shineDirection(color, mixFactor);
 //	float4 colorised = saturateAsDistance(uniforms, md.depth, shined);
@@ -181,7 +179,7 @@ vertex ParticleVertexOut gridCartesianMeshVertex( constant MyMeshData* myMeshDat
 	
 	
 	
-	bool frameCheck = frameRegion(pos, floorHeight, factor);
+	bool frameCheck = frameRegion(pos, uniforms.floorHeight, factor);
 	
 	if ( check1 && frameCheck) {
 		color.a = 1;
@@ -231,7 +229,7 @@ float4 colorSphericalPoint(float floorDist, float rho, float saturation) {
 //	NotDefined
 //};
 
-float4 detectCameraPosition(constant PointCloudUniforms &uniforms) {
+float4 detectCameraPosition(constant CoordData &uniforms) {
 	constant auto& mat = uniforms.localToWorld;
 	auto res = mat*float4(0, 0, 0, 1);
 //	auto camPos = normalize(camOrigin);
@@ -263,7 +261,7 @@ float4 detectCameraPosition(constant PointCloudUniforms &uniforms) {
 //}
 
 float calcOrientation(float floorHeight,
-					  constant PointCloudUniforms &uniforms, constant MyMeshData* mesh, int vid ) {
+					  constant CoordData &uniforms, constant MyMeshData* mesh, int vid ) {
 	
 	const auto nodeVal = mesh[vid].mean;
 	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
@@ -280,7 +278,7 @@ float calcOrientation(float floorHeight,
 }
 
 float calcOrientation(float floorHeight,
-					  constant PointCloudUniforms &uniforms, device MyMeshData* mesh, int vid ) {
+					  constant CoordData &uniforms, device MyMeshData* mesh, int vid ) {
 	
 	const auto nodeVal = mesh[vid].mean;
 	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
@@ -338,9 +336,8 @@ bool inScanArea(float4 spos) {
 
 vertex void unprojectCylindricalVertex(
                             uint vertexID [[vertex_id]],
-                            constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
+                            constant CoordData &uniforms [[buffer(kPointCloudUniforms)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
-                            constant float& floorHeight[[ buffer(kHeight) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
@@ -361,8 +358,8 @@ vertex void unprojectCylindricalVertex(
 
     const auto confidence = confidenceTexture.sample(depthSampler, texCoord).r;
 
-	bool checkHeight = pointLocation.y - floorHeight < BOX_HEIGHT;
-	const auto spos = fromGlobalToObjectCS(floorHeight)*pointLocation;
+	bool checkHeight = pointLocation.y - uniforms.floorHeight < BOX_HEIGHT;
+	const auto spos = fromGlobalToObjectCS(uniforms.floorHeight)*pointLocation;
 	bool frameCheck = inFootFrame(spos);
     if (
 		checkHeight
@@ -404,7 +401,7 @@ float saturFunc(float depth) {
 	return y;
 }
 
-float4 saturateAsDistance(constant PointCloudUniforms& uniforms, float depth, const thread float4& color) {
+float4 saturateAsDistance(constant CoordData& uniforms, float depth, const thread float4& color) {
 
 	
 	float param = saturFunc(depth);
@@ -448,8 +445,7 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 
 
 vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
-                                     constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-                                     constant float& floorHeight [[ buffer(kHeight) ]],
+                                     constant CoordData &uniforms [[ buffer(kPointCloudUniforms) ]],
 									 constant bool& isNotFreezed [[ buffer(kIsNotFreezed) ]],
                                      unsigned int vid [[ vertex_id ]] ) {
     constant auto &md = myMeshData[vid];
@@ -458,7 +454,7 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
 	const auto spos = fromGiperbolicToCartesian(nodeVal, vid);
-	auto pos = fromObjectToGlobalCS(floorHeight)*spos;
+	auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*spos;
 	
 	
 //
@@ -478,7 +474,7 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 //	const auto saturation = 0.5;
 	
 	
-	float4 color = colorSphericalPoint(abs(pos.y - floorHeight), nodeVal, 0.6);
+	float4 color = colorSphericalPoint(abs(pos.y - uniforms.floorHeight), nodeVal, 0.6);
 //	color = colorLengthDirection(color, vid);
 	color = colorByGroup(color, md);
 	
@@ -540,12 +536,11 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 
 vertex ParticleVertexOut metricVertex(
 									  unsigned int index [[ vertex_id ]],
-									  constant PointCloudUniforms &uniforms [[ buffer(kPointCloudUniforms) ]],
-									  constant float& floorHeight [[ buffer(kHeight) ]],
+									  constant CoordData &uniforms [[ buffer(kPointCloudUniforms) ]],
 									  constant BorderPoints* borderPoints [[ buffer(kBorderBuffer) ]]
 									) {
 	constant auto& bp = borderPoints[index];
-	const auto pos = fromObjectToGlobalCS(floorHeight)*float4(bp.mean, 1);
+	const auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*float4(bp.mean, 1);
 	auto color = float4(1, 1, 0, 1);
 
 	

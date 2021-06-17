@@ -17,7 +17,6 @@ extension Renderer {
 									  offset: 0,
 									  index: Int(kHeelArea.rawValue))
 		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 		
 		guard let submesh = heelAreaMesh.submeshes.first else { return }
 		renderEncoder.drawIndexedPrimitives(type: .triangle,
@@ -32,7 +31,6 @@ extension Renderer {
 		renderEncoder.setRenderPipelineState(cylindricalGridPipelineState)
 		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 		renderEncoder.setVertexBuffer(curveGridBuffer)
-		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 
 		
 		renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
@@ -49,7 +47,6 @@ extension Renderer {
 	func drawFootMetrics(_ renderEncoder:MTLRenderCommandEncoder) {
 		renderEncoder.setRenderPipelineState(metricPipelineState)
 		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 		renderEncoder.setVertexBuffer(borderBuffer)
 		renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: borderBuffer.count)
 	}
@@ -61,7 +58,6 @@ extension Renderer {
 		renderEncoder.setRenderPipelineState(singleFramePipelineState)
 		
 		renderEncoder.setVertexBuffer(curveGridBuffer)
-		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 		renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
 //		renderEncoder.drawIndexedPrimitives(type: .point,
 //											indexCount: indecesBuffer.count,

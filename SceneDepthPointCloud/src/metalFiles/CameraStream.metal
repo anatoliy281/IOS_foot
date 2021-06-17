@@ -50,18 +50,17 @@ struct ParticleVertexOut {
 };
 
 
-float4 project(constant PointCloudUniforms &uniforms, const thread float4& pos) {
+float4 project(constant CoordData &uniforms, const thread float4& pos) {
     float4 res = uniforms.viewProjectionMatrix * pos;
     res /= res.w;
     return res;
 }
 
 vertex ParticleVertexOut heelMarkerAreaVertex( const VertexIn vertexIn [[ stage_in ]],
-                                     constant PointCloudUniforms& uniforms [[ buffer(kPointCloudUniforms) ]],
-                                     constant float& floorHeight [[ buffer(kHeight) ]]
+                                     constant CoordData& uniforms [[ buffer(kPointCloudUniforms) ]]
                                     )
 {
-    const auto pos = vertexIn.position + float4(0, floorHeight, 0, 0);
+    const auto pos = vertexIn.position + float4(0, uniforms.floorHeight, 0, 0);
     ParticleVertexOut outPnt;
     outPnt.position = project( uniforms, pos );
     return outPnt;

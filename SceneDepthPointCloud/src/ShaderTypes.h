@@ -22,7 +22,6 @@ enum BufferIndices {
     kHeelArea = 0,
     kGridPoints = 1,
     kMyMesh = 2,
-    kHeight = 3,
     kVerteces = 4,
     kViewCorner = 5,
     kViewToCam = 6,
@@ -37,11 +36,12 @@ enum BufferIndices {
 	kBorderBuffer = 17
 };
 
-struct PointCloudUniforms {
+struct CoordData {
     matrix_float4x4 viewProjectionMatrix;
     matrix_float4x4 localToWorld;
     matrix_float3x3 cameraIntrinsicsInversed;
     simd_float2 cameraResolution;
+	float floorHeight;
 };
 
 struct CameraView {

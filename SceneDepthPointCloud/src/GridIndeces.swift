@@ -20,7 +20,6 @@ extension Renderer {
 		}
 
 		func DownUp(_ j: UInt32) -> [UInt32] {
-
 			var res = [UInt32]()
 			for i in (1..<nodeCount.u).reversed() {
 				if cyclic {
@@ -28,12 +27,10 @@ extension Renderer {
 				} else {
 					res.append(contentsOf: [index(i, j), index(i,j+1)])
 				}
-
 			}
 			res.append(index(0,j))
 
 			return res
-
 		}
 
 		func bottomRight() -> UInt32 {

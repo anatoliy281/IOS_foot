@@ -16,7 +16,7 @@ constexpr sampler depthSampler;
 // вычисление  угла градиента
 float calcGrad(uint vid,
 				constant float2 *gridPoints,
-				constant PointCloudUniforms &uniforms,
+				constant CoordData &uniforms,
 				texture2d<float, access::sample> depthTexture,
 				int imgWidth,
 				int imgHeight) {

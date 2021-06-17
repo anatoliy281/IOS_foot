@@ -108,7 +108,7 @@ class Renderer {
     
     lazy var segmentationState: MTLComputePipelineState = makeSegmentationState()!
 	lazy var reductionBorderState: MTLComputePipelineState = makeReductBorderState()!
-	var floorHeight: Float = -10
+//	var floorHeight: Float = -10
 	var floorCyclicBuffer: CyclicBuffer = CyclicBuffer(count: 10)
     
     // The current viewport size
@@ -147,12 +147,13 @@ class Renderer {
 
     
     // Point Cloud buffer
-    private lazy var pointCloudUniforms: PointCloudUniforms = {
-        var uniforms = PointCloudUniforms()
+    internal lazy var pointCloudUniforms: CoordData = {
+        var uniforms = CoordData()
         uniforms.cameraResolution = cameraResolution
+		uniforms.floorHeight = -10
         return uniforms
     }()
-    internal var pointCloudUniformsBuffers = [MetalBuffer<PointCloudUniforms>]()
+    internal var pointCloudUniformsBuffers = [MetalBuffer<CoordData>]()
     
     // Camera data
     private var sampleFrame: ARFrame { session.currentFrame! }
@@ -184,7 +185,7 @@ class Renderer {
             switch newValue {
             case .findFootArea:
                 frameAccumulated = 0
-				floorHeight = -10
+				pointCloudUniforms.floorHeight = -10
                 initializeCartesianGridNodes()
             case .scanning:
                 initializeCurveGridNodes()
@@ -335,24 +336,26 @@ class Renderer {
         // update frame data
         update(frame: currentFrame)
         
-        currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
-        pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
-        
-        if currentState == .findFootArea {
+		if currentState == .findFootArea {
 			let nc:Int32 = 10
-			if ( frameAccumulated%nc == 0 && frameAccumulated != 0 && floorHeight == -10 ) {
+			if ( frameAccumulated%nc == 0 && frameAccumulated != 0 && pointCloudUniforms.floorHeight == -10 ) {
 				let fv = Float(cpuCalcFloor())
 				floorCyclicBuffer.update(fv)
 				if ( floorCyclicBuffer.curLen < 10 || floorCyclicBuffer.deviation > 0.003 ) {
 					
-					print("\(frameAccumulated/nc) floor \(floorHeight) fb \(floorCyclicBuffer.deviation)")
+					print("\(frameAccumulated/nc) floor \(pointCloudUniforms.floorHeight) fb \(floorCyclicBuffer.deviation)")
 				} else {
-					floorHeight = fv
+					pointCloudUniforms.floorHeight = fv
 					print("\(frameAccumulated/nc) floor done!!!)")
 				}
 				
 			}
 		}
+		
+        currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
+        pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
+        
+
                       
         if canUpdateDepthTextures(frame: currentFrame) {
 			calcIsNotFreezed = shouldAccumulate(frame: currentFrame)
@@ -407,7 +410,6 @@ class Renderer {
 		renderEncoder.setVertexBuffer(cartesianGridBuffer)
 		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 		renderEncoder.setVertexBuffer(gridPointsBuffer)
-		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 
 		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
 		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
@@ -422,7 +424,6 @@ class Renderer {
             renderEncoder.setVertexBuffer(curveGridBuffer)
 			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 			renderEncoder.setVertexBuffer(gridPointsBuffer)
-			renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 			
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
