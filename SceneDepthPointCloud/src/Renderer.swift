@@ -385,11 +385,11 @@ class Renderer {
     
 	fileprivate func updateMetric() {
 		if (metricMode == .length) {
-			guard let dist = calcLength(borderBuffer) else { return }
+			guard let dist = calcLength(&borderBuffer) else { return }
 			let val = footLength.update(dist)
 			footMetric.length = Int(val)
 		} else {
-			guard let dist = calcBunchWidth(borderBuffer) else { return }
+			guard let dist = calcBunchWidth(&borderBuffer) else { return }
 			let val = footBunchWidth.update(dist)
 			footMetric.bunchWidth = Int(val)
 		}

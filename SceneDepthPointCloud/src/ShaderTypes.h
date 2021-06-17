@@ -58,6 +58,7 @@ struct Gistro {
 struct BorderPoints {
 	simd_float3 coords[MAX_BORDER_POINTS];
 	simd_float3 mean;
+	int isMetric;
 	int len;
 };
 

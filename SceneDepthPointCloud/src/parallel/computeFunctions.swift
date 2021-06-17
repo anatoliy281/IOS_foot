@@ -55,30 +55,38 @@ extension Renderer {
 		return buffer[Int(alpha/dAlpha)].mean
 	}
 	
+	func markPoint(_ buffer: inout MetalBuffer<BorderPoints>, alpha: Float) {
+		let dAlpha = 2*Float.pi / Float(buffer.count)
+		buffer[Int(alpha/dAlpha)].isMetric = 1;
+	}
+	
 	func convertToMm(cm length:Float) -> Float {
 		return round(1000*length)
 	}
 	
-	public func calcLength(_ buffer: MetalBuffer<BorderPoints>) -> Float? {
+	public func calcLength(_ buffer: inout MetalBuffer<BorderPoints>) -> Float? {
 		let heelRho = peekPoint(buffer, alpha: 0)
 		let toeRho = peekPoint(buffer, alpha: Float.pi)
 		let distance = heelRho - toeRho
 	
 		let res = convertToMm(cm: length(distance))
 		if res.isFinite {
+			markPoint(&buffer, alpha: 0)
+			markPoint(&buffer, alpha: Float.pi)
 			return res
 		} else {
 			return nil
 		}
 	}
 	
-	func findBunchPoint(_ buffer: MetalBuffer<BorderPoints>, searchedX x:Float, isOuter:Bool) -> Float3? {
+	func findBunchPoint(_ buffer: inout MetalBuffer<BorderPoints>, searchedX x:Float, isOuter:Bool) -> Float3? {
 		var iStart = buffer.count / 2
 		let dI = (isOuter) ? -1 : 1
 		while iStart%buffer.count != 0 {
 			let p0 = buffer[iStart].mean
 			let p1 = buffer[iStart + dI].mean
 			if ( p0.x < x && x < p1.x ) {
+				buffer[iStart].isMetric = 1
 				return 0.5*(p0 + p1)
 			}
 			iStart += dI
@@ -86,13 +94,14 @@ extension Renderer {
 		return nil
 	}
     
-	public func calcBunchWidth(_ buffer: MetalBuffer<BorderPoints>) -> Float? {
+	public func calcBunchWidth(_ buffer: inout MetalBuffer<BorderPoints>) -> Float? {
 		let l = 0.001*Float(footMetric.length)
 		let dxOuter = (Float(1 - 0.77)*l, Float(1 - 0.635)*l)
 		let dxInner = (Float(1 - 0.8)*l, Float(1 - 0.635)*l)
 
 		// Приближение, что носок (самая удалённая точка) лежит на оси OX
 		let toePoint = peekPoint(buffer, alpha: Float.pi)
+//		markPoint(&buffer, alpha: Float.pi)
 		// Приближение, что пучки лежат посередине интервала
 		let outerDX = 0.5*(dxOuter.0 + dxOuter.1)
 		let innerDX = 0.5*(dxInner.0 + dxInner.1)
@@ -100,8 +109,8 @@ extension Renderer {
 		let outerX = toePoint.x + outerDX
 		let innerX = toePoint.x + innerDX
 		
-		guard let pA = findBunchPoint(buffer, searchedX: outerX, isOuter: true),
-			  let pB = findBunchPoint(buffer, searchedX: innerX, isOuter: false) else {
+		guard let pA = findBunchPoint(&buffer, searchedX: outerX, isOuter: true),
+			  let pB = findBunchPoint(&buffer, searchedX: innerX, isOuter: false) else {
 			return nil
 		}
 		

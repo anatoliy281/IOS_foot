@@ -426,19 +426,19 @@ float4 colorLengthDirection(float4 color, int index) {
 }
 
 float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
+	const auto saturation = 0.3;
 	const auto group = mesh.group;
 	if (group == Border) {
-		return float4(0, 0, 1, 1);
+		return float4(0, 0, 1, saturation);
 	}
 	if (group == Floor) {
-//		return saturate(color + float4(0.5, 0, 0, 0));
-		return float4(0, 1, 0, 1);
+		return float4(0, 1, 0, saturation);
 	}
 	if (group == Foot) {
-		return float4(1, 0, 0, 1);
+		return float4(1, 0, 0, saturation);
 	}
 	if (group == Unknown) {
-		return float4(1);
+		return float4(saturation);
 	}
 	return color;
 }
@@ -541,12 +541,15 @@ vertex ParticleVertexOut metricVertex(
 									) {
 	constant auto& bp = borderPoints[index];
 	const auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*float4(bp.mean, 1);
-	auto color = float4(1, 1, 0, 1);
-
+	auto color = float4(0.75, 0.75, 0, 1);
 	
 	ParticleVertexOut pOut;
 	pOut.position = projectOnScreen(uniforms, pos);
 	pOut.color = color;
+	if (bp.isMetric == 1) {
+		pOut.pointSize *= 3;
+		pOut.color += float4(0.25, 0.25, 0, 1);
+	}
 	return pOut;
 }
 
