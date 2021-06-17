@@ -10,6 +10,30 @@ let gridCurveNodeCount:Int = Int(U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT)
 
 class Renderer {
 	
+	// Метрические характеристики ноги
+	struct FootMetricProps {
+		var length:Int
+		var bunchWidth:Int
+	}
+
+	enum MetricMode: Int {
+		case length = 0, bunchWidth = 1
+	}
+	
+	var metricMode:MetricMode = .length
+	
+	var footMetric:FootMetricProps {
+		willSet {
+			var str:String
+			if (metricMode == .length) {
+				str = "Длинa: \(newValue.length)"
+			} else {
+				str = "Ширина пучков: \(newValue.bunchWidth)"
+			}
+			label.text = str
+		}
+	}
+	
 	var label: UILabel = UILabel()
 	
 	var deltaX:Int32 = 0
@@ -146,29 +170,6 @@ class Renderer {
 //	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
     var curveGridBuffer: MetalBuffer<MyMeshData>!
-	
-	lazy var metricIndeces: MetricIndeces = {
-		let dU = LENGTH*LENGTH / Double(U_GRID_NODE_COUNT)
-		let dPhi = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
-
-		return MetricIndeces(
-							  jPhiHeel: 0,
-							  jPhiToe: Int32(Float.pi / dPhi) )
-		
-	}()
-	
-	
-	lazy var frontToeBuffer: MetalBuffer<GridPoint> = {
-		let count = U0_GRID_NODE_COUNT + U1_GRID_NODE_COUNT
-		var array = Array(repeating: GridPoint(rho: 0, index: 0, checked: 0), count: Int(count))
-		return .init(device: device, array: array, index: kFrontToe.rawValue )
-	}()
-	
-	lazy var backHeelBuffer: MetalBuffer<GridPoint> = {
-		let count = U0_GRID_NODE_COUNT + U1_GRID_NODE_COUNT
-		var array = Array(repeating: GridPoint(rho: 0, index: 0, checked: 0), count: Int(count))
-		return .init(device: device, array: array, index: kBackHeel.rawValue )
-	}()
     
     var gistrosBuffer:MTLBuffer!
     func initializeGistrosBuffer(nodeCount:Int) {
@@ -187,6 +188,7 @@ class Renderer {
                 initializeCartesianGridNodes()
             case .scanning:
                 initializeCurveGridNodes()
+				metricMode = .length
             case .separate:
                 frameAccumulated = 0
                 initializeCurveGridNodes()
@@ -199,8 +201,8 @@ class Renderer {
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
 	}()
 	
-	internal var footLength0: CyclicBuffer = CyclicBuffer(count: 100)
-	internal var footLength1: CyclicBuffer = CyclicBuffer(count: 100)
+	internal var footLength: CyclicBuffer = CyclicBuffer(count: 100)
+	internal var footBunchWidth: CyclicBuffer = CyclicBuffer(count: 100)
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -215,6 +217,8 @@ class Renderer {
             pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
         }
         
+		footMetric = FootMetricProps(length: 0, bunchWidth: 0)
+		
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         currentState = .findFootArea
         initializeCartesianGridNodes()
@@ -435,7 +439,19 @@ class Renderer {
         commandBuffer.commit()
     }
     
-    private func accumulatePoints(frame: ARFrame,
+	fileprivate func updateMetric() {
+		if (metricMode == .length) {
+			guard let dist = calcLength(borderBuffer) else { return }
+			let val = footLength.update(dist)
+			footMetric.length = Int(val)
+		} else {
+			guard let dist = calcBunchWidth(borderBuffer) else { return }
+			let val = footBunchWidth.update(dist)
+			footMetric.bunchWidth = Int(val)
+		}
+	}
+	
+	private func accumulatePoints(frame: ARFrame,
                                   commandBuffer: MTLCommandBuffer,
                                   renderEncoder: MTLRenderCommandEncoder) {
 
@@ -474,17 +490,9 @@ class Renderer {
 			startSegmentation(grid: curveGridBuffer, pointsBuffer: borderBuffer)
 			reductBorderPoints(border: borderBuffer)
 			
-			// debug the foot length
-//			let dists = calcDistance(heel: &backHeelBuffer, toe: &frontToeBuffer)
-//			let lengthOfFoot0 = round(1000*dists.0)
-//
-			var report0 = ""
-//			if lengthOfFoot0.isFinite {
-//				let val = footLength0.update(lengthOfFoot0)
-//				report0 = "Длины: \( Int(val) ) "
-//			}
 			
-			label.text = report0
+			updateMetric()
+			
 			
 
 		} else if currentState == .separate {
@@ -500,11 +508,6 @@ class Renderer {
             
             print("frame accumulated: \(frameAccumulated)")
 		} else {}
-//
-//
-//
-//
-//        lastCameraTransform = frame.camera.transform
     }
 }
 

@@ -64,6 +64,7 @@ kernel void processSegmentation(
 	device auto& bp = borderBuffer[j];
 	
 	const auto borderHeight = (bp.mean.z == 0 ) ? criticalBorderHeight : bp.mean.z;
+	const auto floorHeight = (bp.mean.z == 0 ) ? criticalFloorHeight : bp.mean.z;
 	
 	const auto s = calcDzDrho(myMeshData, index, deltaN);
 	const auto r = calcCoord(myMeshData, index);
@@ -74,7 +75,7 @@ kernel void processSegmentation(
 		bp.coords[(bp.len++)%MAX_BORDER_POINTS] = r;
 	} else if ( h > borderHeight ) {
 		mesh.group = Foot;
-	} else if ( s < criticalSlope || h <= criticalFloorHeight ) {
+	} else if ( s < criticalSlope || h <= floorHeight ) {
 		mesh.group = Floor;
 	} else {
 		mesh.group = Unknown;

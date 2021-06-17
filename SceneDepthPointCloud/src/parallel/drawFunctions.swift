@@ -63,7 +63,7 @@ extension Renderer {
 		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 		renderEncoder.setVertexBytes(&floorHeight, length: MemoryLayout<Float>.stride, index: Int(kHeight.rawValue))
 		renderEncoder.setVertexBuffer(borderBuffer)
-		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: borderBuffer.count)
+		renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: borderBuffer.count)
 	}
 	
 	

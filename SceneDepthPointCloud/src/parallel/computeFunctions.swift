@@ -40,22 +40,6 @@ extension Renderer {
 		commandBuffer.waitUntilCompleted()
 	}
 
-	func fromGiperbolicToCartesian(value:Float, index:Int32) -> Float3 {
-		
-		let du = Double(LENGTH*LENGTH) / Double(U_GRID_NODE_COUNT)
-		let dPhi = (2*Double.pi) / Double(PHI_GRID_NODE_COUNT)
-		
-		let u = Double( index/PHI_GRID_NODE_COUNT - U0_GRID_NODE_COUNT )*du
-		let v = Double(value);
-		
-		let uv_sqrt = sqrt(v*v + u*u);
-		let rho = sqrt(0.5*(u + uv_sqrt));
-		let h = sqrt(rho*rho - u);
-		
-		let phi = Double(Int32(index)%PHI_GRID_NODE_COUNT)*dPhi;
-
-		return Float3(Float(rho)*Float(cos(phi)), Float(rho*sin(phi)), Float(h));
-	}
 	
 	
 	func inFrameBoxOfFoot(pos:Float3) -> Bool {
@@ -66,79 +50,67 @@ extension Renderer {
 		return checkWidth && checkHeight && checkLength
 	}
 	
-	public func calcDistance(heel: inout MetalBuffer<GridPoint>, toe: inout MetalBuffer<GridPoint>) -> (Float, Float) {
-		
-		func bufferMean(buffer: inout MetalBuffer<GridPoint>, ik:Int) -> Float3 {
-			var totalRho:Float3 = .init(0, 0, 0)
-			var cnt:Int = 0
-			for i in (0..<buffer.count-ik).reversed() {
-				let r0 = fromGiperbolicToCartesian(value: buffer[i].rho, index: buffer[i].index)
-				let rk = fromGiperbolicToCartesian(value: buffer[i+ik].rho, index: buffer[i+ik].index)
-				
-				if (!inFrameBoxOfFoot(pos: r0) || !inFrameBoxOfFoot(pos: rk)) {
-					continue
-				}
-				
-				let dr = rk - r0
-				if ( length_squared(dr) / (dr.z*dr.z) < 2 ) {	// производная больше 45 градусов
-					totalRho += r0
-					buffer[i].checked = 1;
-					cnt += 1
-				}
-			}
-			return totalRho / Float(cnt)
-		}
-		
-		//	другие методики подсчета
-//		func vMeanInRegion(buffer: MetalBuffer<GridPoint>, _ v0:Float, _ v1:Float) -> Float3 {
-//			var total:Float3 = .init(0,0,0)
-//			var cnt:Int = 0
-//			for i in 0..<buffer.count {
-//
-//				let r0 = fromGiperbolicToCartesian(value: buffer[i].rho, index: buffer[i].index)
-//				if (!inFrameBoxOfFoot(pos: r0)) {
-//					continue
-//				}
-//
-//				let v = buffer[i].rho
-//				if (v >= v0 && v <= v1) {
-//					total += fromGiperbolicToCartesian(value: v, index: buffer[i].index)
-//					cnt += 1
-//				}
-//			}
-//			return total / Float(cnt)
-//		}
-		
-//		func hMeanInRegion(buffer: MetalBuffer<GridPoint>, _ h:Float, _ dh:Float) -> Float3 {
-//			var total:Float3 = .init(0,0,0)
-//			var cnt:Int = 0
-//			for i in 0..<buffer.count {
-//				let v = buffer[i].rho
-//				let r0 = fromGiperbolicToCartesian(value: v, index: buffer[i].index)
-//				if (!inFrameBoxOfFoot(pos: r0)) {
-//					continue
-//				}
-//
-//				if ( r0.z >= h && r0.z <= h+dh ) {
-//					total += fromGiperbolicToCartesian(value: v, index: buffer[i].index)
-//					cnt += 1
-//				}
-//			}
-//			return total / Float(cnt)
-//		}
-
-		let heelRho = bufferMean(buffer: &heel, ik: 2)
-		let toeRho = bufferMean(buffer: &toe, ik: 10)
+	func peekPoint(_ buffer: MetalBuffer<BorderPoints>, alpha: Float) -> Float3 {
+		let dAlpha = 2*Float.pi / Float(buffer.count)
+		return buffer[Int(alpha/dAlpha)].mean
+	}
+	
+	func convertToMm(cm length:Float) -> Float {
+		return round(1000*length)
+	}
+	
+	public func calcLength(_ buffer: MetalBuffer<BorderPoints>) -> Float? {
+		let heelRho = peekPoint(buffer, alpha: 0)
+		let toeRho = peekPoint(buffer, alpha: Float.pi)
 		let distance = heelRho - toeRho
-		
-//		let v0:Float = 0.002
-//		let v1:Float = 0.004
-//		let dist2 = vMeanInRegion(buffer: heel, v0, v1) - vMeanInRegion(buffer: toe, v0, v1)
-//		let h:Float = 0.004
-//		let dh:Float = 0.004
-//		let dist3 = hMeanInRegion(buffer: heel, h, dh) - hMeanInRegion(buffer: toe, h, dh)
-		
-		return ( length(distance), 0 )
+	
+		let res = convertToMm(cm: length(distance))
+		if res.isFinite {
+			return res
+		} else {
+			return nil
+		}
+	}
+	
+	func findBunchPoint(_ buffer: MetalBuffer<BorderPoints>, searchedX x:Float, isOuter:Bool) -> Float3? {
+		var iStart = buffer.count / 2
+		let dI = (isOuter) ? -1 : 1
+		while iStart%buffer.count != 0 {
+			let p0 = buffer[iStart].mean
+			let p1 = buffer[iStart + dI].mean
+			if ( p0.x < x && x < p1.x ) {
+				return 0.5*(p0 + p1)
+			}
+			iStart += dI
+		}
+		return nil
 	}
     
+	public func calcBunchWidth(_ buffer: MetalBuffer<BorderPoints>) -> Float? {
+		let l = 0.001*Float(footMetric.length)
+		let dxOuter = (Float(1 - 0.77)*l, Float(1 - 0.635)*l)
+		let dxInner = (Float(1 - 0.8)*l, Float(1 - 0.635)*l)
+
+		// Приближение, что носок (самая удалённая точка) лежит на оси OX
+		let toePoint = peekPoint(buffer, alpha: Float.pi)
+		// Приближение, что пучки лежат посередине интервала
+		let outerDX = 0.5*(dxOuter.0 + dxOuter.1)
+		let innerDX = 0.5*(dxInner.0 + dxInner.1)
+		// искомые координаты пучков в рамках данных приближений
+		let outerX = toePoint.x + outerDX
+		let innerX = toePoint.x + innerDX
+		
+		guard let pA = findBunchPoint(buffer, searchedX: outerX, isOuter: true),
+			  let pB = findBunchPoint(buffer, searchedX: innerX, isOuter: false) else {
+			return nil
+		}
+		
+		let res = convertToMm(cm: length(pA - pB))
+		if res.isFinite {
+			return res
+		} else {
+			return nil
+		}
+	}
+	
 }

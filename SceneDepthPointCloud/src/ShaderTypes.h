@@ -53,16 +53,6 @@ struct Gistro {
     simd_int2 mn;
 };
 
-struct MetricIndeces {
-	int jPhiHeel;
-	int jPhiToe;
-};
-
-struct GridPoint {
-	float rho;
-	int index;
-	int checked;
-};
 
 // структура хранит массив точек для вычисления границы перехода нога-пол + текущий размер
 struct BorderPoints {

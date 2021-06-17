@@ -4,10 +4,12 @@ import MetalKit
 import ARKit
 
 
+
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let sendButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     private let startButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
+	private let switchMetricModeButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
 	public var info = UILabel(frame: CGRect(x: 0, y: 0, width: 100, height: 50))
     private var stackView: UIStackView!
 
@@ -24,6 +26,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
         startButton.backgroundColor = .green
         startButton.setTitle("Начать сканирование", for: .normal)
         startButton.addTarget(self, action: #selector(startAction), for: .touchUpInside)
+		
+		switchMetricModeButton.backgroundColor = .gray
+		switchMetricModeButton.setTitle("Снять длину", for: .normal)
+		switchMetricModeButton.addTarget(self, action: #selector(acceptMetricPropAction), for: .touchUpInside)
 		
 		info.font = UIFont(name: "Palatino", size: 30)
 		info.textColor = UIColor(red: 0, green: 1, blue: 1, alpha: 1)
@@ -53,8 +59,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
 			renderer.label = info
         }
         
-        stackView = UIStackView(arrangedSubviews: [startButton, sendButton, info])
+        stackView = UIStackView(arrangedSubviews: [startButton, sendButton, switchMetricModeButton, info])
         sendButton.isHidden = true
+		switchMetricModeButton.isHidden = true
         stackView.isHidden = !isUIEnabled
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .horizontal
@@ -79,7 +86,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
 
 
         sendButton.isHidden = true
-        startButton.isHidden = !sendButton.isHidden
+        startButton.isHidden = false
     }
     
     
@@ -150,7 +157,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		return fNames
 	}
     
-    @objc
+	@objc
     func startAction(_ sender: UIButton!) {
         
         print("START!!!")
@@ -158,10 +165,25 @@ final class ViewController: UIViewController, ARSessionDelegate {
 //            let nextState = isDebugMode ? Renderer.RendererState.separate: Renderer.RendererState.scanning
             renderer.currentState.nextState()
         }
-        
+		switchMetricModeButton.isHidden = false
         sendButton.isHidden = false
-        startButton.isHidden = !sendButton.isHidden
+        startButton.isHidden = true
+		
     }
+	
+	@objc
+	func acceptMetricPropAction(_ sender: UIButton!) {
+		print("ACCEPT METRIC!!!")
+		var caption:String
+		if (renderer.metricMode == .length) {
+			renderer.metricMode = .bunchWidth
+			caption = "Снять пучки"
+		} else {
+			renderer.metricMode = .length
+			caption = "Снять длину"
+		}
+		switchMetricModeButton.setTitle(caption, for: .normal)
+	}
     
     
     override func viewWillAppear(_ animated: Bool) {
