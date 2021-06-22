@@ -16,7 +16,8 @@ extension Renderer {
 		renderEncoder.setVertexBuffer(heelAreaMesh.vertexBuffers[0].buffer,
 									  offset: 0,
 									  index: Int(kHeelArea.rawValue))
-		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 		
 		guard let submesh = heelAreaMesh.submeshes.first else { return }
 		renderEncoder.drawIndexedPrimitives(type: .triangle,
@@ -29,7 +30,8 @@ extension Renderer {
 	func drawMesh(_ renderEncoder:MTLRenderCommandEncoder) {
 
 		renderEncoder.setRenderPipelineState(cylindricalGridPipelineState)
-		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 		renderEncoder.setVertexBuffer(curveGridBuffer)
 
 		
@@ -46,7 +48,8 @@ extension Renderer {
 	
 	func drawFootMetrics(_ renderEncoder:MTLRenderCommandEncoder) {
 		renderEncoder.setRenderPipelineState(metricPipelineState)
-		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 		renderEncoder.setVertexBuffer(borderBuffer)
 		renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: borderBuffer.count)
 		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: borderBuffer.count)
@@ -54,7 +57,8 @@ extension Renderer {
 	
 	
 	func drawScanningFootAsSingleFrame(_ renderEncoder:MTLRenderCommandEncoder) {
-		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 		
 		renderEncoder.setRenderPipelineState(singleFramePipelineState)
 		

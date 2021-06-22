@@ -157,7 +157,7 @@ class Renderer {
 		uniforms.floorHeight = -10
         return uniforms
     }()
-    internal var pointCloudUniformsBuffers = [MetalBuffer<CoordData>]()
+//    internal var pointCloudUniformsBuffers = [MetalBuffer<CoordData>]()
     
     // Camera data
     private var sampleFrame: ARFrame { session.currentFrame! }
@@ -218,9 +218,9 @@ class Renderer {
         commandQueue = device.makeCommandQueue()!
         
         // initialize our buffers
-        for _ in 0 ..< maxInFlightBuffers {
-            pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
-        }
+//        for _ in 0 ..< maxInFlightBuffers {
+//            pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
+//        }
         
 		footMetric = FootMetricProps(length: (a:Float3(),b:Float3()), bunchWidth: 0)
 		
@@ -358,8 +358,8 @@ class Renderer {
 			}
 		}
 		
-        currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
-        pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
+//        currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
+//        pointCloudUniformsBuffers[currentBufferIndex][0] = pointCloudUniforms
         
 
                       
@@ -412,7 +412,8 @@ class Renderer {
         
 		renderEncoder.setRenderPipelineState(cartesianUnprojectPipelineState)
 		renderEncoder.setVertexBuffer(cartesianGridBuffer)
-		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 		renderEncoder.setVertexBuffer(gridPointsBuffer)
 
 		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
@@ -426,7 +427,8 @@ class Renderer {
 		if currentState == .scanning {
             renderEncoder.setRenderPipelineState(sphericalUnprojectPipelineState)
             renderEncoder.setVertexBuffer(curveGridBuffer)
-			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 			renderEncoder.setVertexBuffer(gridPointsBuffer)
 			
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
