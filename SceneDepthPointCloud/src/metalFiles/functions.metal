@@ -65,7 +65,7 @@ float4 fromCylindricalToCartesian(float rho, int index) {
 // index - определяет положение в таблице
 // value - усреднённое значение по поверхности
 
-constant auto k = 0.5;
+constant auto k = 1;
 
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 	

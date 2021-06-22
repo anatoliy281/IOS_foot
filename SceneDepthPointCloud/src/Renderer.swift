@@ -10,27 +10,31 @@ let gridCurveNodeCount:Int = Int(U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT)
 
 class Renderer {
 	
+	
 	// Метрические характеристики ноги
 	struct FootMetricProps {
-		var length:Int
+		var length:(a:Float3,b:Float3)
 		var bunchWidth:Int
 	}
 
 	enum MetricMode: Int {
-		case length = 0, bunchWidth = 1
+		case lengthToe = 0, lengthHeel = 1, bunchWidth = 2
 	}
 	
-	var metricMode:MetricMode = .length
+	var metricMode:MetricMode = .lengthToe
 	
 	var footMetric:FootMetricProps {
 		willSet {
 			var str:String
-			if (metricMode == .length) {
-				str = "Длинa: \(newValue.length)"
+			if metricMode == .lengthToe {
+//				str = "Снимаем носок"
+			} else if metricMode == .lengthHeel {
+//				str = "Снимае пятку"
 			} else {
-				str = "Ширина пучков: \(newValue.bunchWidth)"
+//				str = "Пучки?"
 			}
-			label.text = str
+//			label.text = str
+			
 		}
 	}
 	
@@ -189,7 +193,7 @@ class Renderer {
                 initializeCartesianGridNodes()
             case .scanning:
                 initializeCurveGridNodes()
-				metricMode = .length
+				metricMode = .lengthToe
             case .separate:
                 frameAccumulated = 0
                 initializeCurveGridNodes()
@@ -218,12 +222,14 @@ class Renderer {
             pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
         }
         
-		footMetric = FootMetricProps(length: 0, bunchWidth: 0)
+		footMetric = FootMetricProps(length: (a:Float3(),b:Float3()), bunchWidth: 0)
 		
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         currentState = .findFootArea
         initializeCartesianGridNodes()
         initializeGistrosBuffer(nodeCount: gridCurveNodeCount)
+		
+		label.text = "Снимаем носок"
     }
     
     func initializeCartesianGridNodes() {
@@ -384,14 +390,12 @@ class Renderer {
     }
     
 	fileprivate func updateMetric() {
-		if (metricMode == .length) {
-			guard let dist = calcLength(&borderBuffer) else { return }
-			let val = footLength.update(dist)
-			footMetric.length = Int(val)
-		} else {
-			guard let dist = calcBunchWidth(&borderBuffer) else { return }
-			let val = footBunchWidth.update(dist)
-			footMetric.bunchWidth = Int(val)
+		if (metricMode == .lengthToe || metricMode == .lengthHeel) {
+			pickLengthPoint(&borderBuffer)
+		} else {	// TODO
+//			guard let dist = calcBunchWidth(&borderBuffer) else { return }
+//			let val = footBunchWidth.update(dist)
+//			footMetric.bunchWidth = Int(val)
 		}
 	}
 	

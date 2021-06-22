@@ -175,12 +175,16 @@ final class ViewController: UIViewController, ARSessionDelegate {
 	func acceptMetricPropAction(_ sender: UIButton!) {
 		print("ACCEPT METRIC!!!")
 		var caption:String
-		if (renderer.metricMode == .length) {
-			renderer.metricMode = .bunchWidth
-			caption = "Снять пучки"
+		if (renderer.metricMode == .lengthToe) {
+			renderer.metricMode = .lengthHeel
+			caption = "Снятие длины"
+		} else if (renderer.metricMode == .lengthHeel) {
+			let dr = renderer.footMetric.length.a - renderer.footMetric.length.b
+			info.text = "Длина: \(Int(round(1000*length(Float2(dr.x, dr.y)))))"
+			renderer.metricMode = .lengthToe
+			caption = "Снятие длины"
 		} else {
-			renderer.metricMode = .length
-			caption = "Снять длину"
+			caption = ""
 		}
 		switchMetricModeButton.setTitle(caption, for: .normal)
 	}

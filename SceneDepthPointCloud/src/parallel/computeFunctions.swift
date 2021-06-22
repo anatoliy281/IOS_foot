@@ -78,27 +78,41 @@ extension Renderer {
 		return Int(alpha/dAlpha)
 	}
 	
-	public func calcLength(_ buffer: inout MetalBuffer<BorderPoints>) -> Float? {
+	public func pickLengthPoint(_ buffer: inout MetalBuffer<BorderPoints>) {
 		
-		let toeInterval = (a: anglePos(alpha: Float(11)/Float(12)*Float.pi),
-						   b: anglePos(alpha: Float(13)/Float(12)*Float.pi))
-		let toeSarchRes = findIndexOfFarthestDistance(buffer: buffer, interval: toeInterval, isToe: true)
-		
-		let heelInterval = (a: anglePos(alpha: 0.5*Float.pi),
-							b: anglePos(alpha: 1.5*Float.pi))
-		let heelSarchRes = findIndexOfFarthestDistance(buffer: buffer, interval: heelInterval, isToe: false)
-		let distance =
-			buffer[heelSarchRes].mean
-			- buffer[toeSarchRes].mean
-	
-		let res = convertToMm(cm: length(float2(distance.x, distance.y)))
-		if res.isFinite {
-			markPoint(&buffer, indeces: toeInterval, i: toeSarchRes)
-			markPoint(&buffer, indeces: heelInterval, i: heelSarchRes)
-			return res
-		} else {
-			return nil
+		var pickedPointIndex:Int
+		let interval:(a:Int,b:Int)
+		if metricMode == .lengthToe {
+			interval = (a: anglePos(alpha: Float(11)/Float(12)*Float.pi),
+							   b: anglePos(alpha: Float(13)/Float(12)*Float.pi))
+			pickedPointIndex = findIndexOfFarthestDistance(buffer: buffer, interval: interval, isToe: true)
+			
+		} else { //  metricMode == .lengthHeel
+			interval = (a: anglePos(alpha: 0.5*Float.pi),
+								b: anglePos(alpha: 1.5*Float.pi))
+			pickedPointIndex = findIndexOfFarthestDistance(buffer: buffer, interval: interval, isToe: false)
+
 		}
+		
+		markPoint(&buffer, indeces: interval, i: pickedPointIndex)
+	
+		let pp = buffer[pickedPointIndex].mean
+		
+		if metricMode == .lengthToe {
+			footMetric.length.a = pp
+			print(1000*length(pp))
+		} else if metricMode == .lengthHeel {
+			footMetric.length.b = pp
+			print(1000*length(pp))
+		}
+	
+//		let res = convertToMm(cm: length(float2(distance.x, distance.y)))
+//		if res.isFinite {
+//
+//			return res
+//		} else {
+//			return nil
+//		}
 	}
 	
 	func findBunchPoint(_ buffer: inout MetalBuffer<BorderPoints>, searchedX x:Float, isOuter:Bool) -> Float3? {
@@ -116,8 +130,9 @@ extension Renderer {
 		return nil
 	}
     
-	public func calcBunchWidth(_ buffer: inout MetalBuffer<BorderPoints>) -> Float? {
-		let l = 0.001*Float(footMetric.length)
+	public func calcBunchWidth(_ buffer: inout MetalBuffer<BorderPoints>) -> Int? {
+		let length = 0 // TODO
+		let l = 0.001*Float(length)
 		let dxOuter = (Float(1 - 0.77)*l, Float(1 - 0.635)*l)
 		let dxInner = (Float(1 - 0.8)*l, Float(1 - 0.635)*l)
 
@@ -136,12 +151,13 @@ extension Renderer {
 			return nil
 		}
 		
-		let res = convertToMm(cm: length(pA - pB))
-		if res.isFinite {
-			return res
-		} else {
-			return nil
-		}
+		return 0 // TODO
+//			convertToMm(cm: length(pA - pB))
+//		if res.isFinite {
+//			return res
+//		} else {
+//			return nil
+//		}
 	}
 	
 }
