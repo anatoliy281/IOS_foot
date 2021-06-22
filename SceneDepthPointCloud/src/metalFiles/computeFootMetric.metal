@@ -62,7 +62,7 @@ kernel void processSegmentation(
 	
 	const auto j = index%PHI_GRID_NODE_COUNT;
 	device auto& bp = borderBuffer[j];
-	bp.isMetric = 0;
+	bp.typePoint = none;
 	
 	const auto borderHeight = (bp.mean.z == 0 ) ? criticalBorderHeight : bp.mean.z;
 	const auto floorHeight = (bp.mean.z == 0 ) ? criticalFloorHeight : bp.mean.z;

@@ -39,6 +39,7 @@ extension Renderer {
 		
 		commandBuffer.waitUntilCompleted()
 	}
+	
 
 	
 	
@@ -50,29 +51,50 @@ extension Renderer {
 		return checkWidth && checkHeight && checkLength
 	}
 	
+	// depricated
 	func peekPoint(_ buffer: MetalBuffer<BorderPoints>, alpha: Float) -> Float3 {
 		let dAlpha = 2*Float.pi / Float(buffer.count)
 		return buffer[Int(alpha/dAlpha)].mean
 	}
 	
+	// depricated
 	func markPoint(_ buffer: inout MetalBuffer<BorderPoints>, alpha: Float) {
 		let dAlpha = 2*Float.pi / Float(buffer.count)
-		buffer[Int(alpha/dAlpha)].isMetric = 1;
+		buffer[Int(alpha/dAlpha)].typePoint = metric;
+	}
+	
+	func markPoint(_ buffer: inout MetalBuffer<BorderPoints>, indeces: (a:Int, b:Int), i:Int) {
+		buffer[indeces.a].typePoint = leftSide
+		buffer[i].typePoint = metric
+		buffer[indeces.b].typePoint = rightSide
 	}
 	
 	func convertToMm(cm length:Float) -> Float {
 		return round(1000*length)
 	}
 	
-	public func calcLength(_ buffer: inout MetalBuffer<BorderPoints>) -> Float? {
-		let heelRho = peekPoint(buffer, alpha: 0)
-		let toeRho = peekPoint(buffer, alpha: Float.pi)
-		let distance = heelRho - toeRho
+	func anglePos(alpha: Float) -> Int {
+		let dAlpha = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
+		return Int(alpha/dAlpha)
+	}
 	
-		let res = convertToMm(cm: length(distance))
+	public func calcLength(_ buffer: inout MetalBuffer<BorderPoints>) -> Float? {
+		
+		let toeInterval = (a: anglePos(alpha: Float(11)/Float(12)*Float.pi),
+						   b: anglePos(alpha: Float(13)/Float(12)*Float.pi))
+		let toeSarchRes = findIndexOfFarthestDistance(buffer: buffer, interval: toeInterval, isToe: true)
+		
+		let heelInterval = (a: anglePos(alpha: 0.5*Float.pi),
+							b: anglePos(alpha: 1.5*Float.pi))
+		let heelSarchRes = findIndexOfFarthestDistance(buffer: buffer, interval: heelInterval, isToe: false)
+		let distance =
+			buffer[heelSarchRes].mean
+			- buffer[toeSarchRes].mean
+	
+		let res = convertToMm(cm: length(float2(distance.x, distance.y)))
 		if res.isFinite {
-			markPoint(&buffer, alpha: 0)
-			markPoint(&buffer, alpha: Float.pi)
+			markPoint(&buffer, indeces: toeInterval, i: toeSarchRes)
+			markPoint(&buffer, indeces: heelInterval, i: heelSarchRes)
 			return res
 		} else {
 			return nil
@@ -86,7 +108,7 @@ extension Renderer {
 			let p0 = buffer[iStart].mean
 			let p1 = buffer[iStart + dI].mean
 			if ( p0.x < x && x < p1.x ) {
-				buffer[iStart].isMetric = 1
+				buffer[iStart].typePoint = metric
 				return 0.5*(p0 + p1)
 			}
 			iStart += dI

@@ -546,9 +546,12 @@ vertex ParticleVertexOut metricVertex(
 	ParticleVertexOut pOut;
 	pOut.position = projectOnScreen(uniforms, pos);
 	pOut.color = color;
-	if (bp.isMetric == 1) {
+	if (bp.typePoint == metric) {
 		pOut.pointSize *= 3;
 		pOut.color += float4(0.25, 0.25, 0, 1);
+	} else if (bp.typePoint == rightSide || bp.typePoint == leftSide) {
+		pOut.pointSize *= 2;
+		pOut.color += float4(0.15, 0.15, 0.25, 1);
 	}
 	return pOut;
 }
