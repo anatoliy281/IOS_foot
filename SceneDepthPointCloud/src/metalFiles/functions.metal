@@ -64,8 +64,11 @@ float4 fromCylindricalToCartesian(float rho, int index) {
 // spos - координаты точки в СК объекта наблюдения
 // index - определяет положение в таблице
 // value - усреднённое значение по поверхности
-void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 
+constant auto k = 0.5;
+
+void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
+	
 	auto phase = 0.f;
 	if ( spos.x < 0 ) {
 		phase = M_PI_F;
@@ -76,7 +79,7 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 	int j = round( phi / PHI_STEP );
 	
 	const auto rho = length(spos.xy);
-	int i = round( (rho*rho - spos.z*spos.z) / U_STEP )	+ U0_GRID_NODE_COUNT;
+	int i = round( (k*k*rho*rho - spos.z*spos.z) / U_STEP )	+ U0_GRID_NODE_COUNT;
 
 	value = 2*rho*spos.z;
 	index = i*PHI_GRID_NODE_COUNT + j;
@@ -84,12 +87,13 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 
 
 float4 fromGiperbolicToCartesian(float value, int index) {
+	
 	const auto u_coord = ( index/PHI_GRID_NODE_COUNT - U0_GRID_NODE_COUNT )*U_STEP;
 	const auto v_coord = value;
 	
-	const auto uv_sqrt = sqrt(v_coord*v_coord + u_coord*u_coord);
-	const auto rho = sqrt(0.5f*(u_coord + uv_sqrt));
-	const auto h = sqrt(rho*rho - u_coord);
+	const auto uv_sqrt = sqrt(k*k*v_coord*v_coord + u_coord*u_coord);
+	const auto rho = sqrt(0.5f*(u_coord + uv_sqrt)) / k;
+	const auto h = sqrt(k*k*rho*rho - u_coord);
 	
 	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
 	
