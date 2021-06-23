@@ -182,8 +182,16 @@ final class ViewController: UIViewController, ARSessionDelegate {
 			let dr = renderer.footMetric.length.a - renderer.footMetric.length.b
 			let intres = Int(round(1000*length(Float2(dr.x, dr.y))))
 //			info.text = "Длина: \(intres)"
+			renderer.metricMode = .bunchWidthOuter
+			caption = "Снятие пучков /(Длина: \(intres))"
+		} else if (renderer.metricMode == .bunchWidthOuter) {
+			renderer.metricMode = .bunchWidthInner
+			caption = "Снятие пучков"
+		} else if renderer.metricMode == .bunchWidthInner {
+			let dr = renderer.footMetric.bunchWidth.a - renderer.footMetric.bunchWidth.b
+			let intres = Int(round(1000*length(Float2(dr.x, dr.y))))
 			renderer.metricMode = .lengthToe
-			caption = "Снятие длины /(Длина: \(intres))"
+			caption = "Снятие длины: /(Пучки: \(intres))"
 		} else {
 			caption = ""
 		}

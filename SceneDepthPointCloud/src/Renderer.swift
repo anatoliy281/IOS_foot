@@ -13,12 +13,15 @@ class Renderer {
 	
 	// Метрические характеристики ноги
 	struct FootMetricProps {
-		var length:(a:Float3,b:Float3)
-		var bunchWidth:Int
+		var length: (a:Float3, b:Float3)
+		var bunchWidth: (a:Float3, b:Float3)
 	}
 
 	enum MetricMode: Int {
-		case lengthToe = 0, lengthHeel = 1, bunchWidth = 2
+		case lengthToe = 0,
+			 lengthHeel = 1,
+			 bunchWidthOuter = 2,
+			 bunchWidthInner = 3
 	}
 	
 	var metricMode:MetricMode = .lengthToe
@@ -222,7 +225,7 @@ class Renderer {
 //            pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
 //        }
         
-		footMetric = FootMetricProps(length: (a:Float3(),b:Float3()), bunchWidth: 0)
+		footMetric = FootMetricProps(length: (a:Float3(),b:Float3()), bunchWidth: (a:Float3(),b:Float3()))
 		
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         currentState = .findFootArea
@@ -395,13 +398,12 @@ class Renderer {
 		
 		updateCenterAndcamProjection()
 		
-		if (metricMode == .lengthToe || metricMode == .lengthHeel) {
+		if metricMode == .lengthToe || metricMode == .lengthHeel {
 			pickLengthPoint(&borderBuffer)
-		} else {	// TODO
-//			guard let dist = calcBunchWidth(&borderBuffer) else { return }
-//			let val = footBunchWidth.update(dist)
-//			footMetric.bunchWidth = Int(val)
+		} else {
+			pickWidthPoint(&borderBuffer)
 		}
+		
 	}
 	
 	private func accumulatePoints(frame: ARFrame,
