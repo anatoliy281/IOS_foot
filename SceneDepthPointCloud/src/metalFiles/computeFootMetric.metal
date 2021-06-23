@@ -67,23 +67,25 @@ kernel void processSegmentation(
 	device auto& bp = borderBuffer[j];
 	bp.typePoint = none;
 	
-	const auto borderHeight = (bp.mean.z == 0 ) ? criticalBorderHeight : bp.mean.z;
-	const auto floorHeight = (bp.mean.z == 0 ) ? criticalFloorHeight : bp.mean.z;
-	
 	const auto s = calcDzDrho(myMeshData, index, deltaN);
 	const auto r = calcCoord(myMeshData, index);
 	const auto h = r.z;
 
 	if ( s > criticalSlope && h < criticalBorderHeight ) {
 		mesh.group = Border;
-		bp.coords[(bp.len++)%MAX_BORDER_POINTS] = r;
-	} else if ( h > borderHeight ) {
-		mesh.group = Foot;
-	} else if ( s < criticalSlope || h <= floorHeight ) {
-		mesh.group = Floor;
-	} else {
+		bp.coords[(bp.len++)%MAX_BORDER_POINTS] = float4(r, index/PHI_GRID_NODE_COUNT);
+	} else if (bp.mean.z != 0) {
+		auto xyOut = int(index/PHI_GRID_NODE_COUNT) > bp.u_coord;
+		if ( xyOut ) {
+			mesh.group = Floor;
+		} else {
+			mesh.group = Foot;
+		}
+	} else  {
 		mesh.group = Unknown;
 	}
+	
+	
 	
 }
 
@@ -101,7 +103,7 @@ kernel void reductBorderBuffer(
 	if (len != MAX_BORDER_POINTS) {
 		return;
 	}
-	float3 mean = 0;
+	float4 mean = 0;
 	auto cnt = 0;
 	for (int i=0; i < len; ++i) {
 		if (length_squared(bp.coords[i]) > 0) {
@@ -111,5 +113,7 @@ kernel void reductBorderBuffer(
 	}
 	mean /= cnt;
 	
-	bp.mean = mean;
+	
+	bp.mean = mean.xyz;
+	bp.u_coord = int(mean.w);
 }

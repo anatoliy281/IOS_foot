@@ -57,13 +57,15 @@ enum MetricType {
 	none = 0,		// not marked
 	leftSide = 1,	// left side of interval
 	rightSide = 2,	// right side of interval
-	metric = 3   // metric index
+	metric = 3,   // metric index
+	camera = 4
 };
 
 // структура хранит массив точек для вычисления границы перехода нога-пол + текущий размер
 struct BorderPoints {
-	simd_float3 coords[MAX_BORDER_POINTS];
+	simd_float4 coords[MAX_BORDER_POINTS];
 	simd_float3 mean;
+	int u_coord;
 	enum MetricType typePoint;
 	int len;
 };

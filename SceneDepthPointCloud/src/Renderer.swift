@@ -376,11 +376,11 @@ class Renderer {
         case .findFootArea:
             drawHeelMarker(renderEncoder)
         case .scanning:
-            renderEncoder.setDepthStencilState(depthStencilState)
-//			drawMesh(renderEncoder)
+            renderEncoder.setDepthStencilState(relaxedStencilState)
+			drawMesh(renderEncoder)
 			drawFootMetrics(renderEncoder)
         case .separate:
-            renderEncoder.setDepthStencilState(depthStencilState)
+            renderEncoder.setDepthStencilState(relaxedStencilState)
             drawScanningFootAsSingleFrame(renderEncoder)
         }
     
@@ -389,33 +389,11 @@ class Renderer {
         commandBuffer.commit()
     }
     
+
+	
 	fileprivate func updateMetric() {
 		
-		// центр ЛКС
-		borderBuffer[Int(PHI_GRID_NODE_COUNT)].mean = Float3(0)
-		borderBuffer[Int(PHI_GRID_NODE_COUNT)].typePoint = metric
-		
-		// прокекция камеры
-		let mat = pointCloudUniforms.localToWorld;
-		let camPos = mat*float4(0, 0, 0, 1);
-		let toLocalCS = float4x4( float4( 1, 0, 0, 0),
-						 float4( 0, 0, 1, 0),
-						 float4( 0, 1, 0, 0),
-						 float4( 0, 0, -pointCloudUniforms.floorHeight, 1)
-						)
-		var camPosLoc = toLocalCS*camPos
-		camPosLoc.z = 0
-		
-//		let toWorldCS = float4x4( float4( 1, 0, 0, 0),
-//						 float4( 0, 0, 1, 0),
-//						 float4( 0, 1, 0, 0),
-//						 float4( 0, pointCloudUniforms.floorHeight, 0, 1)
-//						);
-		
-//		let camPosProjWorld = toWorldCS*camPosLoc
-		
-		borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].mean = float3(camPosLoc.x, camPosLoc.y, camPosLoc.z)
-		borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].typePoint = metric
+		updateCenterAndcamProjection()
 		
 		if (metricMode == .lengthToe || metricMode == .lengthHeel) {
 			pickLengthPoint(&borderBuffer)

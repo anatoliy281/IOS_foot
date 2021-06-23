@@ -163,4 +163,24 @@ extension Renderer {
 //		}
 	}
 	
+	
+	func updateCenterAndcamProjection() {
+		// центр ЛКС
+		borderBuffer[Int(PHI_GRID_NODE_COUNT)].mean = simd_float3(repeating:0)
+		borderBuffer[Int(PHI_GRID_NODE_COUNT)].typePoint = metric
+		
+		// прокекция камеры
+		let mat = pointCloudUniforms.localToWorld;
+		let camPos = mat*simd_float4(0, 0, 0, 1);
+		let toLocalCS = float4x4( simd_float4( 1, 0, 0, 0),
+								  simd_float4( 0, 0, 1, 0),
+								  simd_float4( 0, 1, 0, 0),
+								  simd_float4( 0, 0, -pointCloudUniforms.floorHeight, 1)
+		)
+		var camPosLoc = toLocalCS*camPos
+//		camPosLoc.z = 0
+		
+		borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].mean = simd_float3(camPosLoc.x, camPosLoc.y, camPosLoc.z)
+		borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].typePoint = camera
+	}
 }

@@ -552,6 +552,13 @@ vertex ParticleVertexOut metricVertex(
 	} else if (bp.typePoint == rightSide || bp.typePoint == leftSide) {
 		pOut.pointSize *= 2;
 		pOut.color += float4(0.15, 0.15, 0.25, 1);
+	} else if (bp.typePoint == camera) {
+		auto projected = bp.mean;
+		projected.z = 0.01;
+		const auto pos2 = fromObjectToGlobalCS(uniforms.floorHeight)*float4(projected, 1);
+		pOut.position = projectOnScreen(uniforms, pos2);
+		pOut.pointSize *= 3;
+		pOut.color = mix(color, float4(0,0,1,1), bp.mean.z);
 	}
 	return pOut;
 }
