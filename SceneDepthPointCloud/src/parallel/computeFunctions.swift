@@ -100,10 +100,13 @@ extension Renderer {
 		
 		if metricMode == .lengthToe {
 			footMetric.length.a = pp
-			print(1000*length(pp))
+			label.text = String("\(round(1000*pp.x))")
+//			print(1000*length(pp))
+			print("toe")
 		} else if metricMode == .lengthHeel {
 			footMetric.length.b = pp
-			print(1000*length(pp))
+			label.text = String("\(round(1000*pp.x))")
+			print("heel")
 		}
 	
 //		let res = convertToMm(cm: length(float2(distance.x, distance.y)))

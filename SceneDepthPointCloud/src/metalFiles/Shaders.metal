@@ -426,7 +426,7 @@ float4 colorLengthDirection(float4 color, int index) {
 }
 
 float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
-	const auto saturation = 0.3;
+	const auto saturation = 0.5;
 	const auto group = mesh.group;
 	if (group == Border) {
 		return float4(0, 0, 1, saturation);
@@ -474,7 +474,7 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 //	const auto saturation = 0.5;
 	
 	
-	float4 color = colorSphericalPoint(abs(pos.y - uniforms.floorHeight), nodeVal, 0.6);
+	float4 color = colorSphericalPoint(abs(pos.y - uniforms.floorHeight), nodeVal, 0.);
 //	color = colorLengthDirection(color, vid);
 	color = colorByGroup(color, md);
 	

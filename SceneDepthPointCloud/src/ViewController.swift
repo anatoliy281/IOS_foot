@@ -180,7 +180,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
 			caption = "Снятие длины"
 		} else if (renderer.metricMode == .lengthHeel) {
 			let dr = renderer.footMetric.length.a - renderer.footMetric.length.b
-			info.text = "Длина: \(Int(round(1000*length(Float2(dr.x, dr.y)))))"
+			let intres = Int(round(1000*length(Float2(dr.x, dr.y))))
+			info.text = "Длина: \(intres)"
 			renderer.metricMode = .lengthToe
 			caption = "Снятие длины"
 		} else {

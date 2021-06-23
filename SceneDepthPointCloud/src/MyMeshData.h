@@ -22,7 +22,7 @@ extern "C" {
 #define GROUPS_COUNT 3
 
 // giperbolic grid
-#define PHI_GRID_NODE_COUNT 500
+#define PHI_GRID_NODE_COUNT 1000
 #define PHI_STEP ((2*M_PI_F) / PHI_GRID_NODE_COUNT)
 
 #define U0_GRID_NODE_COUNT 150
@@ -40,7 +40,7 @@ extern "C" {
 #define HEIGHT_OVER_FLOOR 0.03
 
 // number border points
-#define MAX_BORDER_POINTS 32
+#define MAX_BORDER_POINTS 8
 
     enum Group {
         Unknown,

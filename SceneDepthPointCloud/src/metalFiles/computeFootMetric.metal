@@ -32,6 +32,9 @@ float calcDzDrho(device MyMeshData* mesh,
 	const auto rN = fromGiperbolicToCartesian(valN, indexN);
 	
 	const auto dR = r0 - rN;
+	if (length(r0.xy) > length(rN.xy)) {
+		return 0;
+	}
 	
 	if (inFootFrame(r0) && inFootFrame(rN)) {
 		return dR.z / length(dR.xy);
@@ -89,16 +92,24 @@ kernel void reductBorderBuffer(
 							   uint index[[ thread_position_in_grid ]],
 							   device BorderPoints* buffer[[ buffer(kBorderBuffer) ]]
 							   ) {
+	if (index >= PHI_GRID_NODE_COUNT) {
+		return;
+	}
 	device auto& bp = buffer[index];
-	auto len = min(bp.len, MAX_BORDER_POINTS);
-	if (len == 0) {
+//	auto len = min(bp.len, MAX_BORDER_POINTS);
+	auto len = MAX_BORDER_POINTS;
+	if (len != MAX_BORDER_POINTS) {
 		return;
 	}
 	float3 mean = 0;
+	auto cnt = 0;
 	for (int i=0; i < len; ++i) {
-		mean += bp.coords[i];
+		if (length_squared(bp.coords[i]) > 0) {
+			mean += bp.coords[i];
+			++cnt;
+		}
 	}
-	mean /= len;
+	mean /= cnt;
 	
 	bp.mean = mean;
 }
