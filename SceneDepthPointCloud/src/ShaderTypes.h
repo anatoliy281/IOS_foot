@@ -58,16 +58,18 @@ enum MetricType {
 	leftSide = 1,	// left side of interval
 	rightSide = 2,	// right side of interval
 	metric = 3,   // metric index
-	camera = 4
+	camera = 4,
+	metricNow = 5
 };
 
 // структура хранит массив точек для вычисления границы перехода нога-пол + текущий размер
 struct BorderPoints {
-	simd_float4 coords[MAX_BORDER_POINTS];
-	simd_float3 mean;
-	int u_coord;
-	enum MetricType typePoint;
-	int len;
+	simd_float4 coords[MAX_BORDER_POINTS]; // хранит значения координат
+	float tgAlpha[MAX_BORDER_POINTS]; // хранит значения производных dZ/dRho (dRho^2 = dX^2 + dY^2)
+	simd_float3 mean;	// контур найденный для группы coords
+	int u_coord;		// хранит u-координату гиперболической системы точки контура (см. mean)
+	enum MetricType typePoint;	// тип точки контура (см. mean)
+	int len;	// текущее место записи измерений (в массив записывается модуль от данной величины и MAX_BORDER_POINTS) тем самым осуществляется цикличность
 };
 
 #endif /* ShaderTypes_h */

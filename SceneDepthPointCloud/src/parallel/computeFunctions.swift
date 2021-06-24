@@ -63,10 +63,18 @@ extension Renderer {
 		buffer[Int(alpha/dAlpha)].typePoint = metric;
 	}
 	
-	func markPoint(_ buffer: inout MetalBuffer<BorderPoints>, indeces: (a:Int, b:Int), i:Int) {
+	func markPoint(_ buffer: inout MetalBuffer<BorderPoints>, indeces: (a:Int, b:Int)) {
 		buffer[indeces.a].typePoint = leftSide
-		buffer[i].typePoint = metric
 		buffer[indeces.b].typePoint = rightSide
+		buffer[Int(PHI_GRID_NODE_COUNT + 3)].typePoint = metric
+		buffer[Int(PHI_GRID_NODE_COUNT + 2)].typePoint = metric
+//		buffer[Int(PHI_GRID_NODE_COUNT + 3)].typePoint = metricNow
+//		buffer[Int(PHI_GRID_NODE_COUNT + 4)].typePoint = metricNow
+		if (metricMode == .lengthToe) {
+			buffer[Int(PHI_GRID_NODE_COUNT + 2)].typePoint = metricNow
+		} else if (metricMode == .lengthHeel) {
+			buffer[Int(PHI_GRID_NODE_COUNT + 3)].typePoint = metricNow
+		}
 	}
 	
 	func convertToMm(cm length:Float) -> Float {
@@ -94,18 +102,20 @@ extension Renderer {
 
 		}
 		
-		markPoint(&buffer, indeces: interval, i: pickedPointIndex)
+		markPoint(&buffer, indeces: interval)
 	
 		let pp = buffer[pickedPointIndex].mean
 		
 		if metricMode == .lengthToe {
-			footMetric.length.a = pp
-			label.text = String("\(round(1000*pp.x))")
+			footMetric.length.a.mean = pp
+			pA.mean = pp
+			label.text = String("\(round(1000*pA.mean.x))")
 //			print(1000*length(pp))
 			print("toe")
 		} else if metricMode == .lengthHeel {
-			footMetric.length.b = pp
-			label.text = String("\(round(1000*pp.x))")
+			footMetric.length.b.mean = pp
+			pB.mean = pp
+			label.text = String("\(round(1000*pB.mean.x))")
 			print("heel")
 		}
 	
@@ -181,6 +191,5 @@ extension Renderer {
 //		camPosLoc.z = 0
 		
 		borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].mean = simd_float3(camPosLoc.x, camPosLoc.y, camPosLoc.z)
-		borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].typePoint = camera
 	}
 }

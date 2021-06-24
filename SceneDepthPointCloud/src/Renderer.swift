@@ -10,10 +10,44 @@ let gridCurveNodeCount:Int = Int(U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT)
 
 class Renderer {
 	
+	struct InertialFloat3 {
+		private var curLen:Int
+		private let maxLen:Int
+		private var points:[Float3]
+		
+		init() {
+			curLen = 0
+			maxLen = 32
+			points = .init(repeating: .zero, count: maxLen)
+		}
+		
+		var mean:Float3 {
+			get {
+				var res:Float3 = .zero
+				let sz = min(curLen, maxLen)
+				for i in 0..<sz {
+					res += points[i]
+				}
+				return res / Float(sz)
+			}
+			
+			set {
+				curLen += 1
+				points[curLen%maxLen] = newValue
+			}
+		}
+		
+		mutating func update()  {
+			for i in 0..<points.count {
+				points[i] = .zero
+				curLen = 0
+			}
+		}
+	}
 	
 	// Метрические характеристики ноги
 	struct FootMetricProps {
-		var length:(a:Float3,b:Float3)
+		var length:(a:InertialFloat3, b:InertialFloat3)
 		var bunchWidth:Int
 	}
 
@@ -25,18 +59,15 @@ class Renderer {
 	
 	var footMetric:FootMetricProps {
 		willSet {
-			var str:String
-			if metricMode == .lengthToe {
-//				str = "Снимаем носок"
-			} else if metricMode == .lengthHeel {
-//				str = "Снимае пятку"
-			} else {
-//				str = "Пучки?"
-			}
-//			label.text = str
-			
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+2].mean = newValue.length.a.mean
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+3].mean = newValue.length.b.mean
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+4].mean = Float3()
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+5].mean = Float3()
 		}
 	}
+	
+	var pA:InertialFloat3
+	var pB:InertialFloat3
 	
 	var label: UILabel = UILabel()
 	
@@ -202,12 +233,18 @@ class Renderer {
     }
 	
 	lazy var borderBuffer:MetalBuffer<BorderPoints> = {
-		let arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT+2))
+		// дополнительные точки: цертр ск, положение камеры, 2 точки длины, 2 точки пучков
+		var arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT + 6))
+		arr[Int(PHI_GRID_NODE_COUNT)+1].typePoint = camera
+		arr[Int(PHI_GRID_NODE_COUNT)+2].typePoint = metric
+		arr[Int(PHI_GRID_NODE_COUNT)+3].typePoint = metric
+		arr[Int(PHI_GRID_NODE_COUNT)+4].typePoint = metric
+		arr[Int(PHI_GRID_NODE_COUNT)+5].typePoint = metric
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
 	}()
 	
-	internal var footLength: CyclicBuffer = CyclicBuffer(count: 100)
-	internal var footBunchWidth: CyclicBuffer = CyclicBuffer(count: 100)
+//	internal var footLength: CyclicBuffer = CyclicBuffer(count: 100)
+//	internal var footBunchWidth: CyclicBuffer = CyclicBuffer(count: 100)
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -222,7 +259,9 @@ class Renderer {
 //            pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
 //        }
         
-		footMetric = FootMetricProps(length: (a:Float3(),b:Float3()), bunchWidth: 0)
+		footMetric = FootMetricProps(length: (a:InertialFloat3(), b:InertialFloat3()), bunchWidth: 0)
+		pA = InertialFloat3()
+		pB = InertialFloat3()
 		
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         currentState = .findFootArea

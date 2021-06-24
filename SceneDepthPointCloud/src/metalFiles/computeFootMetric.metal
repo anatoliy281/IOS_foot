@@ -73,7 +73,9 @@ kernel void processSegmentation(
 
 	if ( s > criticalSlope && h < criticalBorderHeight ) {
 		mesh.group = Border;
-		bp.coords[(bp.len++)%MAX_BORDER_POINTS] = float4(r, index/PHI_GRID_NODE_COUNT);
+		const auto i = (bp.len++)%MAX_BORDER_POINTS;
+		bp.coords[i] = float4(r, index/PHI_GRID_NODE_COUNT);
+		bp.tgAlpha[i] = s;
 	} else if (bp.mean.z != 0) {
 		auto xyOut = int(index/PHI_GRID_NODE_COUNT) > bp.u_coord;
 		if ( xyOut ) {
@@ -105,15 +107,22 @@ kernel void reductBorderBuffer(
 	}
 	float4 mean = 0;
 	auto cnt = 0;
+	auto maxTangent = 0;
+	auto iMaxTangent = 0;
 	for (int i=0; i < len; ++i) {
 		if (length_squared(bp.coords[i]) > 0) {
 			mean += bp.coords[i];
 			++cnt;
 		}
+		if (maxTangent < bp.tgAlpha[i]) {
+			maxTangent = bp.tgAlpha[i];
+			iMaxTangent = i;
+		}
 	}
 	mean /= cnt;
 	
 	
-	bp.mean = mean.xyz;
+//	bp.mean = mean.xyz;
+	bp.mean = bp.coords[iMaxTangent].xyz;
 	bp.u_coord = int(mean.w);
 }
