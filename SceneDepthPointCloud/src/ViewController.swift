@@ -9,7 +9,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let sendButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     private let startButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
-	private let switchMetricModeButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
+	public let switchMetricModeButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
 	public var info = UILabel(frame: CGRect(x: 0, y: 0, width: 100, height: 50))
     private var stackView: UIStackView!
 
@@ -175,6 +175,11 @@ final class ViewController: UIViewController, ARSessionDelegate {
 	func acceptMetricPropAction(_ sender: UIButton!) {
 		print("ACCEPT METRIC!!!")
 		var caption:String
+		renderer.currentMeasuredPoint.reset()
+		renderer.controlPoint.reset()
+		
+
+		
 		if (renderer.metricMode == .lengthToe) {
 			renderer.metricMode = .lengthHeel
 			caption = "Снятие длины"
@@ -187,7 +192,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
 			renderer.metricMode = .bunchWidthOuter
 			caption = "Снятие пучков /(Длина: \(intres))"
 		} else if (renderer.metricMode == .bunchWidthOuter) {
-			renderer.metricMode = .bunchWidthOuter
+			renderer.metricMode = .bunchWidthInner
 			caption = "Снятие пучков"
 		} else if renderer.metricMode == .bunchWidthInner {
 			let a = renderer.footMetric.bunchWidth.a.mean

@@ -37,7 +37,7 @@ class Renderer {
 			}
 		}
 		
-		mutating func update()  {
+		mutating func reset()  {
 			for i in 0..<points.count {
 				points[i] = .zero
 				curLen = 0
@@ -47,8 +47,9 @@ class Renderer {
 	
 	// Метрические характеристики ноги
 	struct FootMetricProps {
-		var length:(a:InertialFloat3, b:InertialFloat3)
-		var bunchWidth: (a:InertialFloat3, b:InertialFloat3)
+		var length: (a:InertialFloat3, b:InertialFloat3)
+		var bunchWidth: (a:InertialFloat3, b:InertialFloat3, c:InertialFloat3)
+		var interval: (a:InertialFloat3, b:InertialFloat3)
 	}
 
 	enum MetricMode: Int {
@@ -58,20 +59,63 @@ class Renderer {
 			 bunchWidthInner = 3
 	}
 	
-	var metricMode:MetricMode = .lengthToe
+	var metricMode:MetricMode = .lengthToe {
+		willSet {
+			
+			footMetric.interval.a.reset()
+			footMetric.interval.b.reset()
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)].typePoint = metric
+			borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].typePoint = camera
+			borderBuffer[Int(PHI_GRID_NODE_COUNT+7)].typePoint = interval
+			borderBuffer[Int(PHI_GRID_NODE_COUNT+8)].typePoint = interval
+			
+			switch(newValue) {
+			case .lengthToe:
+				// disable bunch
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+6)].typePoint = none
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = none
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = none
+				// enable length
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+2)].typePoint = metricNow // toe
+			case .lengthHeel:
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+2)].typePoint = metric		// toe
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+3)].typePoint = metricNow	// heel
+			case .bunchWidthOuter:
+				// disable length marks
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+2)].typePoint = none
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+3)].typePoint = none
+				// bunch
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = metricNow // left bunch width
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+6)].typePoint = metricNow // toe for bunch
+			case .bunchWidthInner:
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = metric		// left bunch
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = metricNow	// right bunch
+			}
+		}
+	}
 	
 	var footMetric:FootMetricProps {
 		willSet {
 			borderBuffer[Int(PHI_GRID_NODE_COUNT)+2].mean = newValue.length.a.mean
 			borderBuffer[Int(PHI_GRID_NODE_COUNT)+3].mean = newValue.length.b.mean
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+4].mean = Float3()
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+5].mean = Float3()
+			
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+4].mean = newValue.bunchWidth.a.mean
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+5].mean = newValue.bunchWidth.b.mean
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+6].mean = newValue.bunchWidth.c.mean
+			
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+7].mean = newValue.interval.a.mean
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+8].mean = newValue.interval.b.mean
 		}
 	}
 	
-	var pA:InertialFloat3
-	var pB:InertialFloat3
-	var pC:InertialFloat3
+	var currentMeasuredPoint:InertialFloat3 {
+		willSet {
+			label.text = String("\(round(1000*newValue.mean.x))")
+		}
+	}
+	
+	var controlPoint:InertialFloat3
+//	var pC:InertialFloat3
 	
 	var label: UILabel = UILabel()
 	
@@ -238,17 +282,18 @@ class Renderer {
 	
 	lazy var borderBuffer:MetalBuffer<BorderPoints> = {
 		// дополнительные точки: цертр ск, положение камеры, 2 точки длины, 2 точки пучков
-		var arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT + 6))
-		arr[Int(PHI_GRID_NODE_COUNT)+1].typePoint = camera
-		arr[Int(PHI_GRID_NODE_COUNT)+2].typePoint = metric
-		arr[Int(PHI_GRID_NODE_COUNT)+3].typePoint = metric
-		arr[Int(PHI_GRID_NODE_COUNT)+4].typePoint = metric
-		arr[Int(PHI_GRID_NODE_COUNT)+5].typePoint = metric
+		
+		// 1 coord center
+		// 2 camera
+		// 3 toe
+		// 4 heel
+		// 5 left bunch
+		// 6 right bunch
+		// 7 toe for bunch
+		// 8,9 interval
+		let arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT + 9))
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
 	}()
-	
-//	internal var footLength: CyclicBuffer = CyclicBuffer(count: 100)
-//	internal var footBunchWidth: CyclicBuffer = CyclicBuffer(count: 100)
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -258,17 +303,13 @@ class Renderer {
         library = device.makeDefaultLibrary()!
         commandQueue = device.makeCommandQueue()!
         
-        // initialize our buffers
-//        for _ in 0 ..< maxInFlightBuffers {
-//            pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
-//        }
-        
-		footMetric = FootMetricProps(length: (a:InertialFloat3(), b:InertialFloat3()),
-		bunchWidth: (a:InertialFloat3(), b:InertialFloat3()))
+		footMetric = FootMetricProps( length: (a:InertialFloat3(), b:InertialFloat3()),
+									  bunchWidth: (a:InertialFloat3(), b:InertialFloat3(), c:InertialFloat3()),
+									  interval: (a:InertialFloat3(), b:InertialFloat3())
+		)
 		
-		pA = InertialFloat3()
-		pB = InertialFloat3()
-		pC = InertialFloat3()
+		currentMeasuredPoint = InertialFloat3()
+		controlPoint = InertialFloat3()
 		
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
         currentState = .findFootArea

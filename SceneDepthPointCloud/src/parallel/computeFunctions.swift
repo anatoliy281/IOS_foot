@@ -51,26 +51,6 @@ extension Renderer {
 		return checkWidth && checkHeight && checkLength
 	}
 	
-	func markPoint(_ buffer: inout MetalBuffer<BorderPoints>, indeces: (a:Int, b:Int)) {
-		buffer[indeces.a].typePoint = leftSide
-		buffer[indeces.b].typePoint = rightSide
-		buffer[Int(PHI_GRID_NODE_COUNT + 2)].typePoint = metric
-		buffer[Int(PHI_GRID_NODE_COUNT + 3)].typePoint = metric
-		buffer[Int(PHI_GRID_NODE_COUNT + 4)].typePoint = metric
-		buffer[Int(PHI_GRID_NODE_COUNT + 5)].typePoint = metric
-		if (metricMode == .lengthToe) {
-			buffer[Int(PHI_GRID_NODE_COUNT + 2)].typePoint = metricNow
-		} else if (metricMode == .lengthHeel) {
-			buffer[Int(PHI_GRID_NODE_COUNT + 3)].typePoint = metricNow
-		} else if (metricMode == .bunchWidthOuter) {
-			buffer[Int(PHI_GRID_NODE_COUNT + 2)].typePoint = metricNow	// точка носк становится снова измеряемой в данный момент
-			buffer[Int(PHI_GRID_NODE_COUNT + 4)].typePoint = metricNow
-		} else if (metricMode == .bunchWidthInner) {
-			buffer[Int(PHI_GRID_NODE_COUNT + 2)].typePoint = metricNow // точка носк становится снова измеряемой в данный момент
-			buffer[Int(PHI_GRID_NODE_COUNT + 5)].typePoint = metricNow
-		}
-	}
-	
 	
 	func convertToMm(cm length:Float) -> Float {
 		return round(1000*length)
@@ -86,71 +66,70 @@ extension Renderer {
 	// isOuter marks outer point
 	func pickWidthPoint(_ buffer: inout MetalBuffer<BorderPoints>) {
 		
-		func findInterval(xCoord:Float, _ buffer: inout MetalBuffer<BorderPoints>) -> Int? {
-			
-			if metricMode == .bunchWidthInner {
-				for i in (1..<buffer.count).reversed() {
-					let p0 = buffer[i].mean
-					let p1 = buffer[i-1].mean
-					if ((p0.x-xCoord)*(p1.x-xCoord) < 0) {
-						return i
-					}
+		
+		// TODO: на вход подавать xCoord в базисе ноги!
+		func findInterval(_ xCoord:Float, _ range:(iStart:Int, iEnd:Int)) -> Int? {
+			for i in range.iStart..<range.iEnd {
+				let p0 = buffer[i].mean
+				let p1 = buffer[i+1].mean
+				if ((p0.x-xCoord)*(p1.x-xCoord) < 0) {
+					return i
 				}
-				return nil
-			} else {
-				for i in 0..<buffer.count-1 {
-					let p0 = buffer[i].mean
-					let p1 = buffer[i+1].mean
-					if ((p0.x-xCoord)*(p1.x-xCoord) < 0) {
-						return i
-					}
-				}
-				return nil
 			}
-			
-			
+			return nil
 		}
+		// END TODO
 		
 		// find toe point
 		let interval = (a: anglePos(alpha: Float(11)/Float(12)*Float.pi),
 						   b: anglePos(alpha: Float(13)/Float(12)*Float.pi))
 		let pickedPointIndex = findIndexOfFarthestDistance(buffer: buffer, interval: interval, isToe: true)
 //		markPoint(&buffer, indeces: interval)
-		pC.mean = buffer[pickedPointIndex].mean	// the toe point
+		footMetric.bunchWidth.c.mean = buffer[pickedPointIndex].mean	// the toe point
 		
-		// find x interval
-		let percent:(from:Float,to:Float) = (metricMode == .bunchWidthOuter) ? (from: 0.75,to:0.65): (from: 0.7,to:0.6)
+		let percent:(from:Float,to:Float) = (metricMode == .bunchWidthOuter) ? (from: 0.85,to:0.55): (from: 0.9,to:0.6)
 		
+		// TODO: пересчитать xToe xHeel в базисе ноги
 		let footLen = length(footMetric.length.a.mean - footMetric.length.b.mean)
-		let xToe = pC.mean.x + footLen*(1 - percent.from)
-		let xHeel = pC.mean.x + footLen*(1 - percent.to)
-		let iStart:Int! = findInterval(xCoord: xToe, &buffer)
-		let iEnd:Int! = findInterval(xCoord: xHeel, &buffer)
-	
+		let xToe = footMetric.bunchWidth.c.mean.x + footLen*(1 - percent.from)
+		let xHeel = footMetric.bunchWidth.c.mean.x + footLen*(1 - percent.to)
+		// END TODO
+		
+		// в зависимости от состояния
+		let searchInterval:(Int,Int) = (metricMode == .bunchWidthOuter) ? (0, pickedPointIndex)
+			: (pickedPointIndex, buffer.count)
+		
+		let iStart:Int! = findInterval(xToe, searchInterval)
+		let iEnd:Int! = findInterval(xHeel, searchInterval)
+		
 		if (iStart != nil && iEnd != nil) {
+			// update interval
+			footMetric.interval.a.mean = buffer[iStart].mean
+			footMetric.interval.b.mean = buffer[iEnd].mean
+			
+			// TODO: вычислять maxY в базисе ноги
 			var maxY:Float = 0
 			var p:Float3!
-			var iFind:Int!
 			for i in min(iStart,iEnd)..<max(iStart,iEnd) {
 				if (abs(buffer[i].mean.y) > maxY) {
 					maxY = abs(buffer[i].mean.y)
 					p = buffer[i].mean
-					iFind = i
 				}
 			}
+			// END TODO
 			
-			if iFind == nil {
-				return
+			if p != nil {
+				currentMeasuredPoint.mean = p
+				
+				if metricMode == .bunchWidthOuter {
+					footMetric.bunchWidth.a.mean = currentMeasuredPoint.mean
+					print("!!!!! bunch width OUTER !!!!")
+				} else {
+					footMetric.bunchWidth.b.mean = currentMeasuredPoint.mean
+					print("!!!!! bunch width INNER !!!!")
+				}
 			}
-			
-			markPoint(&borderBuffer, indeces: (a:iStart,b:iEnd))
-			
-			if metricMode == .bunchWidthOuter {
-				footMetric.bunchWidth.a.mean = buffer[iFind].mean
-			} else {
-				footMetric.bunchWidth.b.mean = buffer[iFind].mean
-			}
-			
+
 		}
 	}
 	
@@ -169,38 +148,24 @@ extension Renderer {
 			pickedPointIndex = findIndexOfFarthestDistance(buffer: buffer, interval: interval, isToe: false)
 
 		}
-		
-		markPoint(&buffer, indeces: interval)
+		// update interval
+		footMetric.interval.a.mean = buffer[interval.a].mean
+		footMetric.interval.b.mean = buffer[interval.b].mean
 	
 		let pp = buffer[pickedPointIndex].mean
 		
 		if metricMode == .lengthToe {
 			footMetric.length.a.mean = pp
-			pA.mean = pp
-			label.text = String("\(round(1000*pA.mean.x))")
-//			print(1000*length(pp))
-			print("toe")
 		} else if metricMode == .lengthHeel {
 			footMetric.length.b.mean = pp
-			pB.mean = pp
-			label.text = String("\(round(1000*pB.mean.x))")
-			print("heel")
 		}
-	
-//		let res = convertToMm(cm: length(float2(distance.x, distance.y)))
-//		if res.isFinite {
-//
-//			return res
-//		} else {
-//			return nil
-//		}
+		currentMeasuredPoint.mean = pp
 	}
 	
 	
 	func updateCenterAndcamProjection() {
 		// центр ЛКС
 		borderBuffer[Int(PHI_GRID_NODE_COUNT)].mean = simd_float3(repeating:0)
-		borderBuffer[Int(PHI_GRID_NODE_COUNT)].typePoint = metric
 		
 		// прокекция камеры
 		let mat = pointCloudUniforms.localToWorld;
@@ -210,9 +175,7 @@ extension Renderer {
 								  simd_float4( 0, 1, 0, 0),
 								  simd_float4( 0, 0, -pointCloudUniforms.floorHeight, 1)
 		)
-		var camPosLoc = toLocalCS*camPos
-//		camPosLoc.z = 0
-		
+		let camPosLoc = toLocalCS*camPos
 		borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].mean = simd_float3(camPosLoc.x, camPosLoc.y, camPosLoc.z)
 	}
 }

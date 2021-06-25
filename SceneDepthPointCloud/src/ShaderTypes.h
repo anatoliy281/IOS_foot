@@ -55,8 +55,7 @@ struct Gistro {
 
 enum MetricType {
 	none = 0,		// not marked
-	leftSide = 1,	// left side of interval
-	rightSide = 2,	// right side of interval
+	interval = 1,	// left side of interval
 	metric = 3,   // metric index
 	camera = 4,
 	metricNow = 5

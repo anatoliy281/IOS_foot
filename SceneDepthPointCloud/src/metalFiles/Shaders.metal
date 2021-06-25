@@ -550,11 +550,11 @@ vertex ParticleVertexOut metricVertex(
 		pOut.pointSize *= 4;
 		pOut.color += float4(0.25, -0.25, 0, 1);
 	} else if (bp.typePoint == metric) {
-		pOut.pointSize *= 3;
-		pOut.color += float4(0.25, 0.25, 0, 1);
-	} else if (bp.typePoint == rightSide || bp.typePoint == leftSide) {
 		pOut.pointSize *= 2;
-		pOut.color += float4(0.15, 0.15, 0.25, 1);
+		pOut.color += float4(0.25, 0.25, 0, 1);
+	} else if (bp.typePoint == interval) {
+		pOut.pointSize *= 3;
+		pOut.color = float4(0, 0, 0, 1);
 	} else if (bp.typePoint == camera) {
 		auto projected = bp.mean;
 		projected.z = 0.01;
