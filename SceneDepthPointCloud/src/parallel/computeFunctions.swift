@@ -39,7 +39,6 @@ extension Renderer {
 		
 		commandBuffer.waitUntilCompleted()
 	}
-	
 
 	
 	
@@ -61,71 +60,120 @@ extension Renderer {
 		return Int(alpha/dAlpha)
 	}
 	
+	// вычисление базиса в зависимости от текущей точки носка при измерении пучков и точки пятки при измерении длины
+	func calcFootBasis() {
+		let toePoint = footMetric.bunchWidth.c.mean
+		let heelPoint = footMetric.length.b.mean
+		var lVec = (heelPoint - toePoint)
+		lVec.z = 0
+		let e1 = normalize(lVec);
+		let e2 = simd_float3(-e1.y, e1.x, 0)
+		
+		print("\(e1.x) \(e1.y)")
+		
+		footMetric.basis = (el:e1, en:e2)
+	}
+	
+	// координаты точки в базисе ноги (координату z возвращаем неизменной)
+	func convertToFootBasis(_ p:Float3) -> Float3 {
+		let x = dot(p, footMetric.basis.el)
+		let y = dot(p, footMetric.basis.en)
+		let z = p.z
+		return simd_float3(x,y,z)
+	}
+	
+	// возвращает точку на оси ноги ( 0 <= percent <= 1)
+	func findPointOnFootAxis(_ percent:Float) -> Float3 {
+		let toePoint = footMetric.bunchWidth.c.mean
+		let heelPoint = footMetric.length.b.mean
+		let dL = toePoint - heelPoint
+		
+		return heelPoint + percent*dL
+	}
 	
 	// percent from (toe) to (heel) -> (out, inner)
 	// isOuter marks outer point
 	func pickWidthPoint(_ buffer: inout MetalBuffer<BorderPoints>) {
 		
-		
-		// TODO: на вход подавать xCoord в базисе ноги!
-		func findInterval(_ xCoord:Float, _ range:(iStart:Int, iEnd:Int)) -> Int? {
+		// rCoord - в исходном базисе
+		// Точка ищется линейным перебором. TODO переделать под метод деления пополам при больших массивах!
+		func findInterval(_ rCoord:Float3, _ range:(iStart:Int, iEnd:Int)) -> Int? {
+			let x0 = convertToFootBasis(rCoord).x
 			for i in range.iStart..<range.iEnd {
-				let p0 = buffer[i].mean
-				let p1 = buffer[i+1].mean
-				if ((p0.x-xCoord)*(p1.x-xCoord) < 0) {
+				let p0 = convertToFootBasis(buffer[i].mean)
+				let p1 = convertToFootBasis(buffer[i+1].mean)
+				if (p0.x-x0)*(p1.x-x0) < 0 {
 					return i
 				}
 			}
 			return nil
 		}
-		// END TODO
+		
+//		// Метод деления пополам (проверить!)
+//		func findInterval(_ rCoord:Float3, _ range:(a:Int, b:Int)) -> Int? {
+//
+//			if ( convertToFootBasis(buffer[range.a].mean).x*convertToFootBasis(buffer[range.b].mean).x >= 0) {
+//				return nil
+//			}
+//			var delta:(a:Int,b:Int) = range
+//			while ( delta.b - delta.a > 1 ) {
+//				let p0 = convertToFootBasis(buffer[delta.a].mean)
+//				let i = (delta.a + delta.b) / 2
+//				let pi = convertToFootBasis(buffer[i].mean)
+//
+//				if ( p0.x*pi.x < 0 ) {
+//					delta.b = i
+//				} else {
+//					delta.a = i
+//				}
+//			}
+//			return delta.a
+//		}
 		
 		// find toe point
 		let interval = (a: anglePos(alpha: Float(11)/Float(12)*Float.pi),
 						   b: anglePos(alpha: Float(13)/Float(12)*Float.pi))
 		let pickedPointIndex = findIndexOfFarthestDistance(buffer: buffer, interval: interval, isToe: true)
-//		markPoint(&buffer, indeces: interval)
-		footMetric.bunchWidth.c.mean = buffer[pickedPointIndex].mean	// the toe point
+
+		footMetric.bunchWidth.c.mean = buffer[pickedPointIndex].mean	// update the toe point
+		
+		calcFootBasis()
 		
 		let percent:(from:Float,to:Float) = (metricMode == .bunchWidthOuter) ? (from: 0.85,to:0.55): (from: 0.9,to:0.6)
 		
-		// TODO: пересчитать xToe xHeel в базисе ноги
-		let footLen = length(footMetric.length.a.mean - footMetric.length.b.mean)
-		let xToe = footMetric.bunchWidth.c.mean.x + footLen*(1 - percent.from)
-		let xHeel = footMetric.bunchWidth.c.mean.x + footLen*(1 - percent.to)
-		// END TODO
+		let pPercent0 = findPointOnFootAxis(percent.from)
+		let pPercent1 = findPointOnFootAxis(percent.to)
 		
 		// в зависимости от состояния
 		let searchInterval:(Int,Int) = (metricMode == .bunchWidthOuter) ? (0, pickedPointIndex)
 			: (pickedPointIndex, buffer.count)
 		
-		let iStart:Int! = findInterval(xToe, searchInterval)
-		let iEnd:Int! = findInterval(xHeel, searchInterval)
+		let iStart:Int! = findInterval(pPercent0, searchInterval)
+		let iEnd:Int! = findInterval(pPercent1, searchInterval)
 		
 		if (iStart != nil && iEnd != nil) {
 			// update interval
 			footMetric.interval.a.mean = buffer[iStart].mean
 			footMetric.interval.b.mean = buffer[iEnd].mean
 			
-			// TODO: вычислять maxY в базисе ноги
-			var maxY:Float = 0
+			var maxDistance:Float = 0
 			var p:Float3!
 			for i in min(iStart,iEnd)..<max(iStart,iEnd) {
-				if (abs(buffer[i].mean.y) > maxY) {
-					maxY = abs(buffer[i].mean.y)
+				let distanceToLine = abs(convertToFootBasis(buffer[i].mean - footMetric.bunchWidth.c.mean).y)
+				if ( distanceToLine > maxDistance ) {
+					maxDistance = distanceToLine
 					p = buffer[i].mean
 				}
 			}
-			// END TODO
 			
 			if p != nil {
 				currentMeasuredPoint.mean = p
 				
 				if metricMode == .bunchWidthOuter {
-					footMetric.bunchWidth.a.mean = currentMeasuredPoint.mean
+					footMetric.bunchWidth.a.mean = p
 					print("!!!!! bunch width OUTER !!!!")
 				} else {
-					footMetric.bunchWidth.b.mean = currentMeasuredPoint.mean
+					footMetric.bunchWidth.b.mean = p
 					print("!!!!! bunch width INNER !!!!")
 				}
 			}

@@ -50,6 +50,7 @@ class Renderer {
 		var length: (a:InertialFloat3, b:InertialFloat3)
 		var bunchWidth: (a:InertialFloat3, b:InertialFloat3, c:InertialFloat3)
 		var interval: (a:InertialFloat3, b:InertialFloat3)
+		var basis: (el:Float3, en:Float3) 	// базис связанный с ногой. el ориентирована вдоль ноги, en - по нормали, el, en переходит в исходную систему при соответствующих поворотах
 	}
 
 	enum MetricMode: Int {
@@ -305,7 +306,8 @@ class Renderer {
         
 		footMetric = FootMetricProps( length: (a:InertialFloat3(), b:InertialFloat3()),
 									  bunchWidth: (a:InertialFloat3(), b:InertialFloat3(), c:InertialFloat3()),
-									  interval: (a:InertialFloat3(), b:InertialFloat3())
+									  interval: (a:InertialFloat3(), b:InertialFloat3()),
+									  basis: (el: Float3(1,0,0), en: Float3(0,1,0))
 		)
 		
 		currentMeasuredPoint = InertialFloat3()
