@@ -50,6 +50,7 @@ class Renderer {
 		var length: (a:InertialFloat3, b:InertialFloat3)
 		var bunchWidth: (a:InertialFloat3, b:InertialFloat3, c:InertialFloat3)
 		var interval: (a:InertialFloat3, b:InertialFloat3)
+		var heightInRise: InertialFloat3
 		var basis: (el:Float3, en:Float3) 	// базис связанный с ногой. el ориентирована вдоль ноги, en - по нормали, el, en переходит в исходную систему при соответствующих поворотах
 	}
 
@@ -57,7 +58,8 @@ class Renderer {
 		case lengthToe = 0,
 			 lengthHeel = 1,
 			 bunchWidthOuter = 2,
-			 bunchWidthInner = 3
+			 bunchWidthInner = 3,
+			 heightInRise = 4
 	}
 	
 	var metricMode:MetricMode = .lengthToe {
@@ -72,6 +74,7 @@ class Renderer {
 			
 			switch(newValue) {
 			case .lengthToe:
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+9)].typePoint = none
 				// disable bunch
 				borderBuffer[Int(PHI_GRID_NODE_COUNT+6)].typePoint = none
 				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = none
@@ -89,9 +92,26 @@ class Renderer {
 				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = metricNow // left bunch width
 				borderBuffer[Int(PHI_GRID_NODE_COUNT+6)].typePoint = metricNow // toe for bunch
 			case .bunchWidthInner:
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = metric		// left bunch
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = metricNow	// right bunch
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = metric		// left bunch point
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = metricNow	// right bunch point
+			case .heightInRise:
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = none		// right bunch point
+				borderBuffer[Int(PHI_GRID_NODE_COUNT+9)].typePoint = metricNow	// height in rise
 			}
+		}
+	}
+	
+	func nextMetricStep() {
+		if metricMode == .lengthToe {
+			metricMode = .lengthHeel
+		} else if metricMode == .lengthHeel {
+			metricMode = .bunchWidthOuter
+		} else if metricMode == .bunchWidthOuter {
+			metricMode = .bunchWidthInner
+		} else if metricMode == .bunchWidthInner {
+			metricMode = .heightInRise
+		} else {
+			metricMode = .lengthToe
 		}
 	}
 	
@@ -106,12 +126,14 @@ class Renderer {
 			
 			borderBuffer[Int(PHI_GRID_NODE_COUNT)+7].mean = newValue.interval.a.mean
 			borderBuffer[Int(PHI_GRID_NODE_COUNT)+8].mean = newValue.interval.b.mean
+			
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)+9].mean = newValue.heightInRise.mean
 		}
 	}
 	
-	var currentMeasuredPoint:InertialFloat3 {
+	var currentMeasured:Float {
 		willSet {
-			label.text = String("\(round(1000*newValue.mean.x))")
+			label.text = String("\(round(1000*newValue))")
 		}
 	}
 	
@@ -292,7 +314,8 @@ class Renderer {
 		// 6 right bunch
 		// 7 toe for bunch
 		// 8,9 interval
-		let arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT + 9))
+		// 10 height in rise
+		let arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT + 10))
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
 	}()
     
@@ -307,10 +330,11 @@ class Renderer {
 		footMetric = FootMetricProps( length: (a:InertialFloat3(), b:InertialFloat3()),
 									  bunchWidth: (a:InertialFloat3(), b:InertialFloat3(), c:InertialFloat3()),
 									  interval: (a:InertialFloat3(), b:InertialFloat3()),
+									  heightInRise: InertialFloat3(),
 									  basis: (el: Float3(1,0,0), en: Float3(0,1,0))
 		)
 		
-		currentMeasuredPoint = InertialFloat3()
+		currentMeasured = 0
 		controlPoint = InertialFloat3()
 		
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
@@ -486,8 +510,10 @@ class Renderer {
 		
 		if metricMode == .lengthToe || metricMode == .lengthHeel {
 			pickLengthPoint(&borderBuffer)
-		} else {
+		} else if metricMode == .bunchWidthInner || metricMode == .bunchWidthOuter {
 			pickWidthPoint(&borderBuffer)
+		} else {
+			pickHeightInRise(&borderBuffer)
 		}
 		
 	}
@@ -531,10 +557,7 @@ class Renderer {
 			startSegmentation(grid: curveGridBuffer, pointsBuffer: borderBuffer)
 			reductBorderPoints(border: borderBuffer)
 			
-			
 			updateMetric()
-			
-			
 
 		} else if currentState == .separate {
 			

@@ -10,6 +10,9 @@ extension Renderer {
         commandEncoder.setComputePipelineState(segmentationState)
         
         commandEncoder.setBuffer(grid)
+		
+		var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
+		commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
 		commandEncoder.setBuffer(pointsBuffer)
         
 		let nTotal = MTLSize(width: grid.count, height: 1, depth: 1)
@@ -167,15 +170,16 @@ extension Renderer {
 			}
 			
 			if p != nil {
-				currentMeasuredPoint.mean = p
-				
 				if metricMode == .bunchWidthOuter {
 					footMetric.bunchWidth.a.mean = p
+					currentMeasured = footMetric.bunchWidth.a.mean.y
 					print("!!!!! bunch width OUTER !!!!")
 				} else {
 					footMetric.bunchWidth.b.mean = p
+					currentMeasured = footMetric.bunchWidth.b.mean.y
 					print("!!!!! bunch width INNER !!!!")
 				}
+				
 			}
 
 		}
@@ -204,12 +208,37 @@ extension Renderer {
 		
 		if metricMode == .lengthToe {
 			footMetric.length.a.mean = pp
+			currentMeasured = footMetric.length.a.mean.x
 		} else if metricMode == .lengthHeel {
 			footMetric.length.b.mean = pp
+			currentMeasured = footMetric.length.b.mean.x
 		}
-		currentMeasuredPoint.mean = pp
+		
 	}
 	
+	func pickHeightInRise(_ buffer: inout MetalBuffer<BorderPoints>) {
+		let interval = (a: anglePos(alpha: Float(11)/Float(12)*Float.pi),
+						   b: anglePos(alpha: Float(13)/Float(12)*Float.pi))
+		let pickedPointIndex = findIndexOfFarthestDistance(buffer: buffer, interval: interval, isToe: true)
+		footMetric.bunchWidth.c.mean = buffer[pickedPointIndex].mean	// update the toe point
+		
+		var pHR = findPointOnFootAxis(0.5)	//  берём только (x,y)-координаты
+		let p = buffer[Int(PHI_GRID_NODE_COUNT + 9)].mean	// координата z берётся из значений посчитанных в шейдере processSegmentation
+		
+		
+		let c0 = buffer[0]
+		let ch = buffer[Int(PHI_GRID_NODE_COUNT + 9)]
+		
+		let arr0 = buffer[0].coords
+		let arrh = buffer[Int(PHI_GRID_NODE_COUNT+9)].coords
+		
+		
+		print("----- \(arrh)")
+		
+		pHR.z = arrh.4.z
+		footMetric.heightInRise.mean = pHR	// определяем координату зоны подъёма, также необходимую для постоянного перерасчёта в шейдере
+		currentMeasured = footMetric.heightInRise.mean.z
+	}
 	
 	func updateCenterAndcamProjection() {
 		// центр ЛКС

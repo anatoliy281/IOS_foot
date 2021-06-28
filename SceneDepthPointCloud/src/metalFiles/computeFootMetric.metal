@@ -52,9 +52,13 @@ float3 calcCoord(device MyMeshData* mesh,
 	return r.xyz;
 }
 
+
+constant float EpsilonSqured = 0.003*0.003;
+
 kernel void processSegmentation(
 						   uint index [[ thread_position_in_grid ]],
 						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]],
+						   constant float3& pointInRise [[ buffer(kRisePoint) ]],
 						   device BorderPoints* borderBuffer [[ buffer(kBorderBuffer) ]]
 						   ) {
 	device auto& mesh = myMeshData[index];
@@ -87,7 +91,11 @@ kernel void processSegmentation(
 		mesh.group = Unknown;
 	}
 	
-	
+	// TODO доделать взятие области 
+	if ( length_squared(r.xy - pointInRise.xy) < EpsilonSqured ) {	// заполняем буфер в области подъёма
+		device auto& bpCenter = borderBuffer[PHI_GRID_NODE_COUNT+9];
+		bpCenter.coords[(bpCenter.len++)%MAX_BORDER_POINTS] = float4(r, 0);
+	}
 	
 }
 
@@ -96,33 +104,42 @@ kernel void reductBorderBuffer(
 							   uint index[[ thread_position_in_grid ]],
 							   device BorderPoints* buffer[[ buffer(kBorderBuffer) ]]
 							   ) {
-	if (index >= PHI_GRID_NODE_COUNT) {
+	if ( index == PHI_GRID_NODE_COUNT+9 ) { // не понятно почему не проходит усреднение, поэтому код закомментирован
+		device auto& bp = buffer[index];
+		float4 mean = 0;
+//		for (int i=0; i < MAX_BORDER_POINTS; ++i) {
+//			mean += bp.coords[i];
+//		}
+//		mean /= MAX_BORDER_POINTS;
+		bp.mean = mean.xyz;
+	} else if ( index > PHI_GRID_NODE_COUNT  ) {
 		return;
-	}
-	device auto& bp = buffer[index];
-//	auto len = min(bp.len, MAX_BORDER_POINTS);
-	auto len = MAX_BORDER_POINTS;
-	if (len != MAX_BORDER_POINTS) {
-		return;
-	}
-	float4 mean = 0;
-	auto cnt = 0;
-	auto maxTangent = 0;
-	auto iMaxTangent = 0;
-	for (int i=0; i < len; ++i) {
-		if (length_squared(bp.coords[i]) > 0) {
-			mean += bp.coords[i];
-			++cnt;
+	} else {
+		device auto& bp = buffer[index];
+	//	auto len = min(bp.len, MAX_BORDER_POINTS);
+		auto len = MAX_BORDER_POINTS;
+	//	if (len != MAX_BORDER_POINTS) {
+	//		return;
+	//	}
+		float4 mean = 0;
+		auto cnt = 0;
+		auto maxTangent = 0;
+		auto iMaxTangent = 0;
+		for (int i=0; i < len; ++i) {
+			if (length_squared(bp.coords[i]) > 0) {
+				mean += bp.coords[i];
+				++cnt;
+			}
+			if (maxTangent < bp.tgAlpha[i]) {
+				maxTangent = bp.tgAlpha[i];
+				iMaxTangent = i;
+			}
 		}
-		if (maxTangent < bp.tgAlpha[i]) {
-			maxTangent = bp.tgAlpha[i];
-			iMaxTangent = i;
-		}
+		mean /= cnt;
+		
+		
+	//	bp.mean = mean.xyz;
+		bp.mean = bp.coords[iMaxTangent].xyz;
+		bp.u_coord = int(mean.w);
 	}
-	mean /= cnt;
-	
-	
-//	bp.mean = mean.xyz;
-	bp.mean = bp.coords[iMaxTangent].xyz;
-	bp.u_coord = int(mean.w);
 }

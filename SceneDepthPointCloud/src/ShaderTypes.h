@@ -33,7 +33,8 @@ enum BufferIndices {
 	kImgHeight = 14,
 	kFrontToe = 15,
 	kBackHeel = 16,
-	kBorderBuffer = 17
+	kBorderBuffer = 17,
+	kRisePoint = 18
 };
 
 struct CoordData {

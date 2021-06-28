@@ -175,35 +175,35 @@ final class ViewController: UIViewController, ARSessionDelegate {
 	func acceptMetricPropAction(_ sender: UIButton!) {
 		print("ACCEPT METRIC!!!")
 		var caption:String
-		renderer.currentMeasuredPoint.reset()
+		renderer.currentMeasured = 0
 		renderer.controlPoint.reset()
 		
 
 		
 		if (renderer.metricMode == .lengthToe) {
-			renderer.metricMode = .lengthHeel
 			caption = "Снятие длины"
 		} else if (renderer.metricMode == .lengthHeel) {
 			let a = renderer.footMetric.length.a.mean
 			let b = renderer.footMetric.length.b.mean
 			let dr = a - b
 			let intres = Int(round(1000*length(Float2(dr.x, dr.y))))
-//			info.text = "Длина: \(intres)"
-			renderer.metricMode = .bunchWidthOuter
 			caption = "Снятие пучков /(Длина: \(intres))"
 		} else if (renderer.metricMode == .bunchWidthOuter) {
-			renderer.metricMode = .bunchWidthInner
 			caption = "Снятие пучков"
 		} else if renderer.metricMode == .bunchWidthInner {
 			let a = renderer.footMetric.bunchWidth.a.mean
 			let b = renderer.footMetric.bunchWidth.b.mean
 			let dr = a - b
 			let intres = Int(round(1000*length(Float2(dr.x, dr.y))))
-			renderer.metricMode = .lengthToe
-			caption = "Снятие длины: /(Пучки: \(intres))"
+			caption = "Снятие высоты: /(Пучки: \(intres))"
+		} else if renderer.metricMode == .heightInRise {
+			let h = renderer.footMetric.heightInRise.mean
+			let intres = Int(round(1000*h.z))
+			caption = "Снятие длины: /(Высота: \(intres))"
 		} else {
 			caption = ""
 		}
+		renderer.nextMetricStep()
 		switchMetricModeButton.setTitle(caption, for: .normal)
 	}
     
