@@ -65,6 +65,16 @@ static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float
     return worldPoint / worldPoint.w;
 }
 
+
+static simd_float4 camPoint(constant CoordData& uniform) {
+	const auto localPoint = float3(0);
+	const auto worldPoint = uniform.localToWorld * simd_float4(localPoint, 1);
+	
+	const auto p = worldPoint / worldPoint.w;
+	
+	return fromGlobalToObjectCS(uniform.floorHeight)*p;
+}
+
 float4 projectOnScreen(constant CoordData &uniforms, const thread float4& pos) {
     float4 res = uniforms.viewProjectionMatrix * pos;
     res /= res.w;
@@ -261,23 +271,6 @@ float4 detectCameraPosition(constant CoordData &uniforms) {
 //}
 
 float calcOrientation(float floorHeight,
-					  constant CoordData &uniforms, constant MyMeshData* mesh, int vid ) {
-	
-	const auto nodeVal = mesh[vid].mean;
-	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
-	// направление обзора камеры в СК связанной с объектом наблюдения
-	const auto camLocation = normalize(
-									 (fromGlobalToObjectCS(floorHeight)*detectCameraPosition(uniforms)).xyz
-									 -
-									 (fromGlobalToObjectCS(floorHeight)*(pos)).xyz
-								 );
-	// нормаль в данном узле
-	const auto normal = mesh[vid].normal;
-	
-	return dot(normal, camLocation);
-}
-
-float calcOrientation(float floorHeight,
 					  constant CoordData &uniforms, device MyMeshData* mesh, int vid ) {
 	
 	const auto nodeVal = mesh[vid].mean;
@@ -294,7 +287,79 @@ float calcOrientation(float floorHeight,
 	return dot(normal, camLocation);
 }
 
+// ограничения на положения камеры и области съёмки
 
+constant float secStep = (BOX_FRONT_LENGTH + BOX_BACK_LENGTH) / 3;
+constant float sVH = 0.5;
+struct ScanSectors {
+	float2 cornerMax;
+	float3 viewArea;
+	ScanSectors(float2 maxC, float3 vp)  {
+		cornerMax = maxC;
+		viewArea = vp;
+	};
+	
+	bool check(float2 pos) constant {
+		bool yCheck;
+		auto delta = cornerMax - pos;
+		if (cornerMax.y > 0) {
+			yCheck = (0 < delta.y) && (delta.y < BOX_HALF_WIDTH);
+		} else {
+			yCheck = (-BOX_HALF_WIDTH < delta.y) && (delta.y < 0);
+		}
+		bool xCheck;
+		if (cornerMax.x > 0) {
+			xCheck = (0 < delta.x) && (delta.x < secStep);
+		} else {
+			xCheck = (-secStep < delta.x) && (delta.x < 0);
+		}
+		return xCheck && yCheck;
+	}
+};
+
+
+
+constant ScanSectors sectors[6] = {
+	
+	ScanSectors(float2(-BOX_FRONT_LENGTH, -BOX_HALF_WIDTH),
+				float3(-BOX_FRONT_LENGTH, -BOX_HALF_WIDTH, sVH)),
+	ScanSectors(float2(-BOX_FRONT_LENGTH + secStep, -BOX_HALF_WIDTH),
+				float3(-BOX_FRONT_LENGTH + 1.5*secStep, -BOX_HALF_WIDTH, sVH)),
+	ScanSectors(float2( BOX_BACK_LENGTH, -BOX_HALF_WIDTH),
+				float3( BOX_BACK_LENGTH, -BOX_HALF_WIDTH, sVH)),
+	
+	ScanSectors(float2( BOX_BACK_LENGTH, BOX_HALF_WIDTH),
+				float3(BOX_BACK_LENGTH, BOX_HALF_WIDTH, sVH)),
+	ScanSectors(float2(-BOX_FRONT_LENGTH + secStep, BOX_HALF_WIDTH),
+				float3(-BOX_FRONT_LENGTH + 1.5*secStep, BOX_HALF_WIDTH, sVH)),
+	ScanSectors(float2(-BOX_FRONT_LENGTH, BOX_HALF_WIDTH),
+				float3(-BOX_FRONT_LENGTH, BOX_HALF_WIDTH, sVH))
+	
+};
+
+int findCamZone(float3 camPos) {
+	const auto deltaSqured = 0.02*0.02;
+	int i=0;
+	for (; i < 6; ++i) { // перебор допустимых положений камеры при съёмке
+		const auto dr = camPos - sectors[i].viewArea;
+		if (length_squared(dr.xy) < deltaSqured) {
+			break;
+		}
+	}
+	return i; // камера не принадлежит ни одной допустимой зоне
+}
+
+bool inScanArea(constant CoordData &uniforms, float4 spos) {
+
+	auto camPos = camPoint(uniforms).xyz;
+
+	int zone = findCamZone(camPos);
+	if (zone == 6) {
+		return false;
+	}
+	
+	return sectors[zone].check(spos.xy);
+}
 
 //bool checkDone(device MyMeshData* mesh, int index) {
 //
@@ -376,12 +441,12 @@ vertex void unprojectCylindricalVertex(
             return ;
         }
 
-		
-        device auto& md = myMeshData[index];
-		
-
-		MedianSearcher(&md).newValue(val);
-
+		if (
+			inScanArea(uniforms, spos)
+			) {
+			device auto& md = myMeshData[index];
+			MedianSearcher(&md).newValue(val);
+		}
     }
 }
 
@@ -444,7 +509,7 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 }
 
 
-vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
+vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [[ buffer(kMyMesh) ]],
                                      constant CoordData &uniforms [[ buffer(kPointCloudUniforms) ]],
 									 constant bool& isNotFreezed [[ buffer(kIsNotFreezed) ]],
                                      unsigned int vid [[ vertex_id ]] ) {
@@ -505,9 +570,9 @@ vertex ParticleVertexOut gridCylindricalMeshVertex( constant MyMeshData* myMeshD
 //					 float4(0.,0.,1., 1.), orient);
 
 	
-//	if (!isNotFreezed) {
-//		color = float4(0.5, 0.5, 0., saturation);
-//	}
+	if (!isNotFreezed) {
+		color = float4(0.5, 0.5, 0., 0.5);
+	}
 	
 	
 	

@@ -67,8 +67,8 @@ extension Renderer {
 		return makeBaseGridPipelineState(functions: ["gridCartesianMeshVertex", "gridFragment"])
 	}
 	
-    public func makeCylindricalGridPipelineState() -> MTLRenderPipelineState? {
-        return makeBaseGridPipelineState(functions: ["gridCylindricalMeshVertex", "gridFragment"])
+    public func makeCurvedGridPipelineState() -> MTLRenderPipelineState? {
+        return makeBaseGridPipelineState(functions: ["gridCurvedMeshVertex", "gridFragment"])
     }
 	
 	public func makeMetricsFootPipelineState() -> MTLRenderPipelineState? {

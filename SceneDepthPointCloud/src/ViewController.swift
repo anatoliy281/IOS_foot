@@ -77,7 +77,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     func sendAction(_ sender: UIButton!) {
         
         print("SEND!!!")
-//        
+
 //		let meshHolder = MeshHolder(renderer)
 //        writePerId(meshHolder)
 

@@ -192,7 +192,7 @@ class Renderer {
     private lazy var singleFrameUnprojectPipelineState = makeSingleFrameUnprojectPipelineState()!
     
     internal lazy var cartesianGridPipelineState = makeCartesianGridPipelineState()!
-    internal lazy var cylindricalGridPipelineState = makeCylindricalGridPipelineState()!
+    internal lazy var cylindricalGridPipelineState = makeCurvedGridPipelineState()!
     internal lazy var singleFramePipelineState = makeSingleFramePipelineState()!
 	
 	internal lazy var metricPipelineState = makeMetricsFootPipelineState()!
@@ -382,22 +382,13 @@ class Renderer {
 		}
 		
 		let cameraTransform = frame.camera.transform
-//		return dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
-//			|| distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) >= cameraTranslationThreshold
-		
-		let a = cameraTransform.columns.3
-		let b = lastCameraTransform.columns.3
-		
-		
-		let distMoved = distance_squared(a, b) < cameraTranslationThreshold
-//		if distMoved {
-//
-//			print( distance_squared(a, b) )
-//			print(a, b)
-//		}
+		let delta =
+//			dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
+//			||
+			distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) < cameraTranslationThreshold
 		  
-		lastCameraTransform = frame.camera.transform
-		return distMoved
+		lastCameraTransform = cameraTransform
+		return delta
 	}
 	
     private func updateCapturedImageTextures(frame: ARFrame) {
@@ -478,9 +469,9 @@ class Renderer {
                       
         if canUpdateDepthTextures(frame: currentFrame) {
 			calcIsNotFreezed = shouldAccumulate(frame: currentFrame)
-//			if calcIsNotFreezed {
+			if calcIsNotFreezed {
 				accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
-//			}
+			}
         }
 		renderEncoder.setDepthStencilState(relaxedStencilState)
 		updateCapturedImageTextures(frame: currentFrame)
