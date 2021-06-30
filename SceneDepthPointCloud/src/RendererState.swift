@@ -1,16 +1,16 @@
 enum RendererState: Int32 {
-    case findFootArea = 0, scanning = 1, separate = 2
+	case findFloorPlane = 0, scanning = 1, measuring = 2
     
     init() {
-        self = .findFootArea
+        self = .findFloorPlane
     }
     
     mutating func nextState() {
         switch self {
-        case .scanning, .separate:
-            self = .findFootArea
-        case .findFootArea:
-            self = isDebugMode ? .separate: .scanning
+        case .scanning, .measuring:
+            self = .findFloorPlane
+        case .findFloorPlane:
+            self = isMeasuringMode ? .measuring: .scanning
         }
     }
 }

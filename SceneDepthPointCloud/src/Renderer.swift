@@ -2,7 +2,7 @@ import Metal
 import MetalKit
 import ARKit
 
-let isDebugMode:Bool = false
+let isMeasuringMode:Bool = true
 
 
 let gridCartesianNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
@@ -101,6 +101,13 @@ class Renderer {
 		}
 	}
 	
+	var camPosition:simd_float3 = simd_float3(0) {
+		willSet{
+			borderBuffer[Int(PHI_GRID_NODE_COUNT)].mean = simd_float3(repeating:0) // центр ЛКС
+			borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].mean = newValue
+		}
+	}
+	
 	func nextMetricStep() {
 		if metricMode == .lengthToe {
 			metricMode = .lengthHeel
@@ -187,7 +194,7 @@ class Renderer {
     }()
     
 //    private lazy var unprojectPipelineState = makeUnprojectionPipelineState()!
-    private lazy var sphericalUnprojectPipelineState = makeCylindricalUnprojectPipelineState()!
+    private lazy var curveUnprojectPipelineState = makeCurvedUnprojectPipelineState()!
     private lazy var cartesianUnprojectPipelineState = makeCartesianUnprojectPipelineState()!
     private lazy var singleFrameUnprojectPipelineState = makeSingleFrameUnprojectPipelineState()!
     
@@ -259,6 +266,38 @@ class Renderer {
 		uniforms.floorHeight = -10
         return uniforms
     }()
+	
+	private lazy var cameraViewsPositions:[ViewSector] = {
+		let ch:Float = 0.5;
+		let fl = Float(BOX_FRONT_LENGTH)
+		let hw = Float(BOX_HALF_WIDTH)
+		let bl = Float(BOX_BACK_LENGTH)
+		let ds = (fl + bl) / 3
+		var arr = [ViewSector]()
+		arr.append(ViewSector(number: 0, coord: simd_float3(-fl, -hw, ch)))
+		arr.append(ViewSector(number: 1, coord: simd_float3(-fl + 1.5*ds, -hw, ch)))
+		arr.append(ViewSector(number: 2, coord: simd_float3(bl, -hw, ch)))
+		arr.append(ViewSector(number: 3, coord: simd_float3(bl, hw, ch)))
+		arr.append(ViewSector(number: 4, coord: simd_float3(-fl + 1.5*ds, hw, ch)))
+		arr.append(ViewSector(number: 5, coord: simd_float3(-fl, hw, ch)))
+		
+		return arr
+	}()
+	
+	var currentViewSector:ViewSector?
+	
+	func findCamZone() -> ViewSector? {
+		let deltaSqured:Float = 0.02*0.02;
+		for camView in cameraViewsPositions {
+			let dr = camPosition - camView.coord;
+			let rho = Float2(dr.x, dr.y)
+			if (length_squared(rho) < deltaSqured) {
+				return camView
+			}
+		}
+		return nil
+	}
+	
 //    internal var pointCloudUniformsBuffers = [MetalBuffer<CoordData>]()
     
     // Camera data
@@ -289,17 +328,14 @@ class Renderer {
     var currentState:RendererState {
         willSet {
             switch newValue {
-            case .findFootArea:
+            case .findFloorPlane:
                 frameAccumulated = 0
 				pointCloudUniforms.floorHeight = -10
                 initializeCartesianGridNodes()
-            case .scanning:
+			case .scanning, .measuring:
                 initializeCurveGridNodes()
 				metricMode = .lengthToe
-            case .separate:
-                frameAccumulated = 0
-                initializeCurveGridNodes()
-            }
+			}
         }
     }
 	
@@ -338,7 +374,7 @@ class Renderer {
 		controlPoint = InertialFloat3()
 		
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
-        currentState = .findFootArea
+        currentState = .findFloorPlane
         initializeCartesianGridNodes()
         initializeGistrosBuffer(nodeCount: gridCurveNodeCount)
 		
@@ -377,9 +413,20 @@ class Renderer {
     
 	private func shouldAccumulate(frame: ARFrame) -> Bool {
 		
-		if currentState == .findFootArea {
+		if currentState == .findFloorPlane {
 			return true
 		}
+		
+		updateCenterAndcamProjection()
+		if (currentState == .scanning) {
+			currentViewSector = findCamZone()
+			if currentViewSector == nil {
+				return false
+			}
+		} else {
+			currentViewSector = ViewSector(number: -1, coord: simd_float3(repeating: 0))
+		}
+		
 		
 		let cameraTransform = frame.camera.transform
 		let delta =
@@ -446,7 +493,7 @@ class Renderer {
         // update frame data
         update(frame: currentFrame)
         
-		if currentState == .findFootArea {
+		if currentState == .findFloorPlane {
 			let nc:Int32 = 10
 			if ( frameAccumulated%nc == 0 && frameAccumulated != 0 && pointCloudUniforms.floorHeight == -10 ) {
 				let fv = Float(cpuCalcFloor())
@@ -477,15 +524,16 @@ class Renderer {
 		updateCapturedImageTextures(frame: currentFrame)
 		drawCameraStream(renderEncoder)
 		switch currentState {
-        case .findFootArea:
+        case .findFloorPlane:
             drawHeelMarker(renderEncoder)
         case .scanning:
             renderEncoder.setDepthStencilState(relaxedStencilState)
 			drawMesh(renderEncoder)
 			drawFootMetrics(renderEncoder)
-        case .separate:
+		case .measuring:
             renderEncoder.setDepthStencilState(relaxedStencilState)
-            drawScanningFootAsSingleFrame(renderEncoder)
+			drawMesh(renderEncoder)
+			drawFootMetrics(renderEncoder)
         }
     
         renderEncoder.endEncoding()
@@ -497,16 +545,15 @@ class Renderer {
 	
 	fileprivate func updateMetric() {
 		
-		updateCenterAndcamProjection()
-		
-		if metricMode == .lengthToe || metricMode == .lengthHeel {
-			pickLengthPoint(&borderBuffer)
-		} else if metricMode == .bunchWidthInner || metricMode == .bunchWidthOuter {
-			pickWidthPoint(&borderBuffer)
-		} else {
-			pickHeightInRise(&borderBuffer)
+		if currentState == .measuring {
+			if metricMode == .lengthToe || metricMode == .lengthHeel {
+				pickLengthPoint(&borderBuffer)
+			} else if metricMode == .bunchWidthInner || metricMode == .bunchWidthOuter {
+				pickWidthPoint(&borderBuffer)
+			} else {
+				pickHeightInRise(&borderBuffer)
+			}
 		}
-		
 	}
 	
 	private func accumulatePoints(frame: ARFrame,
@@ -519,50 +566,40 @@ class Renderer {
         commandBuffer.addCompletedHandler { buffer in
             retainingTextures.removeAll()
         }
-        
-		renderEncoder.setRenderPipelineState(cartesianUnprojectPipelineState)
-		renderEncoder.setVertexBuffer(cartesianGridBuffer)
-//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
-		renderEncoder.setVertexBuffer(gridPointsBuffer)
-
-		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
-		renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
-		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
-
-		
-		if currentState != .scanning {
-			frameAccumulated += 1
-		}
-		if currentState == .scanning {
-            renderEncoder.setRenderPipelineState(sphericalUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(curveGridBuffer)
-//			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+		if currentState == .findFloorPlane {
+			renderEncoder.setRenderPipelineState(cartesianUnprojectPipelineState)
+			renderEncoder.setVertexBuffer(cartesianGridBuffer)
+	//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 			renderEncoder.setVertexBuffer(gridPointsBuffer)
+
+			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
+			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
+			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
+
+			frameAccumulated += 1
+		} else {
 			
+			renderEncoder.setRenderPipelineState(curveUnprojectPipelineState)
+			renderEncoder.setVertexBuffer(curveGridBuffer)
+			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
+			
+			renderEncoder.setVertexBytes(&currentViewSector, length: MemoryLayout<ViewSector>.stride, index: Int(kViewSector.rawValue))
+			
+			
+			renderEncoder.setVertexBuffer(gridPointsBuffer)
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
 			startSegmentation(grid: curveGridBuffer, pointsBuffer: borderBuffer)
-			reductBorderPoints(border: borderBuffer)
 			
-			updateMetric()
+			
 
-		} else if currentState == .separate {
-			
-            if frameAccumulated >= MAX_MESH_STATISTIC-1 {
-//                frameAccumulated = 0
-                return
-            }
-            
-            renderEncoder.setRenderPipelineState(singleFrameUnprojectPipelineState)
-            renderEncoder.setVertexBuffer(curveGridBuffer)
-            renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
-            
-            print("frame accumulated: \(frameAccumulated)")
-		} else {}
+			reductBorderPoints(border: borderBuffer)
+			updateMetric()
+		}
+
     }
 }
 

@@ -38,8 +38,8 @@ extension Renderer {
         return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectCartesianVertex")
     }
 
-    public func makeCylindricalUnprojectPipelineState() -> MTLRenderPipelineState? {
-        return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectCylindricalVertex")
+    public func makeCurvedUnprojectPipelineState() -> MTLRenderPipelineState? {
+        return makeBaseUnprojectionPipelineState(shaderFuncName: "unprojectCurvedVertex")
     }
     
     public func makeSingleFrameUnprojectPipelineState() -> MTLRenderPipelineState? {

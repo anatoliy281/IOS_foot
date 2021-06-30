@@ -241,10 +241,6 @@ extension Renderer {
 	}
 	
 	func updateCenterAndcamProjection() {
-		// центр ЛКС
-		borderBuffer[Int(PHI_GRID_NODE_COUNT)].mean = simd_float3(repeating:0)
-		
-		// прокекция камеры
 		let mat = pointCloudUniforms.localToWorld;
 		let camPos = mat*simd_float4(0, 0, 0, 1);
 		let toLocalCS = float4x4( simd_float4( 1, 0, 0, 0),
@@ -252,7 +248,7 @@ extension Renderer {
 								  simd_float4( 0, 1, 0, 0),
 								  simd_float4( 0, 0, -pointCloudUniforms.floorHeight, 1)
 		)
-		let camPosLoc = toLocalCS*camPos
-		borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].mean = simd_float3(camPosLoc.x, camPosLoc.y, camPosLoc.z)
+		let cp = toLocalCS*camPos
+		camPosition = simd_float3(cp.x, cp.y, cp.z)
 	}
 }

@@ -34,7 +34,8 @@ enum BufferIndices {
 	kFrontToe = 15,
 	kBackHeel = 16,
 	kBorderBuffer = 17,
-	kRisePoint = 18
+	kRisePoint = 18,
+	kViewSector = 19
 };
 
 struct CoordData {
@@ -43,6 +44,11 @@ struct CoordData {
     matrix_float3x3 cameraIntrinsicsInversed;
     simd_float2 cameraResolution;
 	float floorHeight;
+};
+
+struct ViewSector {
+	int number;
+	simd_float3 coord;
 };
 
 struct CameraView {

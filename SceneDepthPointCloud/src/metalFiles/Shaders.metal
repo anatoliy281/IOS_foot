@@ -289,76 +289,41 @@ float calcOrientation(float floorHeight,
 
 // ограничения на положения камеры и области съёмки
 
-constant float secStep = (BOX_FRONT_LENGTH + BOX_BACK_LENGTH) / 3;
-constant float sVH = 0.5;
-struct ScanSectors {
-	float2 cornerMax;
-	float3 viewArea;
-	ScanSectors(float2 maxC, float3 vp)  {
-		cornerMax = maxC;
-		viewArea = vp;
-	};
-	
-	bool check(float2 pos) constant {
-		bool yCheck;
-		auto delta = cornerMax - pos;
-		if (cornerMax.y > 0) {
-			yCheck = (0 < delta.y) && (delta.y < BOX_HALF_WIDTH);
-		} else {
-			yCheck = (-BOX_HALF_WIDTH < delta.y) && (delta.y < 0);
-		}
-		bool xCheck;
-		if (cornerMax.x > 0) {
-			xCheck = (0 < delta.x) && (delta.x < secStep);
-		} else {
-			xCheck = (-secStep < delta.x) && (delta.x < 0);
-		}
-		return xCheck && yCheck;
+//struct ScanSectors {
+//	float2 cornerMax;
+//	float3 viewArea;
+//	ScanSectors(float2 maxC, float3 vp)  {
+//		cornerMax = maxC;
+//		viewArea = vp;
+//	};
+//
+//	bool check(float2 pos) constant {
+//
+//
+////		bool yCheck;
+////		auto delta = cornerMax - pos;
+////		if (cornerMax.y > 0) {
+////			yCheck = (0 < delta.y) && (delta.y < BOX_HALF_WIDTH);
+////		} else {
+////			yCheck = (-BOX_HALF_WIDTH < delta.y) && (delta.y < 0);
+////		}
+////		bool xCheck;
+////		if (cornerMax.x > 0) {
+////			xCheck = (0 < delta.x) && (delta.x < secStep);
+////		} else {
+////			xCheck = (-secStep < delta.x) && (delta.x < 0);
+////		}
+////		return xCheck && yCheck;
+//	}
+//};
+
+bool inScanArea(float4 spos, constant ViewSector& viewSector) {
+	if (viewSector.number == -1) {	// режим при снятии метрических измерений
+		return true;
 	}
-};
-
-
-
-constant ScanSectors sectors[6] = {
-	
-	ScanSectors(float2(-BOX_FRONT_LENGTH, -BOX_HALF_WIDTH),
-				float3(-BOX_FRONT_LENGTH, -BOX_HALF_WIDTH, sVH)),
-	ScanSectors(float2(-BOX_FRONT_LENGTH + secStep, -BOX_HALF_WIDTH),
-				float3(-BOX_FRONT_LENGTH + 1.5*secStep, -BOX_HALF_WIDTH, sVH)),
-	ScanSectors(float2( BOX_BACK_LENGTH, -BOX_HALF_WIDTH),
-				float3( BOX_BACK_LENGTH, -BOX_HALF_WIDTH, sVH)),
-	
-	ScanSectors(float2( BOX_BACK_LENGTH, BOX_HALF_WIDTH),
-				float3(BOX_BACK_LENGTH, BOX_HALF_WIDTH, sVH)),
-	ScanSectors(float2(-BOX_FRONT_LENGTH + secStep, BOX_HALF_WIDTH),
-				float3(-BOX_FRONT_LENGTH + 1.5*secStep, BOX_HALF_WIDTH, sVH)),
-	ScanSectors(float2(-BOX_FRONT_LENGTH, BOX_HALF_WIDTH),
-				float3(-BOX_FRONT_LENGTH, BOX_HALF_WIDTH, sVH))
-	
-};
-
-int findCamZone(float3 camPos) {
-	const auto deltaSqured = 0.02*0.02;
-	int i=0;
-	for (; i < 6; ++i) { // перебор допустимых положений камеры при съёмке
-		const auto dr = camPos - sectors[i].viewArea;
-		if (length_squared(dr.xy) < deltaSqured) {
-			break;
-		}
-	}
-	return i; // камера не принадлежит ни одной допустимой зоне
-}
-
-bool inScanArea(constant CoordData &uniforms, float4 spos) {
-
-	auto camPos = camPoint(uniforms).xyz;
-
-	int zone = findCamZone(camPos);
-	if (zone == 6) {
-		return false;
-	}
-	
-	return sectors[zone].check(spos.xy);
+	const auto secStep = (BOX_BACK_LENGTH + BOX_FRONT_LENGTH) / 3;
+	auto dr = spos.xy - viewSector.coord.xy;
+	return abs(dr.x) < secStep && abs(dr.y) < BOX_HALF_WIDTH;
 }
 
 //bool checkDone(device MyMeshData* mesh, int index) {
@@ -399,9 +364,10 @@ bool inScanArea(float4 spos) {
 	return checkLength && checkWidth;
 }
 
-vertex void unprojectCylindricalVertex(
+vertex void unprojectCurvedVertex(
                             uint vertexID [[vertex_id]],
                             constant CoordData &uniforms [[buffer(kPointCloudUniforms)]],
+							constant ViewSector& viewSector [[buffer(kViewSector)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
@@ -442,7 +408,7 @@ vertex void unprojectCylindricalVertex(
         }
 
 		if (
-			inScanArea(uniforms, spos)
+			inScanArea(spos, viewSector)
 			) {
 			device auto& md = myMeshData[index];
 			MedianSearcher(&md).newValue(val);

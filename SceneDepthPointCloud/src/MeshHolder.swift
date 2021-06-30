@@ -54,37 +54,20 @@ class MeshHolder {
 	// сгруппировать данные по группам (группа точек/номер кадра)
 	private func separateData() -> GroupDataCoords {
 		let res = GroupDataCoords()
-		if renderer.currentState != .separate {	// по группам
-			res.data = [ Int(Unknown.rawValue):.init(),
-						 Int(Floor.rawValue):.init(),
-						 Int(Border.rawValue):.init(),
-						 Int(Foot.rawValue):.init()
-			]
 
-			for i in 0..<renderer.curveGridBuffer.count {
-				let node = renderer.curveGridBuffer[i]
-				let row = Int(gridRow(Int32(i)))
-				let col = Int(gridColumn(Int32(i)))
-				let val = node.mean
-				res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
+		res.data = [ Int(Unknown.rawValue):.init(),
+					 Int(Floor.rawValue):.init(),
+					 Int(Border.rawValue):.init(),
+					 Int(Foot.rawValue):.init()
+		]
 
-			}
+		for i in 0..<renderer.curveGridBuffer.count {
+			let node = renderer.curveGridBuffer[i]
+			let row = Int(gridRow(Int32(i)))
+			let col = Int(gridColumn(Int32(i)))
+			let val = node.mean
+			res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
 
-		} else {	// по номеру кадра
-//			let mn = 60
-//			for i in 0..<MAX_MESH_STATISTIC/Int32(mn) {
-//				res.data[Int(i)] = .init()
-//			}
-//
-//			for frame in 0..<MAX_MESH_STATISTIC/Int32(mn) {
-//				for i in 0..<renderer.curveGridBuffer.count {
-//					var node = renderer.curveGridBuffer[i]
-//					let row = Int(gridRow(Int32(i)))
-//					let col = Int(gridColumn(Int32(i)))
-//					let val = getValue(&node, frame)
-//					res.data[Int(frame)]!.append( (row, col, val) )
-//				}
-//			}
 		}
 
 		return res
@@ -141,12 +124,6 @@ class MeshHolder {
 //			}
 //	   }
 //   }
-	   
-	private func truncateTheFloor() -> [[Float3]]  {
-		// TODO
-		
-		return [[Float3]]()
-	}
 
 	
 	private func writeNodes() -> String {
@@ -157,10 +134,6 @@ class MeshHolder {
 				if table[i][j] != Float() {
 					let pos = calcCoords(i, j, table[i][j])
 					str = "v \(pos.x) \(pos.y) \(pos.z)\n"
-				} else {
-					if (renderer.currentState != .separate) {
-						str = "v 0 0 0\n"
-					}
 				}
 				res.append(str)
 			}

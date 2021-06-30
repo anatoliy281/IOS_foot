@@ -55,21 +55,4 @@ extension Renderer {
 		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: borderBuffer.count)
 	}
 	
-	
-	func drawScanningFootAsSingleFrame(_ renderEncoder:MTLRenderCommandEncoder) {
-//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
-		
-		renderEncoder.setRenderPipelineState(singleFramePipelineState)
-		
-		renderEncoder.setVertexBuffer(curveGridBuffer)
-		renderEncoder.setVertexBytes(&frameAccumulated, length: MemoryLayout<Int32>.stride, index: Int(kFrame.rawValue))
-//		renderEncoder.drawIndexedPrimitives(type: .point,
-//											indexCount: indecesBuffer.count,
-//											indexType: .uint32,
-//											indexBuffer: indecesBuffer.buffer,
-//											indexBufferOffset: 0)
-		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
-	}
-	
 }

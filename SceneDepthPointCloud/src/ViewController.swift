@@ -94,10 +94,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		
 		// список игнорирования данных для записи
 		var ignoreList = [Int]()
-		if renderer.currentState != .separate {
-			ignoreList.append(Int(Unknown.rawValue))
-//			ignoreList.append(Int(Floor.rawValue))
-		}
+		ignoreList.append(Int(Unknown.rawValue))
+//		ignoreList.append(Int(Floor.rawValue))
 		let objects = meshHolder.convertToObj()
         let fNames = generateFileCaptionDict(meshHolder)
 		
