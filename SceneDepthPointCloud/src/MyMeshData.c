@@ -17,36 +17,11 @@ struct MyMeshData initMyMeshData(float valInit) {
 	return md;
 }
 
-//int gridRow(int index) {
-//    return index / GRID_NODE_COUNT;
-//}
-//
-//int gridColumn(int index) {
-//    return index % GRID_NODE_COUNT;
-//}
+int gridRow(int index) {
+    return index / PHI_GRID_NODE_COUNT;
+}
 
-//float toCoordinate(int pos) {
-//    return pos*GRID_NODE_DISTANCE - RADIUS;
-//}
-
-//int indexPos(int row, int column) {
-//    return row * GRID_NODE_COUNT + column;
-//}
-//
-//
-//float calcX(int j, float val) {
-//	float rho = val;
-//	float phi = j*PHI_STEP;
-//	return rho*cos(phi);
-//}
-//
-//float calcY(int j, float val) {
-//	float rho = val;
-//	float phi = j*PHI_STEP;
-//	return rho*sin(phi);
-//}
-//
-//float calcZ(int i) {
-//	return i*RADIUS / GRID_NODE_COUNT;
-//}
+int gridColumn(int index) {
+    return index % PHI_GRID_NODE_COUNT;
+}
 

@@ -63,14 +63,8 @@ extern "C" {
     
     struct MyMeshData initMyMeshData(float valInit);
 
-//    int gridRow(int index);
-//    int gridColumn(int index);
-//    float calcX(int j, float val);
-//    float calcY(int j, float val);
-//    float calcZ(int i);
-//    int indexPos(int row, int column);
-
-//    float toCoordinate(int pos);
+    int gridRow(int index);
+    int gridColumn(int index);
 
 #ifdef __cplusplus
 }
