@@ -4,14 +4,14 @@ extension Renderer {
 
 	public func startSegmentation() {
                 
-		guard let commandBuffer = commandQueue.makeCommandBuffer(),
-			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
 		for i in 0..<curveGridBuffers.count {
+			guard let commandBuffer = commandQueue.makeCommandBuffer(),
+				  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
 			let grid = curveGridBuffers[i].buffer
 			let pointsBuffer = curveGridBuffers[i].borderPoints
 			commandEncoder.setComputePipelineState(segmentationState)
 			
-			commandEncoder.setBuffer(grid)
+			commandEncoder.setBuffer(grid.buffer, offset: 0, index: Int(kMyMesh.rawValue))
 			
 			var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
 			commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
@@ -30,9 +30,9 @@ extension Renderer {
     }
 	
 	public func reductBorderPoints() {
-		guard let commandBuffer = commandQueue.makeCommandBuffer(),
-			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
 		for i in 0..<curveGridBuffers.count {
+			guard let commandBuffer = commandQueue.makeCommandBuffer(),
+				  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
 			let border = curveGridBuffers[i].borderPoints
 			commandEncoder.setComputePipelineState(reductionBorderState)
 			commandEncoder.setBuffer(border)

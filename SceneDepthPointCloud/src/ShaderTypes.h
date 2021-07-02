@@ -66,7 +66,8 @@ enum MetricType {
 	interval = 1,	// left side of interval
 	metric = 3,   // metric index
 	camera = 4,
-	metricNow = 5
+	metricNow = 5,
+	border = 6
 };
 
 // структура хранит массив точек для вычисления границы перехода нога-пол + текущий размер

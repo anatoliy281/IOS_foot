@@ -270,19 +270,14 @@ class Renderer {
     }()
 	
 	private lazy var cameraViewsPositions:[ViewSector] = {
-		let ch:Float = 0.5;
+		let ch:Float = 0.5;		// вертикальная позиция камеры (задаётся произвольно, т.к. пока проверка не использует данный параметр)
 		let fl = Float(BOX_FRONT_LENGTH)
 		let hw = Float(BOX_HALF_WIDTH)
 		let bl = Float(BOX_BACK_LENGTH)
-		let ds = (fl + bl) / 3
+		let ds = (fl + bl) / 2
 		var arr = [ViewSector]()
-		arr.append(ViewSector(number: 0, coord: simd_float3(-fl, -hw, ch)))
-		arr.append(ViewSector(number: 1, coord: simd_float3(-fl + 1.5*ds, -hw, ch)))
-		arr.append(ViewSector(number: 2, coord: simd_float3(bl, -hw, ch)))
-		arr.append(ViewSector(number: 3, coord: simd_float3(bl, hw, ch)))
-		arr.append(ViewSector(number: 4, coord: simd_float3(-fl + 1.5*ds, hw, ch)))
-		arr.append(ViewSector(number: 5, coord: simd_float3(-fl, hw, ch)))
-		
+		arr.append(ViewSector(number: 0, coord: simd_float3(bl - ds, -hw, ch)))
+		arr.append(ViewSector(number: 1, coord: simd_float3(bl - ds, hw, ch)))
 		return arr
 	}()
 	
@@ -292,8 +287,8 @@ class Renderer {
 		let deltaSqured:Float = 0.02*0.02;
 		for camView in cameraViewsPositions {
 			let dr = camPosition - camView.coord;
-			let rho = Float2(dr.x, dr.y)
-			if (length_squared(rho) < deltaSqured) {
+			let rho = Float(dr.y)
+			if (rho*rho < deltaSqured) {
 				return camView
 			}
 		}
@@ -319,6 +314,15 @@ class Renderer {
     
 	var curveGridBuffers: [(borderPoints:MetalBuffer<BorderPoints>,buffer:MetalBuffer<MyMeshData>,coordCenter:Float2)]!
 	lazy var metricPoints:MetalBuffer<BorderPoints> = {	// пока так...
+		// 1 coord center
+		// 2 camera
+		// 3 toe
+		// 4 heel
+		// 5 left bunch
+		// 6 right bunch
+		// 7 toe for bunch
+		// 8,9 interval
+		// 10 height in rise
 		let arr = Array(repeating: BorderPoints(), count: 10)
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
 	}()
@@ -346,18 +350,7 @@ class Renderer {
     }
 	
 	func generateBorderBuffer() -> MetalBuffer<BorderPoints> {
-		// дополнительные точки: цертр ск, положение камеры, 2 точки длины, 2 точки пучков
-		
-		// 1 coord center
-		// 2 camera
-		// 3 toe
-		// 4 heel
-		// 5 left bunch
-		// 6 right bunch
-		// 7 toe for bunch
-		// 8,9 interval
-		// 10 height in rise
-		let arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT + 10))
+		let arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT))
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
 	}
     
@@ -399,10 +392,13 @@ class Renderer {
 		curveGridBuffers = .init()
         let initVal = initMyMeshData(0)
         let gridInitial = Array(repeating: initVal, count: gridCurveNodeCount)
-		let cb:MetalBuffer<MyMeshData> = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
-		let shift:Float2 = Float2(repeating: 0)
-		let bp = generateBorderBuffer()
-		curveGridBuffers.append((borderPoints:bp, buffer:cb, coordCenter:shift))
+
+		curveGridBuffers.append( (borderPoints:generateBorderBuffer(),
+								  buffer:.init(device: device, array:gridInitial, index: kMyMesh.rawValue),
+								  coordCenter:.zero) )
+		curveGridBuffers.append( (borderPoints:generateBorderBuffer(),
+								  buffer:.init(device: device, array:gridInitial, index: kMyMesh.rawValue+3),
+								  coordCenter:Float2(-0.5*Float(BOX_FRONT_LENGTH), 0)) )
     }
     
     
@@ -436,7 +432,7 @@ class Renderer {
 				return false
 			}
 		} else {
-			currentViewSector = ViewSector(number: -1, coord: simd_float3(repeating: 0))
+			currentViewSector = ViewSector(number: -1, coord: .zero)
 		}
 		
 		

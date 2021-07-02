@@ -25,10 +25,16 @@ float calcDzDrho(device MyMeshData* mesh,
 	
 	const auto index0 = (index >= stepIndex) ? index - stepIndex: index;
 	const auto val0 = mesh[index0].mean;
+	if (val0 == 0) {
+		return 0;
+	}
 	const auto r0 = fromGiperbolicToCartesian(val0, index0);
 	
 	const auto indexN = (index < (gridTotalNodes - stepIndex)) ? index + stepIndex: index;
 	const auto valN = mesh[indexN].mean;
+	if (valN == 0) {
+		return 0;
+	}
 	const auto rN = fromGiperbolicToCartesian(valN, indexN);
 	
 	const auto dR = r0 - rN;
@@ -53,7 +59,7 @@ float3 calcCoord(device MyMeshData* mesh,
 }
 
 
-constant float EpsilonSqured = 0.003*0.003;
+constant float EpsilonSqured = 0.003*0.003;
 
 kernel void processSegmentation(
 						   uint index [[ thread_position_in_grid ]],
@@ -62,25 +68,32 @@ kernel void processSegmentation(
 						   device BorderPoints* borderBuffer [[ buffer(kBorderBuffer) ]]
 						   ) {
 	device auto& mesh = myMeshData[index];
-	const auto deltaN = 2;
+	
+	if (mesh.mean == 0) {
+		return;
+	}
+	
+	const auto deltaN = 3;
 	const auto criticalSlope = 1;
-	const auto criticalFloorHeight = 0.005;
+//	const auto criticalFloorHeight = 0.005;
 	const auto criticalBorderHeight = 0.03;
 	
 	const auto j = index%PHI_GRID_NODE_COUNT;
 	device auto& bp = borderBuffer[j];
-	bp.typePoint = none;
+//	bp.typePoint = none;
 	
 	const auto s = calcDzDrho(myMeshData, index, deltaN);
 	const auto r = calcCoord(myMeshData, index);
 	const auto h = r.z;
 
-	if ( s > criticalSlope && h < criticalBorderHeight ) {
+	if ( s > criticalSlope &&
+		 h < criticalBorderHeight &&
+		 length_squared(r.xy) > 0.02*0.02 ) {
 		mesh.group = Border;
 		const auto i = (bp.len++)%MAX_BORDER_POINTS;
 		bp.coords[i] = float4(r, index/PHI_GRID_NODE_COUNT);
-		bp.tgAlpha[i] = s;
-	} else if (bp.mean.z != 0) {
+//		bp.tgAlpha[i] = s;
+	} else if (bp.u_coord != 0) {
 		auto xyOut = int(index/PHI_GRID_NODE_COUNT) > bp.u_coord;
 		if ( xyOut ) {
 			mesh.group = Floor;
@@ -88,7 +101,11 @@ kernel void processSegmentation(
 			mesh.group = Foot;
 		}
 	} else  {
-		mesh.group = Unknown;
+		if (h > criticalBorderHeight) {
+			mesh.group = Foot;
+		} else {
+			mesh.group = Unknown;
+		}
 	}
 	
 	// TODO доделать взятие области 
@@ -121,25 +138,27 @@ kernel void reductBorderBuffer(
 	//	if (len != MAX_BORDER_POINTS) {
 	//		return;
 	//	}
+
 		float4 mean = 0;
 		auto cnt = 0;
-		auto maxTangent = 0;
-		auto iMaxTangent = 0;
+//		auto maxTangent = 0;
+//		auto iMaxTangent = 0;
 		for (int i=0; i < len; ++i) {
 			if (length_squared(bp.coords[i]) > 0) {
 				mean += bp.coords[i];
 				++cnt;
 			}
-			if (maxTangent < bp.tgAlpha[i]) {
-				maxTangent = bp.tgAlpha[i];
-				iMaxTangent = i;
-			}
+//			if (maxTangent < bp.tgAlpha[i]) {
+//				maxTangent = bp.tgAlpha[i];
+//				iMaxTangent = i;
+//			}
 		}
 		mean /= cnt;
-		
-		
-	//	bp.mean = mean.xyz;
-		bp.mean = bp.coords[iMaxTangent].xyz;
+
+
+		bp.mean = mean.xyz;
+//		bp.mean = bp.coords[iMaxTangent].xyz;
+		bp.typePoint = border;
 		bp.u_coord = int(mean.w);
 	}
 }

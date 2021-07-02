@@ -34,14 +34,14 @@ extension Renderer {
 			pointCloudUniforms.coordShift = cgb.coordCenter		// передача смещения ЛКС
 			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 		
-			renderEncoder.setVertexBuffer(cgb.buffer)	// ... сетки
+			renderEncoder.setVertexBuffer(cgb.buffer.buffer, offset: 0, index: Int(kMyMesh.rawValue))	// ... сетки
 		
 		
 
 		
 			renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
 
-			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+			renderEncoder.drawIndexedPrimitives(type: .point,
 													indexCount: indecesBuffer.count,
 													indexType: .uint32,
 													indexBuffer: indecesBuffer.buffer,

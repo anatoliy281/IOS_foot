@@ -66,14 +66,14 @@ static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float
 }
 
 
-static simd_float4 camPoint(constant CoordData& uniform) {
-	const auto localPoint = float3(0);
-	const auto worldPoint = uniform.localToWorld * simd_float4(localPoint, 1);
-	
-	const auto p = worldPoint / worldPoint.w;
-	
-	return fromGlobalToObjectCS(uniform.floorHeight, float2(0))*p;
-}
+//static simd_float4 camPoint(constant CoordData& uniform) {
+//	const auto localPoint = float3(0);
+//	const auto worldPoint = uniform.localToWorld * simd_float4(localPoint, 1);
+//	
+//	const auto p = worldPoint / worldPoint.w;
+//	
+//	return fromGlobalToObjectCS(uniform.floorHeight, float2(0))*p;
+//}
 
 float4 projectOnScreen(constant CoordData &uniforms, const thread float4& pos) {
     float4 res = uniforms.viewProjectionMatrix * pos;
@@ -321,7 +321,7 @@ bool inScanArea(float4 spos, constant ViewSector& viewSector) {
 	if (viewSector.number == -1) {	// режим при снятии метрических измерений
 		return true;
 	}
-	const auto secStep = (BOX_BACK_LENGTH + BOX_FRONT_LENGTH) / 3;
+	const auto secStep = (BOX_BACK_LENGTH + BOX_FRONT_LENGTH) / 2;
 	auto dr = spos.xy - viewSector.coord.xy;
 	return abs(dr.x) < secStep && abs(dr.y) < BOX_HALF_WIDTH;
 }
@@ -369,9 +369,14 @@ vertex void unprojectCurvedVertex(
                             constant CoordData &uniforms [[buffer(kPointCloudUniforms)]],
 							constant ViewSector& viewSector [[buffer(kViewSector)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
-                            device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
-							constant float2 &shiftCoord [[ buffer(kMyMesh+1) ]],
-                            texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
+								  
+                            device MyMeshData *heelMesh[[ buffer(kMyMesh) ]],
+							constant float2 &heelShiftCS [[ buffer(kMyMesh+1) ]],
+                            
+						    device MyMeshData *toeMesh[[ buffer(kMyMesh+2) ]],
+						    constant float2 &toeShiftCS [[ buffer(kMyMesh+3) ]],
+					
+							texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
     const auto gridPoint = gridPoints[vertexID];
@@ -391,8 +396,8 @@ vertex void unprojectCurvedVertex(
     const auto confidence = confidenceTexture.sample(depthSampler, texCoord).r;
 
 	bool checkHeight = pointLocation.y - uniforms.floorHeight < BOX_HEIGHT;
-	const auto spos = fromGlobalToObjectCS(uniforms.floorHeight, float2(0))*pointLocation;	// точка относительно несмещённой ЛКС
-	bool frameCheck = inFootFrame(spos);
+	const auto locHeelPos = fromGlobalToObjectCS(uniforms.floorHeight, heelShiftCS)*pointLocation;	// точка относительно несмещённой ЛКС
+	bool frameCheck = inFootFrame(locHeelPos);
     if (
 		checkHeight
         &&
@@ -402,22 +407,35 @@ vertex void unprojectCurvedVertex(
         ) {
 
 		// поиск ЛКС с кратчайшим расстоянием до центра
-//		const auto spos0 = fromGlobalToObjectCS(uniforms.floorHeight, shiftCoord)*pointLocation;
-//		if ()
+		float4 locPos;
+		device MyMeshData* mesh;
+		
+		const auto locToePos = fromGlobalToObjectCS(uniforms.floorHeight, toeShiftCS)*pointLocation;
+		if (length_squared(locToePos.xy) < length_squared(locHeelPos.xy)) {	// достаточно оценки только по xy-координатам (все ЛКС лежат на одной плоскости пола)
+			locPos = locToePos;
+			mesh = toeMesh;
+		} else {
+			locPos = locHeelPos;
+			mesh = heelMesh;
+		}
+		
+//		if ( length_squared(locPos.xy) < 0.01*0.01 ) {
+//			
+//		}
 		
         int index;
         float val;
-		mapToGiperbolicTable(spos, index, val);
+		mapToGiperbolicTable(locPos, index, val);
         if ( index < 0 || index > PHI_GRID_NODE_COUNT*U_GRID_NODE_COUNT-1 ) {
             return ;
         }
 
-		if (
-			inScanArea(spos, viewSector)
-			) {
-			device auto& md = myMeshData[index];
+//		if (
+//			inScanArea(locHeelPos, viewSector)	// дтапазон привязан к пяточной ЛКС
+//			) {
+			device auto& md = mesh[index];
 			MedianSearcher(&md).newValue(val);
-		}
+//		}
     }
 }
 
@@ -474,7 +492,7 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 		return float4(1, 0, 0, saturation);
 	}
 	if (group == Unknown) {
-		return float4(saturation);
+		return float4(0.7);
 	}
 	return color;
 }
@@ -487,10 +505,16 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
     constant auto &md = myMeshData[vid];
 
     const auto nodeVal = md.mean;
+	
+	if (nodeVal == 0) {
+		ParticleVertexOut pOut;
+		pOut.color = float4(0);
+	}
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
 	const auto spos = fromGiperbolicToCartesian(nodeVal, vid);
 	auto pos = fromObjectToGlobalCS(uniforms.floorHeight, uniforms.coordShift)*spos;
+	
 	
 	
 //
@@ -553,7 +577,7 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 	
 	
 	// выводим только узлы принадлежащие рамке сканирования
-	if (!inScanArea(spos)) {
+	if ( !inScanArea(spos) ) {
 		color.a = 0;
 	}
 
@@ -598,6 +622,8 @@ vertex ParticleVertexOut metricVertex(
 		pOut.position = projectOnScreen(uniforms, pos2);
 		pOut.pointSize *= 3;
 		pOut.color = mix(color, float4(0,0,1,1), bp.mean.z);
+	} else if (bp.typePoint == none) {
+		pOut.color = float4(0);
 	}
 	return pOut;
 }
