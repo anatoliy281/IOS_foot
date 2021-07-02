@@ -13,8 +13,8 @@ constant float acceptanceZone = 0.2;
 
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value);
 float4 restoreFromCartesianTable(float h, int index);
-float4x4 fromGlobalToObjectCS(float h);
-float4x4 fromObjectToGlobalCS(float h);
+float4x4 fromGlobalToObjectCS(float h, float2 shify);
+float4x4 fromObjectToGlobalCS(float h, float2 shift);
 float4 fromCylindricalToCartesian(float rho, int index);
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value);
 float4 fromGiperbolicToCartesian(float value, int index);
@@ -72,7 +72,7 @@ static simd_float4 camPoint(constant CoordData& uniform) {
 	
 	const auto p = worldPoint / worldPoint.w;
 	
-	return fromGlobalToObjectCS(uniform.floorHeight)*p;
+	return fromGlobalToObjectCS(uniform.floorHeight, float2(0))*p;
 }
 
 float4 projectOnScreen(constant CoordData &uniforms, const thread float4& pos) {
@@ -270,22 +270,22 @@ float4 detectCameraPosition(constant CoordData &uniforms) {
 //	return dot(rhoCam, rhoPoint);
 //}
 
-float calcOrientation(float floorHeight,
-					  constant CoordData &uniforms, device MyMeshData* mesh, int vid ) {
-	
-	const auto nodeVal = mesh[vid].mean;
-	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
-	// направление обзора камеры в СК связанной с объектом наблюдения
-	const auto camLocation = normalize(
-									 (fromGlobalToObjectCS(floorHeight)*detectCameraPosition(uniforms)).xyz
-									 -
-									 (fromGlobalToObjectCS(floorHeight)*(pos)).xyz
-								 );
-	// нормаль в данном узле
-	const auto normal = mesh[vid].normal;
-	
-	return dot(normal, camLocation);
-}
+//float calcOrientation(float floorHeight,
+//					  constant CoordData &uniforms, device MyMeshData* mesh, int vid ) {
+//
+//	const auto nodeVal = mesh[vid].mean;
+//	auto pos = fromObjectToGlobalCS(floorHeight)*fromCylindricalToCartesian(nodeVal, vid);
+//	// направление обзора камеры в СК связанной с объектом наблюдения
+//	const auto camLocation = normalize(
+//									 (fromGlobalToObjectCS(floorHeight)*detectCameraPosition(uniforms)).xyz
+//									 -
+//									 (fromGlobalToObjectCS(floorHeight)*(pos)).xyz
+//								 );
+//	// нормаль в данном узле
+//	const auto normal = mesh[vid].normal;
+//
+//	return dot(normal, camLocation);
+//}
 
 // ограничения на положения камеры и области съёмки
 
@@ -370,6 +370,7 @@ vertex void unprojectCurvedVertex(
 							constant ViewSector& viewSector [[buffer(kViewSector)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
                             device MyMeshData *myMeshData[[ buffer(kMyMesh) ]],
+							constant float2 &shiftCoord [[ buffer(kMyMesh+1) ]],
                             texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
                             ) {
@@ -390,7 +391,7 @@ vertex void unprojectCurvedVertex(
     const auto confidence = confidenceTexture.sample(depthSampler, texCoord).r;
 
 	bool checkHeight = pointLocation.y - uniforms.floorHeight < BOX_HEIGHT;
-	const auto spos = fromGlobalToObjectCS(uniforms.floorHeight)*pointLocation;
+	const auto spos = fromGlobalToObjectCS(uniforms.floorHeight, float2(0))*pointLocation;	// точка относительно несмещённой ЛКС
 	bool frameCheck = inFootFrame(spos);
     if (
 		checkHeight
@@ -400,6 +401,10 @@ vertex void unprojectCurvedVertex(
         confidence == 2
         ) {
 
+		// поиск ЛКС с кратчайшим расстоянием до центра
+//		const auto spos0 = fromGlobalToObjectCS(uniforms.floorHeight, shiftCoord)*pointLocation;
+//		if ()
+		
         int index;
         float val;
 		mapToGiperbolicTable(spos, index, val);
@@ -485,7 +490,7 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
 	const auto spos = fromGiperbolicToCartesian(nodeVal, vid);
-	auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*spos;
+	auto pos = fromObjectToGlobalCS(uniforms.floorHeight, uniforms.coordShift)*spos;
 	
 	
 //
@@ -571,7 +576,7 @@ vertex ParticleVertexOut metricVertex(
 									  constant BorderPoints* borderPoints [[ buffer(kBorderBuffer) ]]
 									) {
 	constant auto& bp = borderPoints[index];
-	const auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*float4(bp.mean, 1);
+	const auto pos = fromObjectToGlobalCS(uniforms.floorHeight, uniforms.coordShift)*float4(bp.mean, 1);
 	auto color = float4(0.75, 0.75, 0, 1);
 	
 	ParticleVertexOut pOut;
@@ -589,7 +594,7 @@ vertex ParticleVertexOut metricVertex(
 	} else if (bp.typePoint == camera) {
 		auto projected = bp.mean;
 		projected.z = 0.01;
-		const auto pos2 = fromObjectToGlobalCS(uniforms.floorHeight)*float4(projected, 1);
+		const auto pos2 = fromObjectToGlobalCS(uniforms.floorHeight, float2(0))*float4(projected, 1);	// проекция камеры в СК с нулевым сдвигом
 		pOut.position = projectOnScreen(uniforms, pos2);
 		pOut.pointSize *= 3;
 		pOut.color = mix(color, float4(0,0,1,1), bp.mean.z);

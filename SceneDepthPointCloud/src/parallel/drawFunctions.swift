@@ -28,27 +28,45 @@ extension Renderer {
 	}
 	
 	func drawMesh(_ renderEncoder:MTLRenderCommandEncoder) {
-
-		renderEncoder.setRenderPipelineState(cylindricalGridPipelineState)
-//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
-		renderEncoder.setVertexBuffer(curveGridBuffer)
+		for i in 0..<curveGridBuffers.count {
+			let cgb = curveGridBuffers[i]		// текущая сетка
+			renderEncoder.setRenderPipelineState(curvedGridPipelineState)
+			pointCloudUniforms.coordShift = cgb.coordCenter		// передача смещения ЛКС
+			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
+		
+			renderEncoder.setVertexBuffer(cgb.buffer)	// ... сетки
+		
+		
 
 		
-		renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
+			renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
 
-		renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
-												indexCount: indecesBuffer.count,
-												indexType: .uint32,
-												indexBuffer: indecesBuffer.buffer,
-												indexBufferOffset: 0)
+			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+													indexCount: indecesBuffer.count,
+													indexType: .uint32,
+													indexBuffer: indecesBuffer.buffer,
+													indexBufferOffset: 0)
+		}
 //		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
 
 	}
 	
 	func drawFootMetrics(_ renderEncoder:MTLRenderCommandEncoder) {
+		for i in 0..<curveGridBuffers.count {
+			let borderBuffer = curveGridBuffers[i].borderPoints
+			pointCloudUniforms.coordShift = curveGridBuffers[i].coordCenter // TODO учесть в borderPoints смещённый центр?
+			renderEncoder.setRenderPipelineState(metricPipelineState)
+
+			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
+			renderEncoder.setVertexBuffer(borderBuffer)
+			renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: borderBuffer.count)
+			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: borderBuffer.count)
+		}
+		
+		let borderBuffer = metricPoints
+		pointCloudUniforms.coordShift = .zero	// пока так...
 		renderEncoder.setRenderPipelineState(metricPipelineState)
-//		renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+
 		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 		renderEncoder.setVertexBuffer(borderBuffer)
 		renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: borderBuffer.count)

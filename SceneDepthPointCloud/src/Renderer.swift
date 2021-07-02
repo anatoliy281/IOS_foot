@@ -2,7 +2,7 @@ import Metal
 import MetalKit
 import ARKit
 
-let isMeasuringMode:Bool = true
+let isMeasuringMode:Bool = false
 
 
 let gridCartesianNodeCount:Int = Int(GRID_NODE_COUNT*GRID_NODE_COUNT)
@@ -62,49 +62,51 @@ class Renderer {
 			 heightInRise = 4
 	}
 	
+	
+	
 	var metricMode:MetricMode = .lengthToe {
 		willSet {
 			
 			footMetric.interval.a.reset()
 			footMetric.interval.b.reset()
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)].typePoint = metric
-			borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].typePoint = camera
-			borderBuffer[Int(PHI_GRID_NODE_COUNT+7)].typePoint = interval
-			borderBuffer[Int(PHI_GRID_NODE_COUNT+8)].typePoint = interval
+			metricPoints[0].typePoint = metric
+			metricPoints[1].typePoint = camera
+			metricPoints[7].typePoint = interval
+			metricPoints[8].typePoint = interval
 			
 			switch(newValue) {
 			case .lengthToe:
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+9)].typePoint = none
+				metricPoints[9].typePoint = none
 				// disable bunch
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+6)].typePoint = none
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = none
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = none
+				metricPoints[6].typePoint = none
+				metricPoints[5].typePoint = none
+				metricPoints[4].typePoint = none
 				// enable length
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+2)].typePoint = metricNow // toe
+				metricPoints[2].typePoint = metricNow // toe
 			case .lengthHeel:
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+2)].typePoint = metric		// toe
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+3)].typePoint = metricNow	// heel
+				metricPoints[2].typePoint = metric
+				metricPoints[3].typePoint = metricNow	// heel
 			case .bunchWidthOuter:
 				// disable length marks
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+2)].typePoint = none
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+3)].typePoint = none
+				metricPoints[2].typePoint = none
+				metricPoints[3].typePoint = none
 				// bunch
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = metricNow // left bunch width
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+6)].typePoint = metricNow // toe for bunch
+				metricPoints[4].typePoint = metricNow // left bunch width
+				metricPoints[6].typePoint = metricNow // toe for bunch
 			case .bunchWidthInner:
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+4)].typePoint = metric		// left bunch point
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = metricNow	// right bunch point
+				metricPoints[4].typePoint = metric		// left bunch point
+				metricPoints[5].typePoint = metricNow	// right bunch point
 			case .heightInRise:
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+5)].typePoint = none		// right bunch point
-				borderBuffer[Int(PHI_GRID_NODE_COUNT+9)].typePoint = metricNow	// height in rise
+				metricPoints[5].typePoint = none		// right bunch point
+				metricPoints[9].typePoint = metricNow	// height in rise
 			}
 		}
 	}
 	
-	var camPosition:simd_float3 = simd_float3(0) {
+	var camPosition:simd_float3 = .zero {
 		willSet{
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)].mean = simd_float3(repeating:0) // центр ЛКС
-			borderBuffer[Int(PHI_GRID_NODE_COUNT+1)].mean = newValue
+			metricPoints[0].mean = .zero // центр ЛКС
+			metricPoints[1].mean = newValue
 		}
 	}
 	
@@ -124,17 +126,17 @@ class Renderer {
 	
 	var footMetric:FootMetricProps {
 		willSet {
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+2].mean = newValue.length.a.mean
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+3].mean = newValue.length.b.mean
+			metricPoints[2].mean = newValue.length.a.mean
+			metricPoints[3].mean = newValue.length.b.mean
 			
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+4].mean = newValue.bunchWidth.a.mean
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+5].mean = newValue.bunchWidth.b.mean
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+6].mean = newValue.bunchWidth.c.mean
+			metricPoints[4].mean = newValue.bunchWidth.a.mean
+			metricPoints[5].mean = newValue.bunchWidth.b.mean
+			metricPoints[6].mean = newValue.bunchWidth.c.mean
 			
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+7].mean = newValue.interval.a.mean
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+8].mean = newValue.interval.b.mean
+			metricPoints[7].mean = newValue.interval.a.mean
+			metricPoints[8].mean = newValue.interval.b.mean
 			
-			borderBuffer[Int(PHI_GRID_NODE_COUNT)+9].mean = newValue.heightInRise.mean
+			metricPoints[9].mean = newValue.heightInRise.mean
 		}
 	}
 	
@@ -199,7 +201,7 @@ class Renderer {
     private lazy var singleFrameUnprojectPipelineState = makeSingleFrameUnprojectPipelineState()!
     
     internal lazy var cartesianGridPipelineState = makeCartesianGridPipelineState()!
-    internal lazy var cylindricalGridPipelineState = makeCurvedGridPipelineState()!
+    internal lazy var curvedGridPipelineState = makeCurvedGridPipelineState()!
     internal lazy var singleFramePipelineState = makeSingleFramePipelineState()!
 	
 	internal lazy var metricPipelineState = makeMetricsFootPipelineState()!
@@ -315,8 +317,12 @@ class Renderer {
     var cartesianGridBuffer: MetalBuffer<MyMeshData>!
 	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
-    var curveGridBuffer: MetalBuffer<MyMeshData>!
-    
+	var curveGridBuffers: [(borderPoints:MetalBuffer<BorderPoints>,buffer:MetalBuffer<MyMeshData>,coordCenter:Float2)]!
+	lazy var metricPoints:MetalBuffer<BorderPoints> = {	// пока так...
+		let arr = Array(repeating: BorderPoints(), count: 10)
+		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
+	}()
+	
     var gistrosBuffer:MTLBuffer!
     func initializeGistrosBuffer(nodeCount:Int) {
         gistrosBuffer = device.makeBuffer(length: MemoryLayout<Gistro>.stride*nodeCount)
@@ -339,7 +345,7 @@ class Renderer {
         }
     }
 	
-	lazy var borderBuffer:MetalBuffer<BorderPoints> = {
+	func generateBorderBuffer() -> MetalBuffer<BorderPoints> {
 		// дополнительные точки: цертр ск, положение камеры, 2 точки длины, 2 точки пучков
 		
 		// 1 coord center
@@ -353,7 +359,7 @@ class Renderer {
 		// 10 height in rise
 		let arr = Array(repeating: BorderPoints(), count: Int(PHI_GRID_NODE_COUNT + 10))
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
-	}()
+	}
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
@@ -378,6 +384,8 @@ class Renderer {
         initializeCartesianGridNodes()
         initializeGistrosBuffer(nodeCount: gridCurveNodeCount)
 		
+		
+		
 		label.text = "Снимаем носок"
     }
     
@@ -388,9 +396,13 @@ class Renderer {
     }
     
     func initializeCurveGridNodes() {
+		curveGridBuffers = .init()
         let initVal = initMyMeshData(0)
         let gridInitial = Array(repeating: initVal, count: gridCurveNodeCount)
-        curveGridBuffer = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+		let cb:MetalBuffer<MyMeshData> = .init(device: device, array:gridInitial, index: kMyMesh.rawValue)
+		let shift:Float2 = Float2(repeating: 0)
+		let bp = generateBorderBuffer()
+		curveGridBuffers.append((borderPoints:bp, buffer:cb, coordCenter:shift))
     }
     
     
@@ -545,13 +557,14 @@ class Renderer {
 	
 	fileprivate func updateMetric() {
 		
+		var border = curveGridBuffers[0].borderPoints	// пока так... заглушка на первый попавшийся буфер
 		if currentState == .measuring {
 			if metricMode == .lengthToe || metricMode == .lengthHeel {
-				pickLengthPoint(&borderBuffer)
+				pickLengthPoint(&border)
 			} else if metricMode == .bunchWidthInner || metricMode == .bunchWidthOuter {
-				pickWidthPoint(&borderBuffer)
+				pickWidthPoint(&border)
 			} else {
-				pickHeightInRise(&borderBuffer)
+				pickHeightInRise(&border)
 			}
 		}
 	}
@@ -581,7 +594,11 @@ class Renderer {
 		} else {
 			
 			renderEncoder.setRenderPipelineState(curveUnprojectPipelineState)
-			renderEncoder.setVertexBuffer(curveGridBuffer)
+			for i in 0..<curveGridBuffers.count {
+				renderEncoder.setVertexBuffer(curveGridBuffers[i].buffer.buffer, offset: 0, index: Int(kMyMesh.rawValue)+2*i)
+				renderEncoder.setVertexBytes(&curveGridBuffers[i].coordCenter, length: MemoryLayout<Float2>.stride, index: Int(kMyMesh.rawValue)+2*i+1)
+			}
+			
 			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 			
 			renderEncoder.setVertexBytes(&currentViewSector, length: MemoryLayout<ViewSector>.stride, index: Int(kViewSector.rawValue))
@@ -592,11 +609,9 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
-			startSegmentation(grid: curveGridBuffer, pointsBuffer: borderBuffer)
 			
-			
-
-			reductBorderPoints(border: borderBuffer)
+			startSegmentation()
+			reductBorderPoints()
 			updateMetric()
 		}
 

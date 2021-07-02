@@ -2,45 +2,51 @@ import MetalKit
 
 extension Renderer {
 
-	public func startSegmentation(grid: MetalBuffer<MyMeshData>, pointsBuffer: MetalBuffer<BorderPoints>) {
+	public func startSegmentation() {
                 
 		guard let commandBuffer = commandQueue.makeCommandBuffer(),
 			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
-		
-        commandEncoder.setComputePipelineState(segmentationState)
-        
-        commandEncoder.setBuffer(grid)
-		
-		var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
-		commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
-		commandEncoder.setBuffer(pointsBuffer)
-        
-		let nTotal = MTLSize(width: grid.count, height: 1, depth: 1)
-        let w = MTLSize(width: segmentationState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
-        commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
-        
-        commandEncoder.endEncoding()
-        commandBuffer.commit()
-        
-        commandBuffer.waitUntilCompleted()
+		for i in 0..<curveGridBuffers.count {
+			let grid = curveGridBuffers[i].buffer
+			let pointsBuffer = curveGridBuffers[i].borderPoints
+			commandEncoder.setComputePipelineState(segmentationState)
+			
+			commandEncoder.setBuffer(grid)
+			
+			var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
+			commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
+			commandEncoder.setBuffer(pointsBuffer)
+			
+			let nTotal = MTLSize(width: grid.count, height: 1, depth: 1)
+			let w = MTLSize(width: segmentationState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+			commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
+			
+			commandEncoder.endEncoding()
+			commandBuffer.commit()
+			
+			commandBuffer.waitUntilCompleted()
+		}
 
     }
 	
-	public func reductBorderPoints(border: MetalBuffer<BorderPoints>) {
+	public func reductBorderPoints() {
 		guard let commandBuffer = commandQueue.makeCommandBuffer(),
 			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
+		for i in 0..<curveGridBuffers.count {
+			let border = curveGridBuffers[i].borderPoints
+			commandEncoder.setComputePipelineState(reductionBorderState)
+			commandEncoder.setBuffer(border)
+			
+			let nTotal = MTLSize(width: border.count, height: 1, depth: 1)
+			let w = MTLSize(width: reductionBorderState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+			commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
+			
+			commandEncoder.endEncoding()
+			commandBuffer.commit()
+			
+			commandBuffer.waitUntilCompleted()
+		}
 		
-		commandEncoder.setComputePipelineState(reductionBorderState)
-		commandEncoder.setBuffer(border)
-		
-		let nTotal = MTLSize(width: border.count, height: 1, depth: 1)
-		let w = MTLSize(width: reductionBorderState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
-		commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
-		
-		commandEncoder.endEncoding()
-		commandBuffer.commit()
-		
-		commandBuffer.waitUntilCompleted()
 	}
 
 	

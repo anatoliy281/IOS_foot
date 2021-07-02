@@ -21,21 +21,21 @@ enum TextureIndices {
 enum BufferIndices {
     kHeelArea = 0,
     kGridPoints = 1,
-    kMyMesh = 2,
-    kVerteces = 4,
-    kViewCorner = 5,
-    kViewToCam = 6,
-    kPointCloudUniforms = 8,
-    kGistros = 9,
-    kFrame = 11,
-	kIsNotFreezed = 12,
-	kImgWidth = 13,
-	kImgHeight = 14,
-	kFrontToe = 15,
-	kBackHeel = 16,
-	kBorderBuffer = 17,
-	kRisePoint = 18,
-	kViewSector = 19
+    kVerteces = 2,
+    kViewCorner = 4,
+    kViewToCam = 5,
+    kPointCloudUniforms = 6,
+    kGistros = 7,
+    kFrame = 8,
+	kIsNotFreezed = 9,
+	kImgWidth = 10,
+	kImgHeight = 11,
+	kFrontToe = 12,
+	kBackHeel = 13,
+	kBorderBuffer = 14,
+	kRisePoint = 15,
+	kViewSector = 16,
+	kMyMesh = 17,
 };
 
 struct CoordData {
@@ -44,6 +44,7 @@ struct CoordData {
     matrix_float3x3 cameraIntrinsicsInversed;
     simd_float2 cameraResolution;
 	float floorHeight;
+	simd_float2 coordShift;	// сдвиг ЛСК
 };
 
 struct ViewSector {

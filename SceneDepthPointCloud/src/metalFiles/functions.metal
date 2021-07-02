@@ -31,19 +31,19 @@ float4 restoreFromCartesianTable(float h, int index) {
 }
 
 // ------------------------- OBJECT CS -------------------------------
-float4x4 fromGlobalToObjectCS(float h) {
+float4x4 fromGlobalToObjectCS(float h, float2 shift) {
 	return float4x4( float4( 1, 0, 0, 0),
 					 float4( 0, 0, 1, 0),
 					 float4( 0, 1, 0, 0),
-					 float4( 0, 0, -h, 1)
+					 float4( -shift.x, -shift.y, -h, 1)
 					);
 }
 
-float4x4 fromObjectToGlobalCS(float h) {
+float4x4 fromObjectToGlobalCS(float h, float2 shift) {
 	return float4x4( float4( 1, 0, 0, 0),
 					 float4( 0, 0, 1, 0),
 					 float4( 0, 1, 0, 0),
-					 float4( 0, h, 0, 1)
+					 float4( shift.x, h, shift.y, 1)
 					);
 }
 
