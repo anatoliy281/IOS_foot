@@ -257,4 +257,25 @@ extension Renderer {
 		let cp = toLocalCS*camPos
 		camPosition = simd_float3(cp.x, cp.y, cp.z)
 	}
+	
+	func updateAllNodes() {
+		for i in 0..<curveGridBuffers.count {
+			guard let commandBuffer = commandQueue.makeCommandBuffer(),
+				  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
+			let buffer = curveGridBuffers[i].buffer
+			commandEncoder.setComputePipelineState(equalFramePerNodeState)
+			commandEncoder.setBuffer(buffer.buffer, offset: 0, index: Int(kMyMesh.rawValue))
+			commandEncoder.setBytes(&frameAccumulated, length: MemoryLayout<Int>.stride, index: 0)
+			
+			let nTotal = MTLSize(width: buffer.count, height: 1, depth: 1)
+			let w = MTLSize(width: equalFramePerNodeState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+			commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
+			
+			commandEncoder.endEncoding()
+			commandBuffer.commit()
+			
+			commandBuffer.waitUntilCompleted()
+		}
+	}
+
 }

@@ -223,6 +223,7 @@ class Renderer {
     
     lazy var segmentationState: MTLComputePipelineState = makeSegmentationState()!
 	lazy var reductionBorderState: MTLComputePipelineState = makeReductBorderState()!
+	lazy var equalFramePerNodeState: MTLComputePipelineState = makeEqualFamePerMeshNode()!
 //	var floorHeight: Float = -10
 	var floorCyclicBuffer: CyclicBuffer = CyclicBuffer(count: 10)
     
@@ -586,7 +587,7 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 
-			frameAccumulated += 1
+			
 		} else {
 			
 			renderEncoder.setRenderPipelineState(curveUnprojectPipelineState)
@@ -605,12 +606,13 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
+			updateAllNodes()
 			
 			startSegmentation()
 			reductBorderPoints()
 			updateMetric()
 		}
-
+		frameAccumulated += 1
     }
 }
 

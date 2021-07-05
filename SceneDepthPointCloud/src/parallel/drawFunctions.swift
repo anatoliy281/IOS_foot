@@ -41,7 +41,7 @@ extension Renderer {
 		
 			renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
 
-			renderEncoder.drawIndexedPrimitives(type: .point,
+			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
 													indexCount: indecesBuffer.count,
 													indexType: .uint32,
 													indexBuffer: indecesBuffer.buffer,

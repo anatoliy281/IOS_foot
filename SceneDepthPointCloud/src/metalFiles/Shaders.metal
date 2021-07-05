@@ -26,23 +26,10 @@ class MedianSearcher {
 	device MyMeshData* md;
 	constant MyMeshData* mdConst;
 	
-
-	void moreModification(float value);
-	
-	void cycle();
-	int incrementModulo(int x, int step = 1);
-//	float moveMedian(int greater);
-//	int detectShiftDirection(float median, float a, float b, bool add);
-	
 public:
 	MedianSearcher(device MyMeshData* meshData): md(meshData), mdConst(nullptr) {}
-	MedianSearcher(constant MyMeshData* meshData): md(nullptr), mdConst(meshData) {}
-	void oldCode(float value);
-	
+
 	void newValue(float value);
-	
-	void newValueModi(float value);
-	
 };
 
 

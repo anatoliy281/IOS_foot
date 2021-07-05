@@ -8,7 +8,6 @@ struct MyMeshData initMyMeshData(float valInit) {
 	for (int i=0; i < MAX_MESH_STATISTIC; ++i) {
 		md.buffer[i] = valInit;
 	}
-	md.bufModLen = 0;
 	md.totalSteps = 0;
 	md.isDone = 0;
 

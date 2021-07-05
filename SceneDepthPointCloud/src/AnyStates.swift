@@ -18,6 +18,14 @@ extension Renderer {
 		}
 		return res
 	}
+	
+	public func makeEqualFamePerMeshNode() -> MTLComputePipelineState? {
+		let function: MTLFunction! = library.makeFunction(name: "makeEqual") // Grab our gpu function
+		guard let res = try? device.makeComputePipelineState(function: function) else {
+			fatalError()
+		}
+		return res
+	}
 
     private func makeBaseUnprojectionPipelineState(shaderFuncName:String) -> MTLRenderPipelineState? {
         guard let vertexFunction = library.makeFunction(name: shaderFuncName) else {
