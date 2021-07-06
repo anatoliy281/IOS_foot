@@ -41,7 +41,7 @@ extension Renderer {
 		
 			renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
 
-			renderEncoder.drawIndexedPrimitives(type: .triangleStrip,
+			renderEncoder.drawIndexedPrimitives(type: .point,
 													indexCount: indecesBuffer.count,
 													indexType: .uint32,
 													indexBuffer: indecesBuffer.buffer,
@@ -63,14 +63,14 @@ extension Renderer {
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: borderBuffer.count)
 		}
 		
-		let borderBuffer = metricPoints
+		let bb = metricPoints
 		pointCloudUniforms.coordShift = .zero	// пока так...
 		renderEncoder.setRenderPipelineState(metricPipelineState)
 
 		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
-		renderEncoder.setVertexBuffer(borderBuffer)
-		renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: borderBuffer.count)
-		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: borderBuffer.count)
+		renderEncoder.setVertexBuffer(bb)
+		renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: bb.count)
+		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: bb.count)
 	}
 	
 }

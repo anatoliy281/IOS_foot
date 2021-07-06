@@ -14,6 +14,9 @@ extension Renderer {
 			commandEncoder.setBuffer(grid.buffer, offset: 0, index: Int(kMyMesh.rawValue))
 			
 			var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
+			if (i == 0) {	// точку подъема передаём только для СК пятки
+				p = .zero
+			}
 			commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
 			commandEncoder.setBuffer(pointsBuffer)
 			

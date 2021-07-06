@@ -536,8 +536,9 @@ class Renderer {
         case .findFloorPlane:
             drawHeelMarker(renderEncoder)
         case .scanning:
-            renderEncoder.setDepthStencilState(relaxedStencilState)
+            renderEncoder.setDepthStencilState(depthStencilState)
 			drawMesh(renderEncoder)
+			renderEncoder.setDepthStencilState(relaxedStencilState)
 			drawFootMetrics(renderEncoder)
 		case .measuring:
             renderEncoder.setDepthStencilState(relaxedStencilState)

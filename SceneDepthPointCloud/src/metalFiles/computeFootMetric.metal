@@ -18,24 +18,33 @@ using namespace metal;
 
 constant auto gridTotalNodes = U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT;
 
+bool isUnknownTypeNode(device MyMeshData* mesh, int index) {
+	return mesh[index].group == Unknown;
+}
+
 float calcDzDrho(device MyMeshData* mesh,
 					  int index,
 					  int delta) {
 	const auto stepIndex = delta*PHI_GRID_NODE_COUNT;
 	
-	const auto index0 = (index >= stepIndex) ? index - stepIndex: index;
-	const auto val0 = mesh[index0].mean;
-	if (val0 == 0) {
+	const auto index0 = index - stepIndex;
+	const auto indexN =  index + stepIndex;
+	if ( index0 < 0 || indexN > gridTotalNodes ) {
 		return 0;
 	}
-	const auto r0 = fromGiperbolicToCartesian(val0, index0);
-	
-	const auto indexN = (index < (gridTotalNodes - stepIndex)) ? index + stepIndex: index;
-	const auto valN = mesh[indexN].mean;
-	if (valN == 0) {
-		return 0;
-	}
-	const auto rN = fromGiperbolicToCartesian(valN, indexN);
+//	
+//	const auto dU = 10;
+//	const auto indexPlusdU = index + dU*PHI_GRID_NODE_COUNT;
+//	const auto indexMinusdU = index - dU*PHI_GRID_NODE_COUNT;
+//	if ( indexMinusdU < 0 || indexPlusdU > gridTotalNodes ) {
+//		return 0;
+//	}
+//	if (mesh[indexPlusdU].group == Unknown || mesh[indexMinusdU].group == Unknown) {
+//		return 0;
+//	}
+
+	const auto r0 = fromGiperbolicToCartesian(mesh[index0].mean, index0);
+	const auto rN = fromGiperbolicToCartesian(mesh[indexN].mean, indexN);
 	
 	const auto dR = r0 - rN;
 	if (length(r0.xy) > length(rN.xy)) {
@@ -61,6 +70,20 @@ float3 calcCoord(device MyMeshData* mesh,
 
 constant float EpsilonSqured = 0.003*0.003;
 
+//bool checkCoordSysBorder(int uCoord, int phiCoord, device MyMeshData* mesh) {
+//	const auto uCoord0 = uCoord - 1;
+//	const auto uCoord1 = uCoord + 1;
+//
+//	const auto index0 = uCoord0*PHI_GRID_NODE_COUNT + phiCoord;
+//	const auto index1 = uCoord1*PHI_GRID_NODE_COUNT + phiCoord;
+//	const auto index2 = uCoord*PHI_GRID_NODE_COUNT + phiCoord;
+//
+//	return mesh[index0].group != Unknown &&
+//		   mesh[index1].group != Unknown &&
+//		   mesh[index2].group != Unknown;
+//
+//}
+
 kernel void processSegmentation(
 						   uint index [[ thread_position_in_grid ]],
 						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]],
@@ -78,20 +101,22 @@ kernel void processSegmentation(
 //	const auto criticalFloorHeight = 0.005;
 	const auto criticalBorderHeight = 0.03;
 	
-	const auto j = index%PHI_GRID_NODE_COUNT;
-	device auto& bp = borderBuffer[j];
-//	bp.typePoint = none;
+	const auto phiCoord = index%PHI_GRID_NODE_COUNT;
+	const auto uCoord = index/PHI_GRID_NODE_COUNT;
+	device auto& bp = borderBuffer[phiCoord];
 	
 	const auto s = calcDzDrho(myMeshData, index, deltaN);
 	const auto r = calcCoord(myMeshData, index);
 	const auto h = r.z;
+	
 
 	if ( s > criticalSlope &&
 		 h < criticalBorderHeight &&
+		 mesh.group != ZoneUndefined &&
 		 length_squared(r.xy) > 0.02*0.02 ) {
 		mesh.group = Border;
 		const auto i = (bp.len++)%MAX_BORDER_POINTS;
-		bp.coords[i] = float4(r, index/PHI_GRID_NODE_COUNT);
+		bp.coords[i] = float4(r, uCoord);
 //		bp.tgAlpha[i] = s;
 	} else if (bp.u_coord != 0) {
 		auto xyOut = int(index/PHI_GRID_NODE_COUNT) > bp.u_coord;
@@ -104,12 +129,12 @@ kernel void processSegmentation(
 		if (h > criticalBorderHeight) {
 			mesh.group = Foot;
 		} else {
-			mesh.group = Unknown;
+			mesh.group = Floor;
 		}
 	}
 	
 	// TODO доделать взятие области 
-	if ( length_squared(r.xy - pointInRise.xy) < EpsilonSqured ) {	// заполняем буфер в области подъёма
+	if ( length_squared(pointInRise) > 0 && length_squared(r.xy - pointInRise.xy) < EpsilonSqured ) {	// заполняем буфер в области подъёма
 		device auto& bpCenter = borderBuffer[PHI_GRID_NODE_COUNT+9];
 		bpCenter.coords[(bpCenter.len++)%MAX_BORDER_POINTS] = float4(r, 0);
 	}
@@ -134,31 +159,30 @@ kernel void reductBorderBuffer(
 	} else {
 		device auto& bp = buffer[index];
 	//	auto len = min(bp.len, MAX_BORDER_POINTS);
-		auto len = MAX_BORDER_POINTS;
 	//	if (len != MAX_BORDER_POINTS) {
 	//		return;
 	//	}
 
-		float4 mean = 0;
-		auto cnt = 0;
-//		auto maxTangent = 0;
-//		auto iMaxTangent = 0;
-		for (int i=0; i < len; ++i) {
-			if (length_squared(bp.coords[i]) > 0) {
-				mean += bp.coords[i];
-				++cnt;
+		if (bp.len > 0) {
+			float4 mean = 0;
+			for (int i=0; i < (bp.len)%MAX_BORDER_POINTS; ++i) {
+				if (length_squared(bp.coords[i]) > 0) {
+					mean += bp.coords[i];
+				}
+	//			if (maxTangent < bp.tgAlpha[i]) {
+	//				maxTangent = bp.tgAlpha[i];
+	//				iMaxTangent = i;
+	//			}
 			}
-//			if (maxTangent < bp.tgAlpha[i]) {
-//				maxTangent = bp.tgAlpha[i];
-//				iMaxTangent = i;
-//			}
+			mean /= bp.len;
+			bp.mean = mean.xyz;
+	//		bp.mean = bp.coords[iMaxTangent].xyz;
+			bp.typePoint = border;
+			bp.u_coord = int(mean.w);
+			bp.len = 0;
+		} else {
+			bp.typePoint = none;
+			bp.u_coord = 0;
 		}
-		mean /= cnt;
-
-
-		bp.mean = mean.xyz;
-//		bp.mean = bp.coords[iMaxTangent].xyz;
-		bp.typePoint = border;
-		bp.u_coord = int(mean.w);
 	}
 }

@@ -351,6 +351,20 @@ bool inScanArea(float4 spos) {
 	return checkLength && checkWidth;
 }
 
+
+// spos - в пяточной СК, cs2 - координата носочной СК относительно пяточной
+bool markZoneOfUndefined(float4 spos, float2 cs2) {
+	const auto eps = 0.01;
+	const auto hw = abs(BOX_HALF_WIDTH - abs(spos.y)) < eps;
+	const auto bl = abs(BOX_BACK_LENGTH - spos.x) < eps;
+	const auto fl = abs(BOX_FRONT_LENGTH + spos.x) < eps;
+	const auto sep = 0.5*cs2.x;		// приближение двух СК лежащих на оси OX
+	const auto sp = abs(spos.x - sep) < eps;
+	
+	return hw || bl || fl || sp;
+}
+
+
 vertex void unprojectCurvedVertex(
                             uint vertexID [[vertex_id]],
                             constant CoordData &uniforms [[buffer(kPointCloudUniforms)]],
@@ -359,7 +373,7 @@ vertex void unprojectCurvedVertex(
 								  
                             device MyMeshData *heelMesh[[ buffer(kMyMesh) ]],
 							constant float2 &heelShiftCS [[ buffer(kMyMesh+1) ]],
-                            
+								  
 						    device MyMeshData *toeMesh[[ buffer(kMyMesh+2) ]],
 						    constant float2 &toeShiftCS [[ buffer(kMyMesh+3) ]],
 					
@@ -417,12 +431,13 @@ vertex void unprojectCurvedVertex(
             return ;
         }
 
-//		if (
-//			inScanArea(locHeelPos, viewSector)	// дтапазон привязан к пяточной ЛКС
-//			) {
-			device auto& md = mesh[index];
-			MedianSearcher(&md).newValue(val);
-//		}
+		if (markZoneOfUndefined(locHeelPos, toeShiftCS)) {
+			mesh[index].group = ZoneUndefined;
+		}
+		
+		device auto& md = mesh[index];
+		MedianSearcher(&md).newValue(val);
+
     }
 }
 
@@ -479,7 +494,10 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 		return float4(1, 0, 0, saturation);
 	}
 	if (group == Unknown) {
-		return float4(0.7);
+		return float4(1, 1, 1, 1);
+	}
+	if (group == ZoneUndefined) {
+		return float4(1, 1, 0, 1);
 	}
 	return color;
 }
@@ -611,6 +629,7 @@ vertex ParticleVertexOut metricVertex(
 		pOut.color = mix(color, float4(0,0,1,1), bp.mean.z);
 	} else if (bp.typePoint == none) {
 		pOut.color = float4(0);
+		pOut.pointSize = 0;
 	}
 	return pOut;
 }

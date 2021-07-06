@@ -47,6 +47,19 @@ float4x4 fromObjectToGlobalCS(float h, float2 shift) {
 					);
 }
 
+void mapToCylindricalTable(float4 spos, thread int& i, thread int& j, thread float& value) {
+	auto phi = atan( spos.y / spos.x );
+	if ( spos.x < 0 ) {
+		phi += M_PI_F;
+	}
+	else if (spos.x >= 0 && spos.y < 0) {
+		phi += 2*M_PI_F;
+	} else {}
+	
+	i = round(spos.z/gridNodeDistCylindricalZ);
+	j = round( phi / PHI_STEP );
+	value = length(spos.xy);
+}
 
 float4 fromCylindricalToCartesian(float rho, int index) {
 	const auto z = (index/PHI_GRID_NODE_COUNT)*gridNodeDistCylindricalZ;
@@ -106,8 +119,8 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 }
 
 bool inFootFrame(float4 spos) {
-	bool checkWidth = abs(spos.y) < BOX_HALF_WIDTH;
-	bool checkLength = (spos.x < 0)? spos.x > -BOX_FRONT_LENGTH: spos.x < BOX_BACK_LENGTH;
+	bool checkWidth = abs(spos.y) < BOX_HALF_WIDTH+0.01;
+	bool checkLength = (spos.x < 0)? spos.x > -BOX_FRONT_LENGTH-0.01: spos.x < BOX_BACK_LENGTH+0.01;
 	return checkWidth && checkLength;
 }
 
