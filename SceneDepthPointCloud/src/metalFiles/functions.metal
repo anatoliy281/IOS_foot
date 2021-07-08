@@ -111,9 +111,12 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 	
 	const auto rho = length(r.xy);
 	const auto h = r.z;
-	int i = round( (k*k*rho*rho - h*h) / U_STEP ) + U0_GRID_NODE_COUNT;
-
-	value = 2*rho*h;
+	
+	const auto u = k*k*rho*rho - h*h;
+	const auto v = 2*rho*h;
+	
+	value = v;
+	const auto i = round( u / U_STEP ) + U0_GRID_NODE_COUNT;
 	index = i*PHI_GRID_NODE_COUNT + j;
 }
 
