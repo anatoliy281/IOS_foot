@@ -4,62 +4,45 @@ extension Renderer {
 
 	public func startSegmentation() {
                 
-		for i in 0..<curveGridBuffers.count {
-			guard let commandBuffer = commandQueue.makeCommandBuffer(),
-				  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
-			let grid = curveGridBuffers[i].buffer
-			let pointsBuffer = curveGridBuffers[i].borderPoints
-			commandEncoder.setComputePipelineState(segmentationState)
-			
-			commandEncoder.setBuffer(grid.buffer, offset: 0, index: Int(kMyMesh.rawValue))
-			
-			var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
-			if (i == 0) {	// точку подъема передаём только для СК пятки
-				p = .zero
-			}
-			commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
-			commandEncoder.setBuffer(pointsBuffer)
-			
-			let nTotal = MTLSize(width: grid.count, height: 1, depth: 1)
-			let w = MTLSize(width: segmentationState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
-			commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
-			
-			commandEncoder.endEncoding()
-			commandBuffer.commit()
-			
-			commandBuffer.waitUntilCompleted()
-		}
+		guard let commandBuffer = commandQueue.makeCommandBuffer(),
+			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
+		let grid = curveGridBuffer.buffer
+		let pointsBuffer = curveGridBuffer.borderPoints
+		commandEncoder.setComputePipelineState(segmentationState)
+		
+		commandEncoder.setBuffer(grid)
+		
+		var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
+		commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
+		commandEncoder.setBuffer(pointsBuffer)
+		
+		let nTotal = MTLSize(width: grid.count, height: 1, depth: 1)
+		let w = MTLSize(width: segmentationState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+		commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
+		
+		commandEncoder.endEncoding()
+		commandBuffer.commit()
+		
+		commandBuffer.waitUntilCompleted()
 
     }
 	
 	public func reductBorderPoints() {
-		for i in 0..<curveGridBuffers.count {
-			guard let commandBuffer = commandQueue.makeCommandBuffer(),
-				  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
-			let border = curveGridBuffers[i].borderPoints
-			commandEncoder.setComputePipelineState(reductionBorderState)
-			commandEncoder.setBuffer(border)
-			
-			let nTotal = MTLSize(width: border.count, height: 1, depth: 1)
-			let w = MTLSize(width: reductionBorderState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
-			commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
-			
-			commandEncoder.endEncoding()
-			commandBuffer.commit()
-			
-			commandBuffer.waitUntilCompleted()
-		}
+		guard let commandBuffer = commandQueue.makeCommandBuffer(),
+			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
+		let border = curveGridBuffer.borderPoints
+		commandEncoder.setComputePipelineState(reductionBorderState)
+		commandEncoder.setBuffer(border)
 		
-	}
-
-	
-	
-	func inFrameBoxOfFoot(pos:Float3) -> Bool {
-		let checkHeight = pos.z < Float(HEIGHT_OVER_FLOOR)
-		let checkWidth = abs(pos.y) < Float(BOX_HALF_WIDTH)
-		let checkLength = (pos.x < 0) ? -pos.x < Float(BOX_FRONT_LENGTH) :
-										pos.x < Float(BOX_BACK_LENGTH)
-		return checkWidth && checkHeight && checkLength
+		let nTotal = MTLSize(width: border.count, height: 1, depth: 1)
+		let w = MTLSize(width: reductionBorderState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+		commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
+		
+		commandEncoder.endEncoding()
+		commandBuffer.commit()
+		
+		commandBuffer.waitUntilCompleted()
+		
 	}
 	
 	
@@ -262,23 +245,21 @@ extension Renderer {
 	}
 	
 	func updateAllNodes() {
-		for i in 0..<curveGridBuffers.count {
-			guard let commandBuffer = commandQueue.makeCommandBuffer(),
-				  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
-			let buffer = curveGridBuffers[i].buffer
-			commandEncoder.setComputePipelineState(equalFramePerNodeState)
-			commandEncoder.setBuffer(buffer.buffer, offset: 0, index: Int(kMyMesh.rawValue))
-			commandEncoder.setBytes(&frameAccumulated, length: MemoryLayout<Int>.stride, index: 0)
-			
-			let nTotal = MTLSize(width: buffer.count, height: 1, depth: 1)
-			let w = MTLSize(width: equalFramePerNodeState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
-			commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
-			
-			commandEncoder.endEncoding()
-			commandBuffer.commit()
-			
-			commandBuffer.waitUntilCompleted()
-		}
+		guard let commandBuffer = commandQueue.makeCommandBuffer(),
+			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
+		let buffer = curveGridBuffer.buffer
+		commandEncoder.setComputePipelineState(equalFramePerNodeState)
+		commandEncoder.setBuffer(buffer)
+		commandEncoder.setBytes(&frameAccumulated, length: MemoryLayout<Int>.stride, index: 0)
+		
+		let nTotal = MTLSize(width: buffer.count, height: 1, depth: 1)
+		let w = MTLSize(width: equalFramePerNodeState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+		commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
+		
+		commandEncoder.endEncoding()
+		commandBuffer.commit()
+		
+		commandBuffer.waitUntilCompleted()
 	}
 
 }

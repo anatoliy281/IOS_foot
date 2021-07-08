@@ -12,7 +12,7 @@
 #import "../ShaderTypes.h"
 
 float4 fromGiperbolicToCartesian(float value, int index);
-bool inFootFrame(float4 spos);
+bool inFootFrame(float2 spos);
 
 using namespace metal;
 
@@ -47,16 +47,15 @@ float calcDzDrho(device MyMeshData* mesh,
 	const auto rN = fromGiperbolicToCartesian(mesh[indexN].mean, indexN);
 	
 	const auto dR = r0 - rN;
-	if (length(r0.xy) > length(rN.xy)) {
-		return 0;
-	}
+//	if (length(r0.xy) < length(rN.xy)) {
+//		return 0;
+//	}
 	
-	if (inFootFrame(r0) && inFootFrame(rN)) {
+	if (inFootFrame(r0.xy) && inFootFrame(rN.xy)) {
 		return dR.z / length(dR.xy);
 	} else {
 		return 0;
 	}
-	
 	
 }
 
@@ -99,7 +98,8 @@ kernel void processSegmentation(
 	const auto deltaN = 3;
 	const auto criticalSlope = 1;
 //	const auto criticalFloorHeight = 0.005;
-	const auto criticalBorderHeight = 0.03;
+	const auto criticalBorderHeight = 0.006
+	;
 	
 	const auto phiCoord = index%PHI_GRID_NODE_COUNT;
 	const auto uCoord = index/PHI_GRID_NODE_COUNT;
@@ -110,34 +110,35 @@ kernel void processSegmentation(
 	const auto h = r.z;
 	
 
-	if ( s > criticalSlope &&
-		 h < criticalBorderHeight &&
-		 mesh.group != ZoneUndefined &&
-		 length_squared(r.xy) > 0.02*0.02 ) {
-		mesh.group = Border;
-		const auto i = (bp.len++)%MAX_BORDER_POINTS;
-		bp.coords[i] = float4(r, uCoord);
-//		bp.tgAlpha[i] = s;
-	} else if (bp.u_coord != 0) {
-		auto xyOut = int(index/PHI_GRID_NODE_COUNT) > bp.u_coord;
-		if ( xyOut ) {
-			mesh.group = Floor;
-		} else {
-			mesh.group = Foot;
-		}
-	} else  {
+//	if ( s > criticalSlope &&
+//		 h < criticalBorderHeight &&
+//		 mesh.group != ZoneUndefined ) {
+//		mesh.group = Border;
+//		const auto i = (bp.len++)%MAX_BORDER_POINTS;
+//		bp.coords[i] = float4(r, uCoord);
+////		bp.tgAlpha[i] = s;
+//	}
+////	else if (bp.u_coord != 0) {
+////		auto xyOut = int(index/PHI_GRID_NODE_COUNT) < bp.u_coord;
+////		if ( xyOut ) {
+////			mesh.group = Floor;
+////		} else {
+////			mesh.group = Foot;
+////		}
+////	}
+//	else  {
 		if (h > criticalBorderHeight) {
 			mesh.group = Foot;
 		} else {
 			mesh.group = Floor;
 		}
-	}
+//	}
 	
 	// TODO доделать взятие области 
-	if ( length_squared(pointInRise) > 0 && length_squared(r.xy - pointInRise.xy) < EpsilonSqured ) {	// заполняем буфер в области подъёма
-		device auto& bpCenter = borderBuffer[PHI_GRID_NODE_COUNT+9];
-		bpCenter.coords[(bpCenter.len++)%MAX_BORDER_POINTS] = float4(r, 0);
-	}
+//	if ( length_squared(pointInRise) > 0 && length_squared(r.xy - pointInRise.xy) < EpsilonSqured ) {	// заполняем буфер в области подъёма
+//		device auto& bpCenter = borderBuffer[PHI_GRID_NODE_COUNT+9];
+//		bpCenter.coords[(bpCenter.len++)%MAX_BORDER_POINTS] = float4(r, 0);
+//	}
 	
 }
 

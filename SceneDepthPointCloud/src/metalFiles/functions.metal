@@ -31,19 +31,19 @@ float4 restoreFromCartesianTable(float h, int index) {
 }
 
 // ------------------------- OBJECT CS -------------------------------
-float4x4 fromGlobalToObjectCS(float h, float2 shift) {
+float4x4 fromGlobalToObjectCS(float h) {
 	return float4x4( float4( 1, 0, 0, 0),
 					 float4( 0, 0, 1, 0),
 					 float4( 0, 1, 0, 0),
-					 float4( -shift.x, -shift.y, -h, 1)
+					 float4( 0, 0, -h, 1)
 					);
 }
 
-float4x4 fromObjectToGlobalCS(float h, float2 shift) {
+float4x4 fromObjectToGlobalCS(float h) {
 	return float4x4( float4( 1, 0, 0, 0),
 					 float4( 0, 0, 1, 0),
 					 float4( 0, 1, 0, 0),
-					 float4( shift.x, h, shift.y, 1)
+					 float4( 0, h, 0, 1)
 					);
 }
 
@@ -80,21 +80,40 @@ float4 fromCylindricalToCartesian(float rho, int index) {
 
 constant auto k = 1;
 
+// положения смещения систем координат (криволинейных и локальных)
+constant float3 shiftsCS[4] = {
+	float3(-BOX_HALF_HEIGHT, -BOX_HALF_WIDTH, 0),
+	float3( BOX_HALF_HEIGHT, -BOX_HALF_WIDTH, 0),
+	float3( BOX_HALF_HEIGHT,  BOX_HALF_WIDTH, 0),
+	float3(-BOX_HALF_HEIGHT,  BOX_HALF_WIDTH, 0)
+};
+
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
+	auto r = spos.xyz; // определение смещения ЛКС в зависимости от квадранта
+	if ( (r.x <= 0) && (r.y < 0) ) {  
+		r -= shiftsCS[0];
+	} else if ( (r.x > 0) && (r.y <= 0) ) {
+		r -= shiftsCS[1];
+	} else if ( (r.x >= 0) && (r.y > 0) ) {
+		r -= shiftsCS[2];
+	} else if ( (r.x < 0) && (r.y >= 0) ) {
+		r -= shiftsCS[3];
+	} else { return; } //  пятого не дано...
 	
-	auto phase = 0.f;
-	if ( spos.x < 0 ) {
+	float phase = 0; 	// определение фазы в
+	if ( r.x < 0 ) {
 		phase = M_PI_F;
-	} else if (spos.y < 0) {
+	} else if (r.y < 0) {
 		phase = 2*M_PI_F;
 	}
-	auto phi = atan( spos.y / spos.x ) + phase;
+	auto phi = atan( r.y / r.x ) + phase;
 	int j = round( phi / PHI_STEP );
 	
-	const auto rho = length(spos.xy);
-	int i = round( (k*k*rho*rho - spos.z*spos.z) / U_STEP )	+ U0_GRID_NODE_COUNT;
+	const auto rho = length(r.xy);
+	const auto h = r.z;
+	int i = round( (k*k*rho*rho - h*h) / U_STEP ) + U0_GRID_NODE_COUNT;
 
-	value = 2*rho*spos.z;
+	value = 2*rho*h;
 	index = i*PHI_GRID_NODE_COUNT + j;
 }
 
@@ -110,17 +129,27 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 	
 	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
 	
-	float4 pos(1);
-	pos.x = rho*cos(phi);
-	pos.y = rho*sin(phi);
-	pos.z = h;
-
-	return pos;
+	float3 pos(rho*cos(phi), rho*sin(phi), h);
+	
+	// поменять местами квадранты 0<->2, 1<->3
+	if ( (M_PI_F < phi) && (phi <= 1.5*M_PI_F) ) {
+		pos += shiftsCS[2];
+	} else if ( (1.5*M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
+		pos += shiftsCS[3];
+	} else if ( (0 < phi) && (phi <= M_PI_2_F) ) {
+		pos += shiftsCS[0];
+	} else if ( (M_PI_2_F < phi) && (phi <= M_PI_F) ) {
+		pos += shiftsCS[1];
+	} else { // так не бывает...
+		return float4();
+	}
+	
+	return float4(pos, 1);
 }
 
-bool inFootFrame(float4 spos) {
-	bool checkWidth = abs(spos.y) < BOX_HALF_WIDTH+0.01;
-	bool checkLength = (spos.x < 0)? spos.x > -BOX_FRONT_LENGTH-0.01: spos.x < BOX_BACK_LENGTH+0.01;
-	return checkWidth && checkLength;
+bool inFootFrame(float2 spos) {
+	bool checkWidth = abs(spos.y) < BOX_HALF_WIDTH;
+	bool checkHeight = abs(spos.x) < BOX_HALF_HEIGHT;
+	return checkWidth && checkHeight;
 }
 

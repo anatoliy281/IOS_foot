@@ -45,7 +45,7 @@ void MedianSearcher::update(float value) {
 	device auto& totalSteps = md->totalSteps;
 	
 	int n = totalSteps%MAX_MESH_STATISTIC;
-	const auto saved = md->buffer[n];
+//	const auto saved = md->buffer[n];
 	md->buffer[n] = value;
 
 	if ( totalSteps < MAX_MESH_STATISTIC ) {

@@ -61,19 +61,16 @@ class MeshHolder {
 					 Int(Foot.rawValue):.init()
 		]
 
-		let allBuffers = renderer.curveGridBuffers!
-		for n in 0..<allBuffers.count {	// перебор всех сеток
-			let curCurveGrid = allBuffers[n]
-			for i in 0..<curCurveGrid.buffer.count { // перебор узлов текущей сетки
-				let node = curCurveGrid.buffer[i]
-				let row = Int(gridRow(Int32(i)))
-				let col = Int(gridColumn(Int32(i)))
-				let val = node.mean
-				res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
+		let buffer = renderer.curveGridBuffer!.buffer
 
-			}
+		for i in 0..<buffer.count { // перебор узлов текущей сетки
+			let node = buffer[i]
+			let row = Int(gridRow(Int32(i)))
+			let col = Int(gridColumn(Int32(i)))
+			let val = node.mean
+			res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
+
 		}
-		
 
 		return res
 

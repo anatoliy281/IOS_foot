@@ -13,12 +13,12 @@ constant float acceptanceZone = 0.2;
 
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value);
 float4 restoreFromCartesianTable(float h, int index);
-float4x4 fromGlobalToObjectCS(float h, float2 shify);
-float4x4 fromObjectToGlobalCS(float h, float2 shift);
+float4x4 fromGlobalToObjectCS(float h);
+float4x4 fromObjectToGlobalCS(float h);
 float4 fromCylindricalToCartesian(float rho, int index);
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value);
 float4 fromGiperbolicToCartesian(float value, int index);
-bool inFootFrame(float4 spos);
+bool inFootFrame(float2 spos);
 
 //// -------------------------- BASE DEFINITIONS -----------------------------
 
@@ -87,15 +87,21 @@ float4 colorCartesianPoint(float floorDist, float saturation) {
 }
 
 
-
+// ищется попадание точек в рамку толщины BOX_FLOOR_ZONE, factor - дополнительный отступ (придаёт дополнительный запас ширины влияет только на подавление артефактов отрисовки)
 bool frameRegion(float4 position, float floorHeight, float factor) {
-	float L = 0.5*(BOX_FRONT_LENGTH + BOX_BACK_LENGTH);
-	float center = L - BOX_BACK_LENGTH;
-	bool checkOuter = abs(position.z) < (1-factor)*(BOX_HALF_WIDTH + BOX_FLOOR_ZONE) && abs(position.x + center) < (1-factor)*(L + BOX_FLOOR_ZONE);
-	bool checkInner = abs(position.z) > (1+factor)*BOX_HALF_WIDTH || abs(position.x + center) > (1+factor)*L;
+	const auto xAbs = abs(position.x);
+	const auto zAbs = abs(position.z);
+	const auto dyAbs = abs(position.y - floorHeight);
+	const auto dRho = float2(1-factor, 1+factor);
+	
+	bool checkOuter = zAbs < dRho[0]*(BOX_HALF_WIDTH + BOX_FLOOR_ZONE) &&
+					  xAbs < dRho[0]*(BOX_HALF_HEIGHT + BOX_FLOOR_ZONE);
+	bool checkInner = zAbs > dRho[1]*BOX_HALF_WIDTH ||
+					  xAbs > dRho[1]*BOX_HALF_HEIGHT;
 
 	bool frameCheck = checkInner && checkOuter;
-	bool heightCheck = abs(position.y - floorHeight) < BOX_HEIGHT;
+	bool heightCheck = dyAbs < BOX_HEIGHT;
+	
 	if ( floorHeight == -10 )
 		heightCheck = true;
 	
@@ -304,15 +310,6 @@ float4 detectCameraPosition(constant CoordData &uniforms) {
 //	}
 //};
 
-bool inScanArea(float4 spos, constant ViewSector& viewSector) {
-	if (viewSector.number == -1) {	// режим при снятии метрических измерений
-		return true;
-	}
-	const auto secStep = (BOX_BACK_LENGTH + BOX_FRONT_LENGTH) / 2;
-	auto dr = spos.xy - viewSector.coord.xy;
-	return abs(dr.x) < secStep && abs(dr.y) < BOX_HALF_WIDTH;
-}
-
 //bool checkDone(device MyMeshData* mesh, int index) {
 //
 //	device auto& md = mesh[index];
@@ -343,25 +340,15 @@ bool inScanArea(float4 spos, constant ViewSector& viewSector) {
 //}
 
 
-
-
-bool inScanArea(float4 spos) {
-	bool checkWidth = abs(spos.y) < BOX_HALF_WIDTH;
-	bool checkLength = (spos.x < 0)? spos.x > -BOX_FRONT_LENGTH: spos.x < BOX_BACK_LENGTH;
-	return checkLength && checkWidth;
-}
-
-
 // spos - в пяточной СК, cs2 - координата носочной СК относительно пяточной
-bool markZoneOfUndefined(float4 spos, float2 cs2) {
+bool markZoneOfUndefined(float2 spos) {
 	const auto eps = 0.01;
 	const auto hw = abs(BOX_HALF_WIDTH - abs(spos.y)) < eps;
-	const auto bl = abs(BOX_BACK_LENGTH - spos.x) < eps;
-	const auto fl = abs(BOX_FRONT_LENGTH + spos.x) < eps;
-	const auto sep = 0.5*cs2.x;		// приближение двух СК лежащих на оси OX
-	const auto sp = abs(spos.x - sep) < eps;
+	const auto hh = abs(BOX_HALF_HEIGHT - abs(spos.x)) < eps;
+	const auto oy = abs(spos.y) < eps;
+	const auto ox = abs(spos.x) < eps;
 	
-	return hw || bl || fl || sp;
+	return hw || hh || ox || oy;
 }
 
 
@@ -371,11 +358,7 @@ vertex void unprojectCurvedVertex(
 							constant ViewSector& viewSector [[buffer(kViewSector)]],
                             constant float2 *gridPoints [[ buffer(kGridPoints) ]],
 								  
-                            device MyMeshData *heelMesh[[ buffer(kMyMesh) ]],
-							constant float2 &heelShiftCS [[ buffer(kMyMesh+1) ]],
-								  
-						    device MyMeshData *toeMesh[[ buffer(kMyMesh+2) ]],
-						    constant float2 &toeShiftCS [[ buffer(kMyMesh+3) ]],
+                            device MyMeshData *mesh[[ buffer(kMyMesh) ]],
 					
 							texture2d<float, access::sample> depthTexture [[texture(kTextureDepth)]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]
@@ -397,8 +380,8 @@ vertex void unprojectCurvedVertex(
     const auto confidence = confidenceTexture.sample(depthSampler, texCoord).r;
 
 	bool checkHeight = pointLocation.y - uniforms.floorHeight < BOX_HEIGHT;
-	const auto locHeelPos = fromGlobalToObjectCS(uniforms.floorHeight, heelShiftCS)*pointLocation;	// точка относительно несмещённой ЛКС
-	bool frameCheck = inFootFrame(locHeelPos);
+	const auto locPos = fromGlobalToObjectCS(uniforms.floorHeight)*pointLocation;	// точка относительно несмещённой ЛКС
+	bool frameCheck = inFootFrame(locPos.xy);
     if (
 		checkHeight
         &&
@@ -408,22 +391,7 @@ vertex void unprojectCurvedVertex(
         ) {
 
 		// поиск ЛКС с кратчайшим расстоянием до центра
-		float4 locPos;
-		device MyMeshData* mesh;
-		
-		const auto locToePos = fromGlobalToObjectCS(uniforms.floorHeight, toeShiftCS)*pointLocation;
-		if (length_squared(locToePos.xy) < length_squared(locHeelPos.xy)) {	// достаточно оценки только по xy-координатам (все ЛКС лежат на одной плоскости пола)
-			locPos = locToePos;
-			mesh = toeMesh;
-		} else {
-			locPos = locHeelPos;
-			mesh = heelMesh;
-		}
-		
-//		if ( length_squared(locPos.xy) < 0.01*0.01 ) {
-//			
-//		}
-		
+
         int index;
         float val;
 		mapToGiperbolicTable(locPos, index, val);
@@ -431,13 +399,12 @@ vertex void unprojectCurvedVertex(
             return ;
         }
 
-		if (markZoneOfUndefined(locHeelPos, toeShiftCS)) {
+		if (markZoneOfUndefined(locPos.xy)) {
 			mesh[index].group = ZoneUndefined;
 		}
 		
 		device auto& md = mesh[index];
 		MedianSearcher(&md).newValue(val);
-
     }
 }
 
@@ -494,12 +461,13 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 		return float4(1, 0, 0, saturation);
 	}
 	if (group == Unknown) {
-		return float4(1, 1, 1, 1);
+		return float4(0);
 	}
 	if (group == ZoneUndefined) {
 		return float4(1, 1, 0, 1);
 	}
 	return color;
+//	return float4(1);
 }
 
 
@@ -518,7 +486,7 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
 	const auto spos = fromGiperbolicToCartesian(nodeVal, vid);
-	auto pos = fromObjectToGlobalCS(uniforms.floorHeight, uniforms.coordShift)*spos;
+	auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*spos;
 	
 	
 	
@@ -582,7 +550,7 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 	
 	
 	// выводим только узлы принадлежащие рамке сканирования
-	if ( !inScanArea(spos) ) {
+	if ( !inFootFrame(spos.xy) ) {
 		color.a = 0;
 	}
 
@@ -605,7 +573,7 @@ vertex ParticleVertexOut metricVertex(
 									  constant BorderPoints* borderPoints [[ buffer(kBorderBuffer) ]]
 									) {
 	constant auto& bp = borderPoints[index];
-	const auto pos = fromObjectToGlobalCS(uniforms.floorHeight, uniforms.coordShift)*float4(bp.mean, 1);
+	const auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*float4(bp.mean, 1);
 	auto color = float4(0.75, 0.75, 0, 1);
 	
 	ParticleVertexOut pOut;
@@ -623,7 +591,7 @@ vertex ParticleVertexOut metricVertex(
 	} else if (bp.typePoint == camera) {
 		auto projected = bp.mean;
 		projected.z = 0.01;
-		const auto pos2 = fromObjectToGlobalCS(uniforms.floorHeight, float2(0))*float4(projected, 1);	// проекция камеры в СК с нулевым сдвигом
+		const auto pos2 = fromObjectToGlobalCS(uniforms.floorHeight)*float4(projected, 1);	// проекция камеры в СК с нулевым сдвигом
 		pOut.position = projectOnScreen(uniforms, pos2);
 		pOut.pointSize *= 3;
 		pOut.color = mix(color, float4(0,0,1,1), bp.mean.z);

@@ -272,13 +272,11 @@ class Renderer {
 	
 	private lazy var cameraViewsPositions:[ViewSector] = {
 		let ch:Float = 0.5;		// вертикальная позиция камеры (задаётся произвольно, т.к. пока проверка не использует данный параметр)
-		let fl = Float(BOX_FRONT_LENGTH)
+		let hh = Float(BOX_HALF_HEIGHT)
 		let hw = Float(BOX_HALF_WIDTH)
-		let bl = Float(BOX_BACK_LENGTH)
-		let ds = (fl + bl) / 2
 		var arr = [ViewSector]()
-		arr.append(ViewSector(number: 0, coord: simd_float3(bl - ds, -hw, ch)))
-		arr.append(ViewSector(number: 1, coord: simd_float3(bl - ds, hw, ch)))
+		arr.append(ViewSector(number: 0, coord: simd_float3(0, -hw, ch)))
+		arr.append(ViewSector(number: 1, coord: simd_float3(0, hw, ch)))
 		return arr
 	}()
 	
@@ -313,7 +311,7 @@ class Renderer {
     var cartesianGridBuffer: MetalBuffer<MyMeshData>!
 	lazy var indecesBuffer: MetalBuffer<UInt32> = initializeGridIndeces()
     
-	var curveGridBuffers: [(borderPoints:MetalBuffer<BorderPoints>,buffer:MetalBuffer<MyMeshData>,coordCenter:Float2)]!
+	var curveGridBuffer: (borderPoints:MetalBuffer<BorderPoints>,buffer:MetalBuffer<MyMeshData>)!
 	lazy var metricPoints:MetalBuffer<BorderPoints> = {	// пока так...
 		// 1 coord center
 		// 2 camera
@@ -390,16 +388,11 @@ class Renderer {
     }
     
     func initializeCurveGridNodes() {
-		curveGridBuffers = .init()
         let initVal = initMyMeshData(0)
         let gridInitial = Array(repeating: initVal, count: gridCurveNodeCount)
 
-		curveGridBuffers.append( (borderPoints:generateBorderBuffer(),
-								  buffer:.init(device: device, array:gridInitial, index: kMyMesh.rawValue),
-								  coordCenter:.zero) )
-		curveGridBuffers.append( (borderPoints:generateBorderBuffer(),
-								  buffer:.init(device: device, array:gridInitial, index: kMyMesh.rawValue+3),
-								  coordCenter:Float2(-0.5*Float(BOX_FRONT_LENGTH), 0)) )
+		curveGridBuffer = ( borderPoints:generateBorderBuffer(),
+							buffer:.init(device: device, array:gridInitial, index: kMyMesh.rawValue))
     }
     
     
@@ -428,6 +421,9 @@ class Renderer {
 		
 		updateCenterAndcamProjection()
 		if (currentState == .scanning) {
+			
+			return true
+			
 			currentViewSector = findCamZone()
 			if currentViewSector == nil {
 				return false
@@ -555,7 +551,7 @@ class Renderer {
 	
 	fileprivate func updateMetric() {
 		
-		var border = curveGridBuffers[0].borderPoints	// пока так... заглушка на первый попавшийся буфер
+		var border = curveGridBuffer.borderPoints	// пока так... заглушка на первый попавшийся буфер
 		if currentState == .measuring {
 			if metricMode == .lengthToe || metricMode == .lengthHeel {
 				pickLengthPoint(&border)
@@ -590,12 +586,9 @@ class Renderer {
 
 			
 		} else {
-			
 			renderEncoder.setRenderPipelineState(curveUnprojectPipelineState)
-			for i in 0..<curveGridBuffers.count {
-				renderEncoder.setVertexBuffer(curveGridBuffers[i].buffer.buffer, offset: 0, index: Int(kMyMesh.rawValue)+2*i)
-				renderEncoder.setVertexBytes(&curveGridBuffers[i].coordCenter, length: MemoryLayout<Float2>.stride, index: Int(kMyMesh.rawValue)+2*i+1)
-			}
+
+			renderEncoder.setVertexBuffer(curveGridBuffer.buffer)
 			
 			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 			
@@ -611,7 +604,7 @@ class Renderer {
 			
 			startSegmentation()
 			reductBorderPoints()
-			updateMetric()
+//			updateMetric()
 		}
 		frameAccumulated += 1
     }
