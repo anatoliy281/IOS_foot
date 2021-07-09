@@ -17,11 +17,16 @@ public:
 kernel void makeEqual(
 				 uint index [[ thread_position_in_grid ]],
 				 device MyMeshData *myMeshData [[ buffer(kMyMesh) ]],
+				 constant ViewSector &viewSector [[ buffer(kViewSector) ]],
 				 constant int& sessionFrameCount [[ buffer(0) ]]
 				 ) {
 	device auto& md = myMeshData[index];
+	
+	if (md.sectorNumber != viewSector.number)
+		return;
+	
 	if ( md.justRefilled == 0 ) {
-		MedianSearcher(&md).newValue(-1);	// значение передаваемое в newValue задаёт направление и скорость сдвига среднего значения узла
+		MedianSearcher(&md).newValue(10);	// значение передаваемое в newValue задаёт направление и скорость сдвига среднего значения узла
 	}
 	md.justRefilled = 0;	// обнуление счётчика
 }

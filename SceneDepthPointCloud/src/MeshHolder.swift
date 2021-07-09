@@ -95,14 +95,23 @@ class MeshHolder {
 	let dU = Float(LENGTH*LENGTH) / Float(U0_GRID_NODE_COUNT + U1_GRID_NODE_COUNT)
 	let dPhi = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
 	
-	let hh:Float = Float(BOX_HALF_HEIGHT)
+	let hl:Float = Float(BOX_HALF_LENGTH)
 	let hw:Float = Float(BOX_HALF_WIDTH)
+	let bh:Float = Float(BOX_HEIGHT)
+	
 	lazy var shiftsCS:[simd_float3] = [
-		simd_float3(-hh, -hw, 0),
-		simd_float3( hh, -hw, 0),
-		simd_float3( hh,  hw, 0),
-		simd_float3(-hh,  hw, 0)
+		simd_float3(-hl, -hw, 0),
+		simd_float3( hl, -hw, 0),
+		simd_float3( hl,  hw, 0),
+		simd_float3(-hl,  hw, 0)
 	]
+	
+	private func inFootFrame(_ spos:simd_float3) -> Bool {
+		let checkWidth = abs(spos.y) < hw;
+		let checkLength = abs(spos.x) < hl;
+		let checkHeight = abs(spos.z) < bh;
+		return checkWidth && checkLength && checkHeight;
+	}
 	
 	private func calcCoords(_ i:Int, _ j:Int, _ value:Float ) -> Float3 {
 		
@@ -130,7 +139,12 @@ class MeshHolder {
 			pos += shiftsCS[1];
 		}
 		
-		return 1000*Float3(-pos.x, pos.y, pos.z)
+		if !inFootFrame(pos) {
+			pos = .zero
+		} else {	// flip the coord sys
+			pos.x *= -1;
+		}
+		return 1000*pos	// to mm
 	}
 	   
 	   

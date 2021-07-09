@@ -37,7 +37,7 @@ extern "C" {
 // 
 
 // foot frame bounding rectangle
-#define BOX_HALF_HEIGHT 0.185
+#define BOX_HALF_LENGTH 0.185
 #define BOX_HALF_WIDTH 0.08
 #define BOX_HEIGHT 0.1
 //#define BOX_BACK_LENGTH 0.07
@@ -60,6 +60,7 @@ extern "C" {
 
     struct MyMeshData {
 		int justRefilled;
+		short sectorNumber;
         float buffer[MAX_MESH_STATISTIC];  	// актуальные данные буфера
 		int totalSteps;					// текущая длина буфера без модульного деления
 

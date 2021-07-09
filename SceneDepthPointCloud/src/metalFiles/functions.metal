@@ -83,10 +83,10 @@ constant auto h0 = -0.03;
 
 // положения смещения систем координат (криволинейных и локальных)
 constant float3 shiftsCS[4] = {
-	float3(-BOX_HALF_HEIGHT, -BOX_HALF_WIDTH, 0),
-	float3( BOX_HALF_HEIGHT, -BOX_HALF_WIDTH, 0),
-	float3( BOX_HALF_HEIGHT,  BOX_HALF_WIDTH, 0),
-	float3(-BOX_HALF_HEIGHT,  BOX_HALF_WIDTH, 0)
+	float3(-BOX_HALF_LENGTH, -BOX_HALF_WIDTH, 0),
+	float3( BOX_HALF_LENGTH, -BOX_HALF_WIDTH, 0),
+	float3( BOX_HALF_LENGTH,  BOX_HALF_WIDTH, 0),
+	float3(-BOX_HALF_LENGTH,  BOX_HALF_WIDTH, 0)
 };
 
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
@@ -163,9 +163,10 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 	return float4(pos, 1);
 }
 
-bool inFootFrame(float2 spos) {
+bool inFootFrame(float4 spos) {
 	bool checkWidth = abs(spos.y) < BOX_HALF_WIDTH;
-	bool checkHeight = abs(spos.x) < BOX_HALF_HEIGHT;
-	return checkWidth && checkHeight;
+	bool checkLength = abs(spos.x) < BOX_HALF_LENGTH;
+	bool checkHeight = abs(spos.z) < BOX_HEIGHT;
+	return checkWidth && checkLength && checkHeight;
 }
 

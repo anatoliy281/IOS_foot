@@ -12,15 +12,11 @@
 #import "../ShaderTypes.h"
 
 float4 fromGiperbolicToCartesian(float value, int index);
-bool inFootFrame(float2 spos);
+bool inFootFrame(float4 spos);
 
 using namespace metal;
 
 constant auto gridTotalNodes = U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT;
-
-bool isUnknownTypeNode(device MyMeshData* mesh, int index) {
-	return mesh[index].group == Unknown;
-}
 
 float calcDzDrho(device MyMeshData* mesh,
 					  int index,
@@ -51,7 +47,7 @@ float calcDzDrho(device MyMeshData* mesh,
 //		return 0;
 //	}
 	
-	if (inFootFrame(r0.xy) && inFootFrame(rN.xy)) {
+	if (inFootFrame(r0) && inFootFrame(rN)) {
 		return dR.z / length(dR.xy);
 	} else {
 		return 0;

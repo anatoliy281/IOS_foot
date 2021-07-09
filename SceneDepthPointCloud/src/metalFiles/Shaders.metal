@@ -18,7 +18,7 @@ float4x4 fromObjectToGlobalCS(float h);
 float4 fromCylindricalToCartesian(float rho, int index);
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value);
 float4 fromGiperbolicToCartesian(float value, int index);
-bool inFootFrame(float2 spos);
+bool inFootFrame(float4 spos);
 
 //// -------------------------- BASE DEFINITIONS -----------------------------
 
@@ -95,9 +95,9 @@ bool frameRegion(float4 position, float floorHeight, float factor) {
 	const auto dRho = float2(1-factor, 1+factor);
 	
 	bool checkOuter = zAbs < dRho[0]*(BOX_HALF_WIDTH + BOX_FLOOR_ZONE) &&
-					  xAbs < dRho[0]*(BOX_HALF_HEIGHT + BOX_FLOOR_ZONE);
+					  xAbs < dRho[0]*(BOX_HALF_LENGTH + BOX_FLOOR_ZONE);
 	bool checkInner = zAbs > dRho[1]*BOX_HALF_WIDTH ||
-					  xAbs > dRho[1]*BOX_HALF_HEIGHT;
+					  xAbs > dRho[1]*BOX_HALF_LENGTH;
 
 	bool frameCheck = checkInner && checkOuter;
 	bool heightCheck = dyAbs < BOX_HEIGHT;
@@ -315,11 +315,11 @@ float4 detectCameraPosition(constant CoordData &uniforms) {
 bool markZoneOfUndefined(float2 spos) {
 	const auto eps = 0.01;
 	const auto hw = abs(BOX_HALF_WIDTH - abs(spos.y)) < eps;
-	const auto hh = abs(BOX_HALF_HEIGHT - abs(spos.x)) < eps;
+	const auto hl = abs(BOX_HALF_LENGTH - abs(spos.x)) < eps;
 	const auto oy = abs(spos.y) < eps;
 	const auto ox = abs(spos.x) < eps;
 	
-	return hw || hh || ox || oy;
+	return hw || hl || ox || oy;
 }
 
 
@@ -350,15 +350,15 @@ vertex void unprojectCurvedVertex(
 
     const auto confidence = confidenceTexture.sample(depthSampler, texCoord).r;
 
-	bool checkHeight = pointLocation.y - uniforms.floorHeight < BOX_HEIGHT;
+//	bool checkHeight = pointLocation.y - uniforms.floorHeight < BOX_HEIGHT;
 	const auto locPos = fromGlobalToObjectCS(uniforms.floorHeight)*pointLocation;	// точка относительно несмещённой ЛКС
-	bool frameCheck = inFootFrame(locPos.xy);
+	bool frameCheck = inFootFrame(locPos);
 	
 	bool inViewSector = locPos.y*viewSector.coord.y > 0;	// проверка принадлежности сектору
 	
     if (
-		checkHeight
-        &&
+//		checkHeight
+//        &&
 		frameCheck
 		&&
         confidence == 2 &&
@@ -381,6 +381,7 @@ vertex void unprojectCurvedVertex(
 		
 		device auto& md = mesh[index];
 		md.justRefilled = 1;
+		md.sectorNumber = viewSector.number;
 		MedianSearcher(&md).newValue(val);
     }
 }
@@ -438,13 +439,12 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 		return float4(1, 0, 0, saturation);
 	}
 	if (group == Unknown) {
-		return float4(1);
+		return float4(.1);
 	}
 	if (group == ZoneUndefined) {
 		return float4(1, 1, 0, 1);
 	}
 	return color;
-//	return float4(1);
 }
 
 
@@ -455,11 +455,6 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
     constant auto &md = myMeshData[vid];
 
     const auto nodeVal = md.mean;
-	
-	if (nodeVal == 0) {
-		ParticleVertexOut pOut;
-		pOut.color = float4(0);
-	}
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
 	const auto spos = fromGiperbolicToCartesian(nodeVal, vid);
@@ -522,9 +517,9 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 	
 	
 	// выводим только узлы принадлежащие рамке сканирования
-//	if ( !inFootFrame(spos.xy) ) {
-//		color.a = 0;
-//	}
+	if ( !inFootFrame(spos) ) {
+		color.a = 0;
+	}
 
 //	Раскраска по координате v гиперболической системы
 //	if (nodeVal > 0.002 && nodeVal < 0.004 ) {
@@ -532,7 +527,9 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 //		color.g = 0;
 //		color.b = 1;
 //	}
-	
+	if ( abs(nodeVal) >= 1 ) {
+		color  = float4(0.1, 0.1, 0.1, 0.1);
+	}
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
 	pOut.color = color;

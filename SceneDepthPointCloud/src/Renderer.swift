@@ -272,7 +272,7 @@ class Renderer {
 	
 	private lazy var cameraViewsPositions:[ViewSector] = {
 		let ch:Float = 0.5;		// вертикальная позиция камеры (задаётся произвольно, т.к. пока проверка не использует данный параметр)
-		let hh = Float(BOX_HALF_HEIGHT)
+		let hh = Float(BOX_HALF_LENGTH)
 		let hw = Float(BOX_HALF_WIDTH)
 		var arr = [ViewSector]()
 		arr.append(ViewSector(number: 0, coord: simd_float3(0, -hw, ch)))
