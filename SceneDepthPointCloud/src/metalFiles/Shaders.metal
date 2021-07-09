@@ -382,12 +382,17 @@ vertex void unprojectCurvedVertex(
 	bool checkHeight = pointLocation.y - uniforms.floorHeight < BOX_HEIGHT;
 	const auto locPos = fromGlobalToObjectCS(uniforms.floorHeight)*pointLocation;	// точка относительно несмещённой ЛКС
 	bool frameCheck = inFootFrame(locPos.xy);
+	
+	bool inViewSector = locPos.y*viewSector.coord.y > 0;	// проверка принадлежности сектору
+	
     if (
 		checkHeight
         &&
 		frameCheck
 		&&
-        confidence == 2
+        confidence == 2 &&
+		inViewSector
+		
         ) {
 
 		// поиск ЛКС с кратчайшим расстоянием до центра
@@ -461,7 +466,7 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 		return float4(1, 0, 0, saturation);
 	}
 	if (group == Unknown) {
-		return float4(0);
+		return float4(1);
 	}
 	if (group == ZoneUndefined) {
 		return float4(1, 1, 0, 1);
@@ -550,9 +555,9 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 	
 	
 	// выводим только узлы принадлежащие рамке сканирования
-	if ( !inFootFrame(spos.xy) ) {
-		color.a = 0;
-	}
+//	if ( !inFootFrame(spos.xy) ) {
+//		color.a = 0;
+//	}
 
 //	Раскраска по координате v гиперболической системы
 //	if (nodeVal > 0.002 && nodeVal < 0.004 ) {

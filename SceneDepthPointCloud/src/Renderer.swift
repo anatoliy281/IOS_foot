@@ -421,9 +421,6 @@ class Renderer {
 		
 		updateCenterAndcamProjection()
 		if (currentState == .scanning) {
-			
-			return true
-			
 			currentViewSector = findCamZone()
 			if currentViewSector == nil {
 				return false
@@ -600,7 +597,7 @@ class Renderer {
 			renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
 			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 			
-			updateAllNodes()
+//			updateAllNodes()
 			
 			startSegmentation()
 			reductBorderPoints()

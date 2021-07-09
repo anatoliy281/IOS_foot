@@ -58,7 +58,8 @@ class MeshHolder {
 		res.data = [ Int(Unknown.rawValue):.init(),
 					 Int(Floor.rawValue):.init(),
 					 Int(Border.rawValue):.init(),
-					 Int(Foot.rawValue):.init()
+					 Int(Foot.rawValue):.init(),
+					 Int(ZoneUndefined.rawValue):.init()
 		]
 
 		let buffer = renderer.curveGridBuffer!.buffer
@@ -90,23 +91,46 @@ class MeshHolder {
 	}
 	   
 	let k:Float = 1
+	let h0:Float = -0.03
 	let dU = Float(LENGTH*LENGTH) / Float(U0_GRID_NODE_COUNT + U1_GRID_NODE_COUNT)
 	let dPhi = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
+	
+	let hh:Float = Float(BOX_HALF_HEIGHT)
+	let hw:Float = Float(BOX_HALF_WIDTH)
+	lazy var shiftsCS:[simd_float3] = [
+		simd_float3(-hh, -hw, 0),
+		simd_float3( hh, -hw, 0),
+		simd_float3( hh,  hw, 0),
+		simd_float3(-hh,  hw, 0)
+	]
 	
 	private func calcCoords(_ i:Int, _ j:Int, _ value:Float ) -> Float3 {
 		
 		
-		let u_coord = Float( i - Int(U0_GRID_NODE_COUNT) )*dU;
-		let v_coord = value;
+//		let u_coord = Float( i - Int(U0_GRID_NODE_COUNT) )*dU;
+//		let v_coord = value;
+		let u_coord = value;
+		let v_coord = Float(i)*dU;
 		
 		let uv_sqrt = sqrt(k*k*v_coord*v_coord + u_coord*u_coord);
 		let rho = sqrt(0.5*(u_coord + uv_sqrt)) / k;
-		let h = sqrt(k*k*rho*rho - u_coord);
+		let h = sqrt(k*k*rho*rho - u_coord) + h0;
 		
 		
 		let phi = Float(j)*dPhi;
 		// flip the foot
-		return 1000*Float3(-rho*cos(phi), rho*sin(phi), h)
+		var pos = Float3(rho*cos(phi), rho*sin(phi), h)
+		if ( (Float.pi < phi) && (phi <= 1.5*Float.pi) ) {
+			pos += shiftsCS[2];
+		} else if ( (1.5*Float.pi < phi) && (phi <= 2*Float.pi) ) {
+			pos += shiftsCS[3];
+		} else if ( (0 < phi) && (phi <= 0.5*Float.pi) ) {
+			pos += shiftsCS[0];
+		} else if ( (0.5*Float.pi < phi) && (phi <= Float.pi) ) {
+			pos += shiftsCS[1];
+		}
+		
+		return 1000*Float3(-pos.x, pos.y, pos.z)
 	}
 	   
 	   

@@ -79,6 +79,7 @@ float4 fromCylindricalToCartesian(float rho, int index) {
 // value - усреднённое значение по поверхности
 
 constant auto k = 1;
+constant auto h0 = -0.03;
 
 // положения смещения систем координат (криволинейных и локальных)
 constant float3 shiftsCS[4] = {
@@ -112,23 +113,35 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 	const auto rho = length(r.xy);
 	const auto h = r.z;
 	
-	const auto u = k*k*rho*rho - h*h;
-	const auto v = 2*rho*h;
+	const auto u = k*k*rho*rho - (h-h0)*(h-h0);
+	const auto v = 2*rho*(h-h0);
 	
-	value = v;
-	const auto i = round( u / U_STEP ) + U0_GRID_NODE_COUNT;
+//	value = v;
+//	const auto i = round( u / U_STEP ) + U0_GRID_NODE_COUNT;
+	
+	value = u;
+	const auto i = round( v / U_STEP );
+	
+	
 	index = i*PHI_GRID_NODE_COUNT + j;
 }
 
 
 float4 fromGiperbolicToCartesian(float value, int index) {
 	
-	const auto u_coord = ( index/PHI_GRID_NODE_COUNT - U0_GRID_NODE_COUNT )*U_STEP;
-	const auto v_coord = value;
+	const auto u_coord = value;
+	auto v_coord = index/PHI_GRID_NODE_COUNT*U_STEP;
+	
+	if (u_coord == 0) {
+		v_coord = 0;
+	}
+	
+//	const auto u_coord = ( index/PHI_GRID_NODE_COUNT - U0_GRID_NODE_COUNT )*U_STEP;
+//	const auto v_coord = value;
 	
 	const auto uv_sqrt = sqrt(k*k*v_coord*v_coord + u_coord*u_coord);
 	const auto rho = sqrt(0.5f*(u_coord + uv_sqrt)) / k;
-	const auto h = sqrt(k*k*rho*rho - u_coord);
+	const auto h = sqrt(k*k*rho*rho - u_coord) + h0;
 	
 	const auto phi = (index%PHI_GRID_NODE_COUNT)*PHI_STEP;
 	

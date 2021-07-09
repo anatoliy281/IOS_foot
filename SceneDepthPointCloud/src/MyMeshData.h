@@ -31,6 +31,9 @@ extern "C" {
 #define U_GRID_NODE_COUNT (U0_GRID_NODE_COUNT+U1_GRID_NODE_COUNT)
 #define U_STEP ((LENGTH*LENGTH) / (U_GRID_NODE_COUNT))
 
+//#define V_GRID_NODE_COUNT U_GRID_NODE_COUNT
+//#define V_STEP U_STEP
+
 // 
 
 // foot frame bounding rectangle

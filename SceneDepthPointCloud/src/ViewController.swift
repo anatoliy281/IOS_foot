@@ -126,7 +126,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		let fNames:[Int:String] = [ Int(Unknown.rawValue): "Unknown",
 									Int(Floor.rawValue): "Floor",
 									Int(Border.rawValue): "Border",
-									Int(Foot.rawValue): "Foot"
+									Int(Foot.rawValue): "Foot",
+									Int(ZoneUndefined.rawValue): "Zone",
 								]
 		return fNames
 	}
