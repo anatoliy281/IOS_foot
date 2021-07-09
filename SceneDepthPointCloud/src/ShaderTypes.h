@@ -50,6 +50,8 @@ struct CoordData {
 struct ViewSector {
 	int number;
 	simd_float3 coord;
+	simd_float2 xRange;
+	simd_float2 yRange;
 };
 
 struct CameraView {
@@ -67,7 +69,8 @@ enum MetricType {
 	metric = 3,   // metric index
 	camera = 4,
 	metricNow = 5,
-	border = 6
+	border = 6,
+	viewSectorMarker = 7
 };
 
 // структура хранит массив точек для вычисления границы перехода нога-пол + текущий размер

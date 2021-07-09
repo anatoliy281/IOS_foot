@@ -323,6 +323,14 @@ bool markZoneOfUndefined(float2 spos) {
 }
 
 
+bool checkViewSector(constant ViewSector& viewSector, float4 spos) {
+//	return spos.y*viewSector.coord.y > 0;
+	const auto checkX = viewSector.xRange[0] < spos.x && spos.x <= viewSector.xRange[1];
+	const auto checkY = viewSector.yRange[0] < spos.y && spos.y <= viewSector.yRange[1];
+	return checkX && checkY;
+}
+
+
 vertex void unprojectCurvedVertex(
                             uint vertexID [[vertex_id]],
                             constant CoordData &uniforms [[buffer(kPointCloudUniforms)]],
@@ -354,11 +362,9 @@ vertex void unprojectCurvedVertex(
 	const auto locPos = fromGlobalToObjectCS(uniforms.floorHeight)*pointLocation;	// точка относительно несмещённой ЛКС
 	bool frameCheck = inFootFrame(locPos);
 	
-	bool inViewSector = locPos.y*viewSector.coord.y > 0;	// проверка принадлежности сектору
+	bool inViewSector = checkViewSector(viewSector, locPos);	// проверка принадлежности сектору
 	
     if (
-//		checkHeight
-//        &&
 		frameCheck
 		&&
         confidence == 2 &&
@@ -567,6 +573,9 @@ vertex ParticleVertexOut metricVertex(
 	} else if (bp.typePoint == none) {
 		pOut.color = float4(0);
 		pOut.pointSize = 0;
+	} else if (bp.typePoint == viewSectorMarker) {
+		pOut.color = float4(0.6);
+		pOut.pointSize *= 6;
 	}
 	return pOut;
 }

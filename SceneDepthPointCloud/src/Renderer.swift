@@ -271,12 +271,39 @@ class Renderer {
     }()
 	
 	private lazy var cameraViewsPositions:[ViewSector] = {
-		let ch:Float = 0.5;		// вертикальная позиция камеры (задаётся произвольно, т.к. пока проверка не использует данный параметр)
-		let hh = Float(BOX_HALF_LENGTH)
+		let ch:Float = 0;		// вертикальная позиция камеры (задаётся произвольно, т.к. пока проверка не использует данный параметр)
+		let hl = Float(BOX_HALF_LENGTH)
 		let hw = Float(BOX_HALF_WIDTH)
 		var arr = [ViewSector]()
-		arr.append(ViewSector(number: 0, coord: simd_float3(0, -hw, ch)))
-		arr.append(ViewSector(number: 1, coord: simd_float3(0, hw, ch)))
+		arr.append( ViewSector(number: 0,
+							   coord: simd_float3(-hl, -hw, ch),
+							   xRange: simd_float2(-hl, 0),
+							   yRange: simd_float2(-hw, 0)) )
+		arr.append( ViewSector(number: 1,
+							   coord: simd_float3( hl, -hw, ch),
+							   xRange: simd_float2(0, hl),
+							   yRange: simd_float2(-hw, 0)) )
+		arr.append( ViewSector(number: 2,
+							   coord: simd_float3( hl,  hw, ch),
+							   xRange: simd_float2(0, hl),
+							   yRange: simd_float2(0, hw)) )
+		arr.append( ViewSector(number: 3,
+							   coord: simd_float3(-hl,  hw, ch),
+							   xRange: simd_float2(-hl, 0),
+							   yRange: simd_float2(0, hw)) )
+		
+		metricPoints[10].mean = arr[0].coord
+		metricPoints[11].mean = arr[1].coord
+		metricPoints[12].mean = arr[2].coord
+		metricPoints[13].mean = arr[3].coord
+		
+		print(arr[0].xRange)
+		
+		metricPoints[10].typePoint = viewSectorMarker
+		metricPoints[11].typePoint = viewSectorMarker
+		metricPoints[12].typePoint = viewSectorMarker
+		metricPoints[13].typePoint = viewSectorMarker
+		
 		return arr
 	}()
 	
@@ -285,9 +312,10 @@ class Renderer {
 	func findCamZone() -> ViewSector? {
 		let deltaSqured:Float = 0.02*0.02;
 		for camView in cameraViewsPositions {
-			let dr = camPosition - camView.coord;
-			let rho = Float(dr.y)
-			if (rho*rho < deltaSqured) {
+			let dr = simd_float2(camPosition.x, camPosition.y) -
+				simd_float2(camView.coord.x, camView.coord.y);
+			let rho = length_squared(dr)
+			if (rho < deltaSqured) {
 				return camView
 			}
 		}
@@ -322,7 +350,7 @@ class Renderer {
 		// 7 toe for bunch
 		// 8,9 interval
 		// 10 height in rise
-		let arr = Array(repeating: BorderPoints(), count: 10)
+		let arr = Array(repeating: BorderPoints(), count: 14)
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
 	}()
 	
@@ -427,7 +455,7 @@ class Renderer {
 				return false
 			}
 		} else {
-			currentViewSector = ViewSector(number: -1, coord: .zero)
+			currentViewSector = ViewSector(number: -1, coord: .zero, xRange: .zero, yRange: .zero)
 		}
 		
 		
