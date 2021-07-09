@@ -10,7 +10,7 @@ class MedianSearcher {
 
 public:
 	MedianSearcher(device MyMeshData* meshData): md(meshData), mdConst(nullptr) {}
-	void newValue(float value, int count);
+	void newValue(float value);
 };
 
 
@@ -19,9 +19,9 @@ kernel void makeEqual(
 				 device MyMeshData *myMeshData [[ buffer(kMyMesh) ]],
 				 constant int& sessionFrameCount [[ buffer(0) ]]
 				 ) {
-	const int criticalFrameDelta = 10;
 	device auto& md = myMeshData[index];
-	if ( sessionFrameCount - md.totalSteps > criticalFrameDelta ) {
-		MedianSearcher(&md).newValue(0, criticalFrameDelta);
+	if ( md.justRefilled == 0 ) {
+		MedianSearcher(&md).newValue(-1);	// значение передаваемое в newValue задаёт направление и скорость сдвига среднего значения узла
 	}
+	md.justRefilled = 0;	// обнуление счётчика
 }

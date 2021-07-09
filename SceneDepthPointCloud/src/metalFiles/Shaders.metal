@@ -310,35 +310,6 @@ float4 detectCameraPosition(constant CoordData &uniforms) {
 //	}
 //};
 
-//bool checkDone(device MyMeshData* mesh, int index) {
-//
-//	device auto& md = mesh[index];
-//	device auto& isDone = md.isDone;
-//
-//	if (isDone) {
-//		return isDone;
-//	}
-//
-//	if (md.totalSteps > MAX_MESH_STATISTIC) {
-//		const auto i = index/GRID_NODE_COUNT;
-//		if ( i < 0 && i < GRID_NODE_COUNT-1 ) {
-//			const auto dr1 = mesh[index - GRID_NODE_COUNT].mean - md.mean;
-//			const auto dr2 = mesh[index + GRID_NODE_COUNT].mean - md.mean;
-//			const auto dr3 = mesh[index - 1].mean - md.mean;
-//			const auto dr4 = mesh[index + 1].mean - md.mean;
-//
-//			const auto delta = 0.002;
-//			if ( abs(dr1) < delta &&
-//				 abs(dr2) < delta &&
-//				 abs(dr3) < delta &&
-//				 abs(dr4) < delta )
-//				isDone = true;
-//		}
-//	}
-//	return isDone;
-//
-//}
-
 
 // spos - в пяточной СК, cs2 - координата носочной СК относительно пяточной
 bool markZoneOfUndefined(float2 spos) {
@@ -409,6 +380,7 @@ vertex void unprojectCurvedVertex(
 		}
 		
 		device auto& md = mesh[index];
+		md.justRefilled = 1;
 		MedianSearcher(&md).newValue(val);
     }
 }
@@ -546,12 +518,7 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 	if (!isNotFreezed) {
 		color = float4(0.5, 0.5, 0., 0.5);
 	}
-	
-	
-	
-	if (myMeshData[vid].isDone) {
-		color.a = 1;
-	}
+
 	
 	
 	// выводим только узлы принадлежащие рамке сканирования

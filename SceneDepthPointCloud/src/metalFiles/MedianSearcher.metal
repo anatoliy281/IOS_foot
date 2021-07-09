@@ -24,19 +24,11 @@ public:
 
 	
 	void newValue(float value);
-	void newValue(float value, int count);
-	
 };
 
 
 void MedianSearcher::newValue(float value) {
 	update(value);
-}
-
-void MedianSearcher::newValue(float value, int count) {
-	for (int i=0; i < count; ++i) {
-		update(value);
-	}
 }
 
 

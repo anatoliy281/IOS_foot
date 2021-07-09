@@ -9,7 +9,7 @@ struct MyMeshData initMyMeshData(float valInit) {
 		md.buffer[i] = valInit;
 	}
 	md.totalSteps = 0;
-	md.isDone = 0;
+	md.justRefilled = 0;
 
 	md.mean = valInit;
 	md.group = Unknown;

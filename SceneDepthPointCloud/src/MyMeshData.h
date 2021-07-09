@@ -59,7 +59,7 @@ extern "C" {
     };
 
     struct MyMeshData {
-		int isDone;
+		int justRefilled;
         float buffer[MAX_MESH_STATISTIC];  	// актуальные данные буфера
 		int totalSteps;					// текущая длина буфера без модульного деления
 
