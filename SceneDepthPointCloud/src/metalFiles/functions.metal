@@ -82,24 +82,41 @@ constant auto k = 1;
 constant auto h0 = -0.03;
 
 // положения смещения систем координат (криволинейных и локальных)
-constant float3 shiftsCS[4] = {
+constant float3 shiftsCS[6] = {
 	float3(-BOX_HALF_LENGTH, -BOX_HALF_WIDTH, 0),
+	float3( 0,               -BOX_HALF_WIDTH, 0),
 	float3( BOX_HALF_LENGTH, -BOX_HALF_WIDTH, 0),
 	float3( BOX_HALF_LENGTH,  BOX_HALF_WIDTH, 0),
+	float3( 0,                BOX_HALF_WIDTH, 0),
 	float3(-BOX_HALF_LENGTH,  BOX_HALF_WIDTH, 0)
 };
 
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 	auto r = spos.xyz; // определение смещения ЛКС в зависимости от квадранта
-	if ( (r.x <= 0) && (r.y < 0) ) {  
+	
+	int bufferHalf;
+	
+	if ( (r.x <= -2*BOX_HALF_LENGTH/3) && (r.y < 0) ) {
 		r -= shiftsCS[0];
-	} else if ( (r.x > 0) && (r.y <= 0) ) {
+		bufferHalf = 0;
+	} else if ( (r.x > -2*BOX_HALF_LENGTH/3) && (r.x <= 2*BOX_HALF_LENGTH/3) && (r.y < 0) ) {
 		r -= shiftsCS[1];
-	} else if ( (r.x >= 0) && (r.y > 0) ) {
+		bufferHalf = 1;
+	} else if ( (r.x > 2*BOX_HALF_LENGTH/3) && (r.y < 0) ) {
 		r -= shiftsCS[2];
-	} else if ( (r.x < 0) && (r.y >= 0) ) {
+		bufferHalf = 0;
+	}
+	
+	else if ( (r.x > 2*BOX_HALF_LENGTH/3) && (r.y >= 0) ) {
 		r -= shiftsCS[3];
-	} else { return; } //  пятого не дано...
+		bufferHalf = 0;
+	} else if ( (r.x > -2*BOX_HALF_LENGTH/3) && (r.x <= 2*BOX_HALF_LENGTH/3) && (r.y >= 0) ) {
+		r -= shiftsCS[4];
+		bufferHalf = 1;
+	} else if ( (r.x <= -2*BOX_HALF_LENGTH/3) && (r.y >= 0)  ) {
+		r -= shiftsCS[5];
+		bufferHalf = 0;
+	} else { return; } // иного не дано...
 	
 	float phase = 0; 	// определение фазы в
 	if ( r.x < 0 ) {
@@ -120,8 +137,7 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 //	const auto i = round( u / U_STEP ) + U0_GRID_NODE_COUNT;
 	
 	value = u;
-	const auto i = round( v / U_STEP );
-	
+	const auto i = round( v / U_STEP ) + bufferHalf*U_GRID_NODE_COUNT;
 	
 	index = i*PHI_GRID_NODE_COUNT + j;
 }
@@ -130,7 +146,10 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 float4 fromGiperbolicToCartesian(float value, int index) {
 	
 	const auto u_coord = value;
-	auto v_coord = index/PHI_GRID_NODE_COUNT*U_STEP;
+	
+	const auto i = index/PHI_GRID_NODE_COUNT;
+	const auto halfTable = (i >= U_GRID_NODE_COUNT) ? 1: 0;
+	auto v_coord = i*U_STEP;
 	
 	if (u_coord == 0) {
 		v_coord = 0;
@@ -147,18 +166,30 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 	
 	float3 pos(rho*cos(phi), rho*sin(phi), h);
 	
-	// поменять местами квадранты 0<->2, 1<->3
-	if ( (M_PI_F < phi) && (phi <= 1.5*M_PI_F) ) {
-		pos += shiftsCS[2];
-	} else if ( (1.5*M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
-		pos += shiftsCS[3];
-	} else if ( (0 < phi) && (phi <= M_PI_2_F) ) {
-		pos += shiftsCS[0];
-	} else if ( (M_PI_2_F < phi) && (phi <= M_PI_F) ) {
-		pos += shiftsCS[1];
-	} else { // так не бывает...
-		return float4();
+	// поменять местами квадранты 0<->3, 2<->5, 1<->4
+	if (halfTable == 0) {
+		if ( (M_PI_F < phi) && (phi <= 1.5*M_PI_F) ) {
+			pos += shiftsCS[3];
+		} else if ( (1.5*M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
+			pos += shiftsCS[5];
+		} else if ( (0 < phi) && (phi <= M_PI_2_F) ) {
+			pos += shiftsCS[0];
+		} else if ( (M_PI_2_F < phi) && (phi <= M_PI_F) ) {
+			pos += shiftsCS[2];
+		} else { // так не бывает...
+			return float4();
+		}
+		
+	} else {
+		if ( (M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
+			pos += shiftsCS[1];
+		} else if ( (0 < phi) && (phi <= M_PI_F) ) {
+			pos += shiftsCS[4];
+		} else { // и так не тоже...
+			return float4();
+		}
 	}
+	
 	
 	return float4(pos, 1);
 }

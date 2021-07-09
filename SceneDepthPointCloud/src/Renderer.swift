@@ -271,39 +271,44 @@ class Renderer {
     }()
 	
 	private lazy var cameraViewsPositions:[ViewSector] = {
-		let ch:Float = 0;		// вертикальная позиция камеры (задаётся произвольно, т.к. пока проверка не использует данный параметр)
+		let ch:Float = 0		// вертикальная позиция камеры (задаётся произвольно, т.к. пока проверка не использует данный параметр)
 		let hl = Float(BOX_HALF_LENGTH)
+		
+		let tt = 2*hl/3
+		
 		let hw = Float(BOX_HALF_WIDTH)
 		var arr = [ViewSector]()
 		arr.append( ViewSector(number: 0,
 							   coord: simd_float3(-hl, -hw, ch),
-							   xRange: simd_float2(-hl, 0),
+							   xRange: simd_float2(-hl, -tt),
 							   yRange: simd_float2(-hw, 0)) )
 		arr.append( ViewSector(number: 1,
-							   coord: simd_float3( hl, -hw, ch),
-							   xRange: simd_float2(0, hl),
+							   coord: simd_float3(0, -hw, ch),
+							   xRange: simd_float2(-tt, tt),
 							   yRange: simd_float2(-hw, 0)) )
 		arr.append( ViewSector(number: 2,
-							   coord: simd_float3( hl,  hw, ch),
-							   xRange: simd_float2(0, hl),
-							   yRange: simd_float2(0, hw)) )
+							   coord: simd_float3( hl, -hw, ch),
+							   xRange: simd_float2(tt, hl),
+							   yRange: simd_float2(-hw, 0)) )
+		
 		arr.append( ViewSector(number: 3,
+							   coord: simd_float3( hl,  hw, ch),
+							   xRange: simd_float2(-hl, -tt),
+							   yRange: simd_float2(0, hw)) )
+		arr.append( ViewSector(number: 4,
+							   coord: simd_float3(0, hw, ch),
+							   xRange: simd_float2(-tt, tt),
+							   yRange: simd_float2(0, hw)) )
+		arr.append( ViewSector(number: 5,
 							   coord: simd_float3(-hl,  hw, ch),
-							   xRange: simd_float2(-hl, 0),
+							   xRange: simd_float2(tt, hl),
 							   yRange: simd_float2(0, hw)) )
 		
-		metricPoints[10].mean = arr[0].coord
-		metricPoints[11].mean = arr[1].coord
-		metricPoints[12].mean = arr[2].coord
-		metricPoints[13].mean = arr[3].coord
-		
-		print(arr[0].xRange)
-		
-		metricPoints[10].typePoint = viewSectorMarker
-		metricPoints[11].typePoint = viewSectorMarker
-		metricPoints[12].typePoint = viewSectorMarker
-		metricPoints[13].typePoint = viewSectorMarker
-		
+		for i in 0..<arr.count {
+			metricPoints[10+i].mean = arr[i].coord
+			metricPoints[10+i].typePoint = viewSectorMarker
+		}
+				
 		return arr
 	}()
 	
@@ -350,7 +355,7 @@ class Renderer {
 		// 7 toe for bunch
 		// 8,9 interval
 		// 10 height in rise
-		let arr = Array(repeating: BorderPoints(), count: 14)
+		let arr = Array(repeating: BorderPoints(), count: 10 + 6)	// 6 позиций сканирования
 		return .init(device: device, array: arr, index: kBorderBuffer.rawValue)
 	}()
 	
@@ -417,7 +422,7 @@ class Renderer {
     
     func initializeCurveGridNodes() {
         let initVal = initMyMeshData(0)
-        let gridInitial = Array(repeating: initVal, count: gridCurveNodeCount)
+        let gridInitial = Array(repeating: initVal, count: 2*gridCurveNodeCount)
 
 		curveGridBuffer = ( borderPoints:generateBorderBuffer(),
 							buffer:.init(device: device, array:gridInitial, index: kMyMesh.rawValue))
