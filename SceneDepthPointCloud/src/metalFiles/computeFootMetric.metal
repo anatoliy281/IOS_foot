@@ -1,11 +1,3 @@
-//
-//  computeNormals.metal
-//  SceneDepthPointCloud
-//
-//  Created by Анатолий Чернов on 17.05.2021.
-//  Copyright © 2021 Apple. All rights reserved.
-//
-
 #include <metal_stdlib>
 #include <simd/simd.h>
 #include "../MyMeshData.h"
@@ -63,7 +55,7 @@ float3 calcCoord(device MyMeshData* mesh,
 }
 
 
-constant float EpsilonSqured = 0.003*0.003;
+//constant float EpsilonSqured = 0.003*0.003;
 
 //bool checkCoordSysBorder(int uCoord, int phiCoord, device MyMeshData* mesh) {
 //	const auto uCoord0 = uCoord - 1;

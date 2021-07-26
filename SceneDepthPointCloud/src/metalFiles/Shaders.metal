@@ -377,7 +377,7 @@ vertex void unprojectCurvedVertex(
         int index;
         float val;
 		mapToGiperbolicTable(locPos, index, val);
-        if ( index < 0 || index > PHI_GRID_NODE_COUNT*U_GRID_NODE_COUNT-1 ) {
+        if ( index < 0 || index > 2*PHI_GRID_NODE_COUNT*U_GRID_NODE_COUNT - 1 ) {
             return ;
         }
 
@@ -485,8 +485,8 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 //	const auto saturation = 0.5;
 	
 	
-	float4 color = colorSphericalPoint(abs(pos.y - uniforms.floorHeight), nodeVal, 0.);
-//	color = colorLengthDirection(color, vid);
+	float4 color = colorSphericalPoint(abs(pos.y - uniforms.floorHeight), nodeVal, 1.);
+	color = colorLengthDirection(color, vid);
 	color = colorByGroup(color, md);
 	
 //    auto saturation = static_cast<float>(MedianSearcher(&md).getLength()) / MAX_MESH_STATISTIC;
@@ -534,7 +534,11 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 //		color.b = 1;
 //	}
 	if ( abs(nodeVal) >= 1 ) {
-		color  = float4(0.1, 0.1, 0.1, 0.1);
+		color = float4(0.1, 0.1, 0.1, 0.1);
+	}
+	
+	if (vid >= U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT) {
+		color.a = 1;
 	}
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);

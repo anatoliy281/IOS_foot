@@ -28,7 +28,7 @@ class MeshHolder {
 	
 	
 	let renderer: Renderer
-	let dim:Int2 = .init( Int(U_GRID_NODE_COUNT),
+	let dim:Int2 = .init( 2*Int(U_GRID_NODE_COUNT),
 						  Int(PHI_GRID_NODE_COUNT) )
 	lazy var coords: GroupDataCoords = separateData()
 	
@@ -101,8 +101,10 @@ class MeshHolder {
 	
 	lazy var shiftsCS:[simd_float3] = [
 		simd_float3(-hl, -hw, 0),
+		simd_float3(  0, -hw, 0),
 		simd_float3( hl, -hw, 0),
 		simd_float3( hl,  hw, 0),
+		simd_float3(  0,  hw, 0),
 		simd_float3(-hl,  hw, 0)
 	]
 	
@@ -119,7 +121,10 @@ class MeshHolder {
 //		let u_coord = Float( i - Int(U0_GRID_NODE_COUNT) )*dU;
 //		let v_coord = value;
 		let u_coord = value;
-		let v_coord = Float(i)*dU;
+		
+		let iShift = ( i > Int(U_GRID_NODE_COUNT) ) ? Int(U_GRID_NODE_COUNT): 0;
+		
+		let v_coord = Float(i - iShift)*dU;
 		
 		let uv_sqrt = sqrt(k*k*v_coord*v_coord + u_coord*u_coord);
 		let rho = sqrt(0.5*(u_coord + uv_sqrt)) / k;
@@ -129,15 +134,41 @@ class MeshHolder {
 		let phi = Float(j)*dPhi;
 		// flip the foot
 		var pos = Float3(rho*cos(phi), rho*sin(phi), h)
-		if ( (Float.pi < phi) && (phi <= 1.5*Float.pi) ) {
-			pos += shiftsCS[2];
-		} else if ( (1.5*Float.pi < phi) && (phi <= 2*Float.pi) ) {
-			pos += shiftsCS[3];
-		} else if ( (0 < phi) && (phi <= 0.5*Float.pi) ) {
-			pos += shiftsCS[0];
-		} else if ( (0.5*Float.pi < phi) && (phi <= Float.pi) ) {
-			pos += shiftsCS[1];
+		
+		if iShift == 0 {
+			if ( (Float.pi < phi) && (phi <= 1.5*Float.pi) ) {
+				pos += shiftsCS[3];
+			} else if ( (1.5*Float.pi < phi) && (phi <= 2*Float.pi) ) {
+				pos += shiftsCS[5];
+			} else if ( (0 < phi) && (phi <= 0.5*Float.pi) ) {
+				pos += shiftsCS[0];
+			} else if ( (0.5*Float.pi < phi) && (phi <= Float.pi) ) {
+				pos += shiftsCS[2];
+			}
+//				else { // так не бывает...
+//				return float4();
+//			}
+			
+		} else {
+			if ( (Float.pi < phi) && (phi <= 2*Float.pi) ) {
+				pos += shiftsCS[4];
+			} else {
+				pos += shiftsCS[1];
+			}
+	//		else { // и так тоже...
+	//			return float4(1);
+	//		}
 		}
+		
+//		if ( (Float.pi < phi) && (phi <= 1.5*Float.pi) ) {
+//			pos += shiftsCS[2];
+//		} else if ( (1.5*Float.pi < phi) && (phi <= 2*Float.pi) ) {
+//			pos += shiftsCS[3];
+//		} else if ( (0 < phi) && (phi <= 0.5*Float.pi) ) {
+//			pos += shiftsCS[0];
+//		} else if ( (0.5*Float.pi < phi) && (phi <= Float.pi) ) {
+//			pos += shiftsCS[1];
+//		}
 		
 		if !inFootFrame(pos) {
 			pos = .zero

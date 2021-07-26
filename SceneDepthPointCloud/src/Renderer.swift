@@ -273,9 +273,7 @@ class Renderer {
 	private lazy var cameraViewsPositions:[ViewSector] = {
 		let ch:Float = 0		// вертикальная позиция камеры (задаётся произвольно, т.к. пока проверка не использует данный параметр)
 		let hl = Float(BOX_HALF_LENGTH)
-		
-		let tt = 2*hl/3
-		
+		let tt = hl/3
 		let hw = Float(BOX_HALF_WIDTH)
 		var arr = [ViewSector]()
 		arr.append( ViewSector(number: 0,
@@ -293,7 +291,7 @@ class Renderer {
 		
 		arr.append( ViewSector(number: 3,
 							   coord: simd_float3( hl,  hw, ch),
-							   xRange: simd_float2(-hl, -tt),
+							   xRange: simd_float2(tt, hl),
 							   yRange: simd_float2(0, hw)) )
 		arr.append( ViewSector(number: 4,
 							   coord: simd_float3(0, hw, ch),
@@ -301,7 +299,7 @@ class Renderer {
 							   yRange: simd_float2(0, hw)) )
 		arr.append( ViewSector(number: 5,
 							   coord: simd_float3(-hl,  hw, ch),
-							   xRange: simd_float2(tt, hl),
+							   xRange: simd_float2(-hl, -tt),
 							   yRange: simd_float2(0, hw)) )
 		
 		for i in 0..<arr.count {
@@ -623,6 +621,7 @@ class Renderer {
 			
 			renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 			
+			let cvs = currentViewSector
 			renderEncoder.setVertexBytes(&currentViewSector, length: MemoryLayout<ViewSector>.stride, index: Int(kViewSector.rawValue))
 			
 			

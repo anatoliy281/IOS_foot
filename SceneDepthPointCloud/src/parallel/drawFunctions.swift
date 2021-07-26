@@ -28,7 +28,15 @@ extension Renderer {
 	}
 	
 	func drawMesh(_ renderEncoder:MTLRenderCommandEncoder) {
+		
 		let buffer = curveGridBuffer!.buffer		// текущая сетка
+		
+//		if currentViewSector?.number == 1 || currentViewSector?.number == 4 {
+//			let mmmm = buffer[0].mean
+//			let mmam = buffer[gridCurveNodeCount].mean
+//			print("   %%%    \(mmmm) \(mmam)")
+//		}
+		
 		renderEncoder.setRenderPipelineState(curvedGridPipelineState)
 		renderEncoder.setVertexBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 	
@@ -36,13 +44,13 @@ extension Renderer {
 	
 		renderEncoder.setVertexBytes(&calcIsNotFreezed, length: MemoryLayout<Bool>.stride, index: Int(kIsNotFreezed.rawValue))
 
-		renderEncoder.drawIndexedPrimitives(type: .point,
-												indexCount: indecesBuffer.count,
-												indexType: .uint32,
-												indexBuffer: indecesBuffer.buffer,
-												indexBufferOffset: 0)
+//		renderEncoder.drawIndexedPrimitives(type: .point,
+//												indexCount: indecesBuffer.count,
+//												indexType: .uint32,
+//												indexBuffer: indecesBuffer.buffer,
+//												indexBufferOffset: 0)
 
-//		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridCurveNodeCount)
+		renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: buffer.count)
 
 	}
 	

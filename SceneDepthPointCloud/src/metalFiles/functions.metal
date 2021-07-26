@@ -1,11 +1,3 @@
-//
-//  functions.metal
-//  SceneDepthPointCloud
-//
-//  Created by Анатолий Чернов on 11.06.2021.
-//  Copyright © 2021 Apple. All rights reserved.
-//
-
 #include <metal_stdlib>
 #include "../MyMeshData.h"
 
@@ -91,34 +83,38 @@ constant float3 shiftsCS[6] = {
 	float3(-BOX_HALF_LENGTH,  BOX_HALF_WIDTH, 0)
 };
 
+
+
 void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
+	const auto tt = BOX_HALF_LENGTH/3;
 	auto r = spos.xyz; // определение смещения ЛКС в зависимости от квадранта
+	
 	
 	int bufferHalf;
 	
-	if ( (r.x <= -2*BOX_HALF_LENGTH/3) && (r.y < 0) ) {
+	if ( (r.x <= -tt) && (r.y < 0) ) {
 		r -= shiftsCS[0];
 		bufferHalf = 0;
-	} else if ( (r.x > -2*BOX_HALF_LENGTH/3) && (r.x <= 2*BOX_HALF_LENGTH/3) && (r.y < 0) ) {
+	} else if ( (-tt < r.x) && (r.x <= tt) && (r.y < 0) ) {
 		r -= shiftsCS[1];
 		bufferHalf = 1;
-	} else if ( (r.x > 2*BOX_HALF_LENGTH/3) && (r.y < 0) ) {
+	} else if ( (r.x > tt) && (r.y < 0) ) {
 		r -= shiftsCS[2];
 		bufferHalf = 0;
 	}
 	
-	else if ( (r.x > 2*BOX_HALF_LENGTH/3) && (r.y >= 0) ) {
+	else if ( (r.x > tt) && (r.y >= 0) ) {
 		r -= shiftsCS[3];
 		bufferHalf = 0;
-	} else if ( (r.x > -2*BOX_HALF_LENGTH/3) && (r.x <= 2*BOX_HALF_LENGTH/3) && (r.y >= 0) ) {
+	} else if ( (-tt < r.x) && (r.x <= tt) && (r.y >= 0) ) {
 		r -= shiftsCS[4];
 		bufferHalf = 1;
-	} else if ( (r.x <= -2*BOX_HALF_LENGTH/3) && (r.y >= 0)  ) {
+	} else if ( (r.x <= -tt) && (r.y >= 0)  ) {
 		r -= shiftsCS[5];
 		bufferHalf = 0;
 	} else { return; } // иного не дано...
 	
-	float phase = 0; 	// определение фазы в
+	float phase = 0; 	// определение фазы в определении полярного угла
 	if ( r.x < 0 ) {
 		phase = M_PI_F;
 	} else if (r.y < 0) {
@@ -149,7 +145,7 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 	
 	const auto i = index/PHI_GRID_NODE_COUNT;
 	const auto halfTable = (i >= U_GRID_NODE_COUNT) ? 1: 0;
-	auto v_coord = i*U_STEP;
+	auto v_coord = (i - halfTable*U_GRID_NODE_COUNT)*U_STEP;
 	
 	if (u_coord == 0) {
 		v_coord = 0;
@@ -182,12 +178,13 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 		
 	} else {
 		if ( (M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
-			pos += shiftsCS[1];
-		} else if ( (0 < phi) && (phi <= M_PI_F) ) {
 			pos += shiftsCS[4];
-		} else { // и так не тоже...
-			return float4();
+		} else {
+			pos += shiftsCS[1];
 		}
+//		else { // и так тоже...
+//			return float4(1);
+//		}
 	}
 	
 	
