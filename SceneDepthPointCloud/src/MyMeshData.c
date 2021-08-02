@@ -16,11 +16,11 @@ struct MyMeshData initMyMeshData(float valInit) {
 	return md;
 }
 
-int gridRow(int index) {
+long gridRow(long index) {
     return index / PHI_GRID_NODE_COUNT;
 }
 
-int gridColumn(int index) {
+long gridColumn(long index) {
     return index % PHI_GRID_NODE_COUNT;
 }
 

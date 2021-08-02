@@ -25,11 +25,12 @@ extern "C" {
 #define PHI_GRID_NODE_COUNT 200
 #define PHI_STEP ((2*M_PI_F) / PHI_GRID_NODE_COUNT)
 
-#define U0_GRID_NODE_COUNT 200
-#define U1_GRID_NODE_COUNT 650
-#define LENGTH 0.25
-#define U_GRID_NODE_COUNT (U0_GRID_NODE_COUNT+U1_GRID_NODE_COUNT)
-#define U_STEP ((LENGTH*LENGTH) / (U_GRID_NODE_COUNT))
+//#define U0_GRID_NODE_COUNT 200
+//#define U1_GRID_NODE_COUNT 650
+#define U_GRID_NODE_COUNT 850
+//#define LENGTH 0.25
+//#define U_STEP ((LENGTH*LENGTH) / (U_GRID_NODE_COUNT))
+#define U_STEP 0.0005
 
 //#define V_GRID_NODE_COUNT U_GRID_NODE_COUNT
 //#define V_STEP U_STEP
@@ -72,8 +73,8 @@ extern "C" {
     
     struct MyMeshData initMyMeshData(float valInit);
 
-    int gridRow(int index);
-    int gridColumn(int index);
+    long gridRow(long index);
+    long gridColumn(long index);
 
 #ifdef __cplusplus
 }
