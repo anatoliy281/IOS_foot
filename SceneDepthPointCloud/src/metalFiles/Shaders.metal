@@ -312,15 +312,7 @@ float4 detectCameraPosition(constant CoordData &uniforms) {
 
 
 // spos - в пяточной СК, cs2 - координата носочной СК относительно пяточной
-bool markZoneOfUndefined(float2 spos) {
-	const auto eps = 0.01;
-	const auto hw = abs(BOX_HALF_WIDTH - abs(spos.y)) < eps;
-	const auto hl = abs(BOX_HALF_LENGTH - abs(spos.x)) < eps;
-	const auto oy = abs(spos.y) < eps;
-	const auto ox = abs(spos.x) < eps;
-	
-	return hw || hl || ox || oy;
-}
+
 
 
 bool checkViewSector(constant ViewSector& viewSector, float4 spos) {
@@ -380,10 +372,6 @@ vertex void unprojectCurvedVertex(
         if ( index < 0 || index > 2*PHI_GRID_NODE_COUNT*U_GRID_NODE_COUNT - 1 ) {
             return ;
         }
-
-		if (markZoneOfUndefined(locPos.xy)) {
-			mesh[index].group = ZoneUndefined;
-		}
 		
 		device auto& md = mesh[index];
 		md.justRefilled = 1;

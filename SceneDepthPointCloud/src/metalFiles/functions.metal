@@ -7,6 +7,16 @@ constant float gridNodeDist = 2*RADIUS / GRID_NODE_COUNT;
 constant float gridNodeDistCylindricalZ = 0.5*gridNodeDist;
 
 
+bool markZoneOfUndefined(float2 spos) {
+	const auto eps = 0.003;
+	const auto hw = abs(BOX_HALF_WIDTH - abs(spos.y)) < eps;
+	const auto hl = abs(BOX_HALF_LENGTH - abs(spos.x)) < eps;
+	const auto hl3 = abs(BOX_HALF_LENGTH*0.33 - abs(spos.x)) < eps;
+	const auto hw0 = abs(spos.y) < eps;
+	
+	return hw || hl || hl3 || hw0;
+}
+
 void mapToCartesianTable(float4 position, thread int& i, thread int& j, thread float& value) {
 	i = round(position.x/gridNodeDist) + GRID_NODE_COUNT/2;
 	j = round(position.z/gridNodeDist) + GRID_NODE_COUNT/2;

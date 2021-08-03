@@ -5,6 +5,8 @@
 
 float4 fromGiperbolicToCartesian(float value, int index);
 bool inFootFrame(float4 spos);
+bool markZoneOfUndefined(float2 spos);
+
 
 using namespace metal;
 
@@ -90,7 +92,7 @@ kernel void processSegmentation(
 	;
 	
 	const auto phiCoord = index%PHI_GRID_NODE_COUNT;
-	const auto uCoord = index/PHI_GRID_NODE_COUNT;
+	const auto vCoord = index/PHI_GRID_NODE_COUNT;
 	device auto& bp = borderBuffer[phiCoord];
 	
 	const auto s = calcDzDrho(myMeshData, index, deltaN);
@@ -115,11 +117,16 @@ kernel void processSegmentation(
 ////		}
 ////	}
 //	else  {
-		if (h > criticalBorderHeight) {
-			mesh.group = Foot;
+		if (markZoneOfUndefined(r.xy)) {
+			mesh.group = ZoneUndefined;
 		} else {
-			mesh.group = Floor;
+			if (h > criticalBorderHeight) {
+				mesh.group = Foot;
+			} else {
+				mesh.group = Floor;
+			}
 		}
+		
 //	}
 	
 	// TODO доделать взятие области 
