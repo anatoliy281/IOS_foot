@@ -12,8 +12,8 @@ class GroupDataCoords {
 
 class MeshHolder {
 	// для целей отладки коррекции пола id
-	let NotCorrFloor = Int(ZoneUndefined.rawValue + 1)
-	let NotCorrFoot = Int(ZoneUndefined.rawValue + 2)
+	let NotCorrFloor = Int(FootDefect.rawValue + 1)
+	let NotCorrFoot = Int(FootDefect.rawValue + 2)
 	
 	//  Т.к таблица хранит фактически 2 сетки, размер tableSize по U_GRID_NODE_COUNT увеличен вдвое
 	let dV:Float = Float(U_STEP)
@@ -66,6 +66,7 @@ class MeshHolder {
 					 Int(Border.rawValue):.init(),
 					 Int(Foot.rawValue):.init(),
 					 Int(ZoneUndefined.rawValue):.init(),
+					 Int(FootDefect.rawValue):.init(),
 					 NotCorrFloor:.init(),	// не скорректированный пол
 					 NotCorrFoot:.init()	// не скорректированная нога
 		]

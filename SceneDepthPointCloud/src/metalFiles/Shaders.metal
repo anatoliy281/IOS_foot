@@ -436,6 +436,9 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 		return float4(1, 1, 1, 1);
 	}
 	if (group == ZoneUndefined) {
+		return float4(1, 0.5, 0, 0.5);
+	}
+	if (group == FootDefect) {
 		return float4(1, 1, 0, 1);
 	}
 	return color;

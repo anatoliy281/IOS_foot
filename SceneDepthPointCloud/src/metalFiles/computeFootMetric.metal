@@ -111,6 +111,22 @@ float3 calcCoord(device MyMeshData* mesh,
 //
 //}
 
+//  проверка на то, что все узлы с номерами (i,j), (i+1,j), (i,j+1) лежат в одной и той же секции
+bool checkThreePoints(int index) {
+	const auto i = index / PHI_GRID_NODE_COUNT;
+	const auto j = index % PHI_GRID_NODE_COUNT;
+	bool halfTable = i/U_GRID_NODE_COUNT;
+	if ( halfTable != (i+1)/U_GRID_NODE_COUNT ) { // по разные половины таблицы => разные секции
+		return false;
+	} else {	// половины таблицы совпадают
+		const auto width = (halfTable == 0)? PHI_GRID_NODE_COUNT/4 : PHI_GRID_NODE_COUNT/2;
+		if ( j/width == (j+1)/width ) {	// одинаковые секции
+			return true;
+		} else
+			return false;
+	}
+}
+
 kernel void processSegmentation(
 						   uint index [[ thread_position_in_grid ]],
 						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]]
@@ -118,15 +134,7 @@ kernel void processSegmentation(
 //						   constant float3& pointInRise [[ buffer(kRisePoint) ]],
 //						   device BorderPoints* borderBuffer [[ buffer(kBorderBuffer) ]]
 						   ) {
-	if ( index < gridTotalNodes) {
-		if (index + PHI_GRID_NODE_COUNT >= gridTotalNodes ) {
-			return;
-		}
-	} else {
-		if (index + PHI_GRID_NODE_COUNT >= 2*gridTotalNodes ) {
-			return;
-		}
-	}
+
 	
 	device auto& mesh = myMeshData[index];
 	
@@ -143,7 +151,7 @@ kernel void processSegmentation(
 //	const auto phiCoord = index%PHI_GRID_NODE_COUNT;
 //	const auto vCoord = index/PHI_GRID_NODE_COUNT;
 //	device auto& bp = borderBuffer[phiCoord];
-	const auto r = calcCoord(myMeshData, index);
+	const auto r0 = calcCoord(myMeshData, index);
 //	const auto s = calcDzDrho(myMeshData, index, deltaN);
 //	const auto dr = rN - r0;
 	
@@ -166,14 +174,24 @@ kernel void processSegmentation(
 ////	}
 //	else  {
 	if (mesh.group != Border) {
-		if (markZoneOfUndefined(r.xy)) {
+		if (markZoneOfUndefined(r0.xy)) {
 			mesh.group = ZoneUndefined;
 		} else {
 //			if ( length(dr.xy)/abs(dr.z) > 2 ) {
-			if ( abs(r.z) < 0.003 ) {
+			if ( abs(r0.z) < 0.003 ) {
 				mesh.group = Floor;
 			} else {
 				mesh.group = Foot;
+			}
+			if (checkThreePoints(index)) {	// тройка индексов подойдёт для оценки вектора нормали
+				if ( 0.003 <= abs(r0.z) && abs(r0.z) < 0.013 ) {
+					const auto rI = calcCoord(myMeshData, index + PHI_GRID_NODE_COUNT);
+					const auto rJ = calcCoord(myMeshData, index + 1);
+					const auto n = cross(rI-r0, rJ-r0);
+					if ( abs(n.z) > length(n.xy) ) {
+						mesh.group = FootDefect;
+					}
+				}
 			}
 		}
 	}

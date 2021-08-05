@@ -56,7 +56,8 @@ extern "C" {
         Floor,
 		Border,
         Foot,
-		ZoneUndefined
+		ZoneUndefined,
+		FootDefect
     };
 
     struct MyMeshData {
