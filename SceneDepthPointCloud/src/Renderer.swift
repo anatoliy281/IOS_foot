@@ -220,7 +220,7 @@ class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     internal var currentBufferIndex = 0
     
-    
+	lazy var heightCorrectionState: MTLComputePipelineState = makeHeightCorrectState()!
     lazy var segmentationState: MTLComputePipelineState = makeSegmentationState()!
 	lazy var reductionBorderState: MTLComputePipelineState = makeReductBorderState()!
 	lazy var equalFramePerNodeState: MTLComputePipelineState = makeEqualFamePerMeshNode()!
@@ -233,6 +233,8 @@ class Renderer {
     private lazy var gridPointsBuffer = MetalBuffer<Float2>(device: device,
                                                             array: makeGridPoints(),
                                                             index: kGridPoints.rawValue, options: [])
+	
+	public var floorShifts:[Float] = .init(repeating: 0, count: 6)
     
     lazy var heelAreaMesh:MTKMesh = {
 		
@@ -310,7 +312,7 @@ class Renderer {
 		return arr
 	}()
 	
-	var currentViewSector:ViewSector?
+	public var currentViewSector:ViewSector?
 	
 	func findCamZone() -> ViewSector? {
 		let deltaSqured:Float = 0.02*0.02;
@@ -635,6 +637,8 @@ class Renderer {
 				updateAllNodes()
 			}
 			
+			calcFloorShifts()
+			startHeightCorrection()
 			startSegmentation()
 			reductBorderPoints()
 //			updateMetric()

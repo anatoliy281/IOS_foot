@@ -128,6 +128,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
 									Int(Border.rawValue): "Border",
 									Int(Foot.rawValue): "Foot",
 									Int(ZoneUndefined.rawValue): "Zone",
+									// отладочные файлы коррекции по высоте пола
+									meshHolder.NotCorrFloor: "FloorDebug",
+									meshHolder.NotCorrFoot: "FootDebug"
 								]
 		return fNames
 	}

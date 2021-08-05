@@ -433,7 +433,7 @@ float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 		return float4(1, 0, 0, saturation);
 	}
 	if (group == Unknown) {
-		return float4(.1);
+		return float4(1, 1, 1, 1);
 	}
 	if (group == ZoneUndefined) {
 		return float4(1, 1, 0, 1);
@@ -451,7 +451,7 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
     const auto nodeVal = md.mean;
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
-	const auto spos = fromGiperbolicToCartesian(nodeVal, vid);
+	const auto spos = fromGiperbolicToCartesian(nodeVal, vid) + float4(0, 0, -md.heightCorrection, 0);
 	auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*spos;
 	
 	
@@ -566,7 +566,7 @@ vertex ParticleVertexOut metricVertex(
 		pOut.color = float4(0);
 		pOut.pointSize = 0;
 	} else if (bp.typePoint == viewSectorMarker) {
-		pOut.color = float4(0.6);
+		pOut.color = float4(1);
 		pOut.pointSize *= 6;
 	}
 	return pOut;

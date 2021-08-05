@@ -36,6 +36,7 @@ enum BufferIndices {
 	kRisePoint = 15,
 	kViewSector = 16,
 	kMyMesh = 17,
+	kFloorShift = 18
 };
 
 struct CoordData {

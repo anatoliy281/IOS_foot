@@ -2,6 +2,14 @@ import MetalKit
 
 
 extension Renderer {
+	
+	public func makeHeightCorrectState() -> MTLComputePipelineState? {
+		let function: MTLFunction! = library.makeFunction(name: "correctHeight")
+		guard let res = try? device.makeComputePipelineState(function: function) else {
+			fatalError()
+		}
+		return res
+	}
     
     public func makeSegmentationState() -> MTLComputePipelineState? {
         let function: MTLFunction! = library.makeFunction(name: "processSegmentation") // Grab our gpu function

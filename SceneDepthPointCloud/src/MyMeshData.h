@@ -64,6 +64,7 @@ extern "C" {
 		short sectorNumber;
         float buffer[MAX_MESH_STATISTIC];  	// актуальные данные буфера
 		int totalSteps;					// текущая длина буфера без модульного деления
+		float heightCorrection;			// поправка по высоте
 
         enum Group group;
 		simd_float3 normal;

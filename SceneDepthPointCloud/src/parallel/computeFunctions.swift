@@ -1,7 +1,33 @@
 import MetalKit
 
 extension Renderer {
+	
+	public func startHeightCorrection() {
+				
+		guard let commandBuffer = commandQueue.makeCommandBuffer(),
+			  let commandEncoder = commandBuffer.makeComputeCommandEncoder() else { return }
+		let grid = curveGridBuffer.buffer
+		commandEncoder.setComputePipelineState(heightCorrectionState)
+		
+		commandEncoder.setBuffer(grid)
+		commandEncoder.setBytes(&currentViewSector, length: MemoryLayout<ViewSector>.stride, index: Int(kViewSector.rawValue))
+		
+		guard let sector = currentViewSector else { return }
+		var shiftOfFloor = floorShifts[Int(sector.number)]
+		commandEncoder.setBytes(&shiftOfFloor, length: MemoryLayout<Float>.stride, index: Int(kFloorShift.rawValue))
+		
+		let nTotal = MTLSize(width: grid.count, height: 1, depth: 1)
+		let w = MTLSize(width: segmentationState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
+		commandEncoder.dispatchThreads(nTotal, threadsPerThreadgroup: w)
+		
+		commandEncoder.endEncoding()
+		commandBuffer.commit()
+		
+		commandBuffer.waitUntilCompleted()
 
+	}
+	
+	
 	public func startSegmentation() {
                 
 		guard let commandBuffer = commandQueue.makeCommandBuffer(),
@@ -11,10 +37,11 @@ extension Renderer {
 		commandEncoder.setComputePipelineState(segmentationState)
 		
 		commandEncoder.setBuffer(grid)
+//		commandEncoder.setBytes(&pointCloudUniforms, length: MemoryLayout<CoordData>.stride, index: Int(kPointCloudUniforms.rawValue))
 		
-		var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
-		commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
-		commandEncoder.setBuffer(pointsBuffer)
+//		var p:Float3 = footMetric.heightInRise.mean // передаём координату поиска для определения зоны подъёма (требуются только (x,y) для пересчёта координаты z)
+//		commandEncoder.setBytes(&p, length: MemoryLayout<Float3>.stride, index: Int(kRisePoint.rawValue))
+//		commandEncoder.setBuffer(pointsBuffer)
 		
 		let nTotal = MTLSize(width: grid.count, height: 1, depth: 1)
 		let w = MTLSize(width: segmentationState.maxTotalThreadsPerThreadgroup, height: 1, depth: 1)
@@ -263,6 +290,156 @@ extension Renderer {
 		commandBuffer.commit()
 		
 		commandBuffer.waitUntilCompleted()
+	}
+	
+
+	
+	public func calcFloorShifts() {
+		
+		let columnCount = Int(PHI_GRID_NODE_COUNT)
+		let halfRowCount = Int(U_GRID_NODE_COUNT)
+		let halfTableIndex = columnCount*halfRowCount
+		
+		let hl:Float = Float(BOX_HALF_LENGTH)
+		let hw:Float = Float(BOX_HALF_WIDTH)
+		let shiftsCS = [
+			   simd_float3(-hl, -hw, 0),
+			   simd_float3(  0, -hw, 0),
+			   simd_float3( hl, -hw, 0),
+			   simd_float3( hl,  hw, 0),
+			   simd_float3(  0,  hw, 0),
+			   simd_float3(-hl,  hw, 0)
+		   ]
+		
+			
+		func getIndecesRangeFromSectorNumber(sector:Int) -> (iStart:Int, iEnd:Int) {
+			var n:Int = 0
+			var width:Int
+			let start:Int
+			switch sector {
+			case 0,2,3,5:
+				if sector == 0 {
+					n = sector
+				} else if (sector == 2 || sector == 3) {
+					n = sector - 1
+				} else if (sector == 5) {
+					n = sector - 2
+				}
+				width = columnCount/4
+				start = columnCount
+			case 1,4:
+				if sector == 1 {
+					n = 0
+				} else {
+					n = 1
+				}
+				width = columnCount/2
+				start = halfTableIndex + columnCount
+			default:
+				return (iStart:0, iEnd:0)
+			}
+			
+			
+			let i0 = start + n*width
+			let iN = i0 + width
+			return (iStart:i0, iEnd:iN)
+		}
+		
+		func calcBufferValue(index:Int) -> (sector:Int,value:Float3?) {
+			
+			let dPhi:Float = 2*Float.pi / Float(columnCount)
+			let dV:Float = Float(U_STEP)
+			var grid = curveGridBuffer.buffer
+			
+			let i = index / columnCount
+			let j = index % columnCount
+			let u_coord = grid[index].mean
+			
+			grid[index].group = Border
+			
+			let k:Float = 1
+			let h0:Float = -0.03
+			
+			let isSecondTable = i > halfRowCount
+			
+			let iShift = isSecondTable ? Int(U_GRID_NODE_COUNT) : 0;
+			
+			let v_coord = Float(i - iShift)*dV;
+			
+			let uv_sqrt = sqrt(k*k*v_coord*v_coord + u_coord*u_coord);
+			let rho = sqrt(0.5*(u_coord + uv_sqrt)) / k;
+			let h = sqrt(k*k*rho*rho - u_coord) + h0;
+			
+			let phi = Float(j)*dPhi
+			
+			// detect sector
+			var secNum:Int = -1
+			if isSecondTable {
+				if ( (Float.pi <= phi) && (phi < 2*Float.pi) ) { 	// понять и простить
+					secNum = 4
+				} else {
+					secNum = 1
+				}
+			} else {
+				if ( (Float.pi < phi) && (phi < 1.5*Float.pi - dPhi) ) {	// понять и простить
+					secNum = 3
+				} else if ( (1.5*Float.pi < phi) && (phi < 2*Float.pi) ) {
+					secNum = 5
+				} else if ( (0 < phi) && (phi < 0.5*Float.pi) ) {
+					secNum = 0
+				} else if ( (0.5*Float.pi < phi) && (phi < Float.pi) ) {
+					secNum = 2
+				}
+				
+			}
+			
+			if u_coord == 0 || secNum == -1 {
+//				if 200 <= index && index < 250 {
+//					print("0 sector")
+//				}
+				
+				return (sector:secNum, value: nil)
+			} else {
+				
+//				if 200 < index && index < 250 {
+//					print("0 sector")
+//				}
+				
+				let pos = Float3(rho*cos(phi), rho*sin(phi), h) + shiftsCS[secNum]
+//				print("*** r:\(pos) phi:\(phi)(\(Float.pi)) ")
+				return (sector:secNum, value:pos)
+			}
+			
+			
+		}
+			
+			
+		guard let sector = currentViewSector?.number else {
+			return
+		}
+			
+		let range = getIndecesRangeFromSectorNumber(sector: Int(sector))
+		
+		var heights:(count:Int, totalValue:Float) = (count:0, totalValue:0)
+		for index in range.iStart..<range.iEnd {
+			let res = calcBufferValue(index: index)
+			guard let coord = res.value else { continue }
+			if (res.sector == sector) { // лишняя проверка не помешает
+				heights.totalValue += coord.z
+				heights.count += 1
+			} else {
+				print("-")
+			}
+		}
+
+//		runThroughIndeces(i0: columnCount, iN: 3*columnCount)	//
+//		runThroughIndeces(i0: halfTableIndex + columnCount, iN: halfTableIndex + 2*columnCount)
+
+		floorShifts[Int(sector)] = heights.totalValue / Float(heights.count)
+
+		
+		
+		print("0: \(1000*floorShifts[0]) | 1: \(1000*floorShifts[1]) | 2: \(1000*floorShifts[2]) | 3: \(1000*floorShifts[3]) | 4: \(1000*floorShifts[4]) | 5: \(1000*floorShifts[5])")
 	}
 
 }

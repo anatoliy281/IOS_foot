@@ -102,10 +102,10 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 	
 	int bufferHalf;
 	
-	if ( (r.x <= -tt) && (r.y < 0) ) {
+	if ( (r.x < -tt) && (r.y < 0) ) {
 		r -= shiftsCS[0];
 		bufferHalf = 0;
-	} else if ( (-tt < r.x) && (r.x <= tt) && (r.y < 0) ) {
+	} else if ( (-tt < r.x) && (r.x < tt) && (r.y < 0) ) {
 		r -= shiftsCS[1];
 		bufferHalf = 1;
 	} else if ( (r.x > tt) && (r.y < 0) ) {
@@ -113,13 +113,13 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 		bufferHalf = 0;
 	}
 	
-	else if ( (r.x > tt) && (r.y >= 0) ) {
+	else if ( (r.x > tt) && (r.y > 0) ) {
 		r -= shiftsCS[3];
 		bufferHalf = 0;
-	} else if ( (-tt < r.x) && (r.x <= tt) && (r.y >= 0) ) {
+	} else if ( (-tt < r.x) && (r.x < tt) && (r.y > 0) ) {
 		r -= shiftsCS[4];
 		bufferHalf = 1;
-	} else if ( (r.x <= -tt) && (r.y >= 0)  ) {
+	} else if ( (r.x < -tt) && (r.y > 0)  ) {
 		r -= shiftsCS[5];
 		bufferHalf = 0;
 	} else { return; } // иного не дано...

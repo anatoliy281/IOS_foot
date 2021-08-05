@@ -5,12 +5,16 @@ class GroupedData {
 }
 
 class GroupDataCoords {
-	var data: [Int:[(Int, Int, Float)]] = .init()
+	var data: [Int:[(Int, Int, (mean:Float,correction:Float))]] = .init()
 }
 
 
 
 class MeshHolder {
+	// для целей отладки коррекции пола id
+	let NotCorrFloor = Int(ZoneUndefined.rawValue + 1)
+	let NotCorrFoot = Int(ZoneUndefined.rawValue + 2)
+	
 	//  Т.к таблица хранит фактически 2 сетки, размер tableSize по U_GRID_NODE_COUNT увеличен вдвое
 	let dV:Float = Float(U_STEP)
 	let dPhi:Float = 2*Float.pi / Float(PHI_GRID_NODE_COUNT)
@@ -20,7 +24,7 @@ class MeshHolder {
 	let bh:Float = Float(BOX_HEIGHT)
 	
 	let tableSize:(V:Int, Phi:Int)
-	var table: [[Float]] = [] // содержит переформатированную таблицу узлов	let h0:Float = -0.03
+	var table: [[(mean:Float,correction:Float)]] = [] // содержит переформатированную таблицу узлов	let h0:Float = -0.03
 	
 	let shiftsCS:[simd_float3]
 	
@@ -54,12 +58,16 @@ class MeshHolder {
 	// сгруппировать данные по группам (группа точек/номер кадра)
 	private func separateData() -> GroupDataCoords {
 		let res = GroupDataCoords()
+		
+
 
 		res.data = [ Int(Unknown.rawValue):.init(),
 					 Int(Floor.rawValue):.init(),
 					 Int(Border.rawValue):.init(),
 					 Int(Foot.rawValue):.init(),
-					 Int(ZoneUndefined.rawValue):.init()
+					 Int(ZoneUndefined.rawValue):.init(),
+					 NotCorrFloor:.init(),	// не скорректированный пол
+					 NotCorrFoot:.init()	// не скорректированная нога
 		]
 
 		let buffer = renderer.curveGridBuffer!.buffer
@@ -69,7 +77,18 @@ class MeshHolder {
 			let row = gridRow(i)
 			let col = gridColumn(i)
 			let val = node.mean
-			res.data[Int(node.group.rawValue)]!.append( (row, col, val) )
+			let corr = node.heightCorrection
+			
+			res.data[Int(node.group.rawValue)]!.append( (row, col, (mean:val, correction:corr)) )
+			
+			// дополнительная передача нескорректированных данных пола и ноги
+			if node.group == Floor {
+				res.data[NotCorrFloor]!.append( (row, col, (mean:val, correction:0)) )
+			}
+			if node.group == Foot {
+				res.data[NotCorrFoot]!.append( (row, col, (mean:val, correction:0)) )
+			}
+			
 		}
 
 		return res
@@ -83,7 +102,7 @@ class MeshHolder {
 	}
 	
 	private	func fullTable( _ key: Int ) {
-		table = Array(repeating:Array(repeating: Float(), count: tableSize.Phi), count: tableSize.V)
+		table = Array(repeating:Array(repeating: (mean:Float(),correction:Float()), count: tableSize.Phi), count: tableSize.V)
 		for ( i, j, val ) in coords.data[key]! {
 			table[i][j] = val
 		}
@@ -96,11 +115,13 @@ class MeshHolder {
 		return checkWidth && checkLength && checkHeight;
 	}
 	
-	private func calcCoords(_ i:Int, _ j:Int, _ value:Float ) -> Float3 {
+	
+	
+	private func calcCoords(_ i:Int, _ j:Int, _ value:(mean:Float,correction:Float) ) -> Float3 {
 		let k:Float = 1
 		let h0:Float = -0.03
 		
-		let u_coord = value;
+		let u_coord = value.mean;
 		
 		let isSecondTable = i > tableSize.V / 2;
 		
@@ -115,7 +136,7 @@ class MeshHolder {
 		
 		let phi = Float(j)*dPhi;
 		// flip the foot
-		var pos = Float3(rho*cos(phi), rho*sin(phi), h)
+		var pos = Float3(rho*cos(phi), rho*sin(phi), h - value.correction)
 		
 		if isSecondTable {
 			if ( (Float.pi < phi) && (phi <= 2*Float.pi) ) {
@@ -150,52 +171,52 @@ class MeshHolder {
 		for i in 0..<tableSize.V {
 			for j in 0..<tableSize.Phi {
 				var str = ""
-				if table[i][j] != Float() {
+				if table[i][j].mean != Float() {
 					let pos = calcCoords(i, j, table[i][j])
 					str = "v \(pos.x) \(pos.y) \(pos.z)\n"
 				}
 				res.append(str)
 			}
 		}
-
-		for i in 0..<tableSize.V {
-			for j in 0..<tableSize.Phi {
-				if (table[i][j] != Float()) {
-					if (j+1 != tableSize.Phi && table[i][j+1] != Float()) {
-						let index = i*tableSize.Phi + j
-						res.append("l \(index+1) \(index+2)\n")
-					}
-					if (i+1 != tableSize.V && table[i+1][j] != Float()) {
-						let index = (i+1)*tableSize.Phi + j
-						res.append("l \(index-tableSize.Phi+1) \(index+1)\n")
-					}
-				}
-			}
-		}
+		// опустили пока соединение узлов
+//		for i in 0..<tableSize.V {
+//			for j in 0..<tableSize.Phi {
+//				if (table[i][j].mean != Float()) {
+//					if (j+1 != tableSize.Phi && table[i][j+1].mean != Float()) {
+//						let index = i*tableSize.Phi + j
+//						res.append("l \(index+1) \(index+2)\n")
+//					}
+//					if (i+1 != tableSize.V && table[i+1][j].mean != Float()) {
+//						let index = (i+1)*tableSize.Phi + j
+//						res.append("l \(index-tableSize.Phi+1) \(index+1)\n")
+//					}
+//				}
+//			}
+//		}
 
 
 		return res
 	}
 	
-	private func writeNodes(_ coords: [Float3], connectNodes:Bool = true) -> String {
-		var res:String = ""
-		for i in 0..<coords.count {
-			var str = ""
-			if coords[i] != Float3() {
-				str = "v \(coords[i].x) \(coords[i].y) \(coords[i].z)\n"
-			} else {
-				str = "v 0 0 0\n"
-			}
-			res.append(str)
-		}
-		
-		if connectNodes {
-			for i in 0..<coords.count { // нужно для вывода контуров
-				res.append("l \(i + 1) \((i+1)%coords.count + 1)\n")	// обрабатываем случай замыкания контура
-			}
-		}
-		
-		return res
-	}
+//	private func writeNodes(_ coords: [Float3], connectNodes:Bool = true) -> String {
+//		var res:String = ""
+//		for i in 0..<coords.count {
+//			var str = ""
+//			if coords[i] != Float3() {
+//				str = "v \(coords[i].x) \(coords[i].y) \(coords[i].z)\n"
+//			} else {
+//				str = "v 0 0 0\n"
+//			}
+//			res.append(str)
+//		}
+//
+//		if connectNodes {
+//			for i in 0..<coords.count { // нужно для вывода контуров
+//				res.append("l \(i + 1) \((i+1)%coords.count + 1)\n")	// обрабатываем случай замыкания контура
+//			}
+//		}
+//
+//		return res
+//	}
 	
 }
