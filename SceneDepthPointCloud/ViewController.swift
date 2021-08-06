@@ -116,8 +116,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
 				}
 				catch {/* error handling here */}
 			}
-			let activity = UIActivityViewController(activityItems: ["Облако точек", urls],
-													applicationActivities: .none)
+			let activity = UIActivityViewController(activityItems: [urls], applicationActivities: .none)
 			activity.isModalInPresentation = true
 			present(activity, animated: true, completion: nil)
         }
