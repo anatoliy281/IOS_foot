@@ -16,8 +16,8 @@ float4 restoreFromCartesianTable(float h, int index);
 float4x4 fromGlobalToObjectCS(float h);
 float4x4 fromObjectToGlobalCS(float h);
 float4 fromCylindricalToCartesian(float rho, int index);
-void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value);
-float4 fromGiperbolicToCartesian(float value, int index);
+void mapToGiperbolicTable(float4 spos, int sector, thread int& index, thread float& value);
+float4 fromGiperbolicToCartesian(float value, int index, bool doShift);
 bool inFootFrame(float4 spos);
 
 //// -------------------------- BASE DEFINITIONS -----------------------------
@@ -316,12 +316,10 @@ float4 detectCameraPosition(constant CoordData &uniforms) {
 
 
 bool checkViewSector(constant ViewSector& viewSector, float4 spos) {
-//	return spos.y*viewSector.coord.y > 0;
 	const auto checkX = viewSector.xRange[0] < spos.x && spos.x <= viewSector.xRange[1];
 	const auto checkY = viewSector.yRange[0] < spos.y && spos.y <= viewSector.yRange[1];
 	return checkX && checkY;
 }
-
 
 vertex void unprojectCurvedVertex(
                             uint vertexID [[vertex_id]],
@@ -368,15 +366,18 @@ vertex void unprojectCurvedVertex(
 
         int index;
         float val;
-		mapToGiperbolicTable(locPos, index, val);
+		mapToGiperbolicTable(locPos, viewSector.number, index, val);
         if ( index < 0 || index > 2*PHI_GRID_NODE_COUNT*U_GRID_NODE_COUNT - 1 ) {
             return ;
         }
 		
 		device auto& md = mesh[index];
+		
 		md.justRefilled = 1;
 		md.sectorNumber = viewSector.number;
 		MedianSearcher(&md).newValue(val);
+		
+		
     }
 }
 
@@ -454,7 +455,7 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
     const auto nodeVal = md.mean;
 //    auto pos = restoreFromSphericalTable(floorHeight, nodeVal, vid);
 	
-	const auto spos = fromGiperbolicToCartesian(nodeVal, vid) + float4(0, 0, -md.heightCorrection, 0);
+	const auto spos = fromGiperbolicToCartesian(nodeVal, vid, true) + float4(0, 0, -md.heightCorrection, 0);
 	auto pos = fromObjectToGlobalCS(uniforms.floorHeight)*spos;
 	
 	

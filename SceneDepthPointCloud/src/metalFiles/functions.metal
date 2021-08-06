@@ -95,34 +95,9 @@ constant float3 shiftsCS[6] = {
 
 
 
-void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
-	const auto tt = BOX_HALF_LENGTH/3;
-	auto r = spos.xyz; // определение смещения ЛКС в зависимости от квадранта
-	
-	
-	int bufferHalf;
-	
-	if ( (r.x < -tt) && (r.y < 0) ) {
-		r -= shiftsCS[0];
-		bufferHalf = 0;
-	} else if ( (-tt < r.x) && (r.x < tt) && (r.y < 0) ) {
-		r -= shiftsCS[1];
-		bufferHalf = 1;
-	} else if ( (r.x > tt) && (r.y < 0) ) {
-		r -= shiftsCS[2];
-		bufferHalf = 0;
-	}
-	
-	else if ( (r.x > tt) && (r.y > 0) ) {
-		r -= shiftsCS[3];
-		bufferHalf = 0;
-	} else if ( (-tt < r.x) && (r.x < tt) && (r.y > 0) ) {
-		r -= shiftsCS[4];
-		bufferHalf = 1;
-	} else if ( (r.x < -tt) && (r.y > 0)  ) {
-		r -= shiftsCS[5];
-		bufferHalf = 0;
-	} else { return; } // иного не дано...
+void mapToGiperbolicTable(float4 spos, int sector, thread int& index, thread float& value) {
+	auto r = spos.xyz - shiftsCS[sector]; // определение смещения ЛКС в зависимости от квадранта
+	int bufferHalf = (sector == 1 || sector == 4) ? 1 : 0;
 	
 	float phase = 0; 	// определение фазы в определении полярного угла
 	if ( r.x < 0 ) {
@@ -139,9 +114,6 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 	const auto u = k*k*rho*rho - (h-h0)*(h-h0);
 	const auto v = 2*rho*(h-h0);
 	
-//	value = v;
-//	const auto i = round( u / U_STEP ) + U0_GRID_NODE_COUNT;
-	
 	value = u;
 	const auto i = round( v / U_STEP ) + bufferHalf*U_GRID_NODE_COUNT;
 	
@@ -149,7 +121,7 @@ void mapToGiperbolicTable(float4 spos, thread int& index, thread float& value) {
 }
 
 
-float4 fromGiperbolicToCartesian(float value, int index) {
+float4 fromGiperbolicToCartesian(float value, int index, bool doShift) {
 	
 	const auto u_coord = value;
 	
@@ -172,31 +144,30 @@ float4 fromGiperbolicToCartesian(float value, int index) {
 	
 	float3 pos(rho*cos(phi), rho*sin(phi), h);
 	
-	// поменять местами квадранты 0<->3, 2<->5, 1<->4
-	if (halfTable == 0) {
-		if ( (M_PI_F < phi) && (phi <= 1.5*M_PI_F) ) {
-			pos += shiftsCS[3];
-		} else if ( (1.5*M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
-			pos += shiftsCS[5];
-		} else if ( (0 < phi) && (phi <= M_PI_2_F) ) {
-			pos += shiftsCS[0];
-		} else if ( (M_PI_2_F < phi) && (phi <= M_PI_F) ) {
-			pos += shiftsCS[2];
-		} else { // так не бывает...
-			return float4();
-		}
-		
-	} else {
-		if ( (M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
-			pos += shiftsCS[4];
-		} else {
-			pos += shiftsCS[1];
-		}
-//		else { // и так тоже...
-//			return float4(1);
-//		}
-	}
 	
+	if (doShift) {
+		// поменять местами квадранты 0<->3, 2<->5, 1<->4
+		if (halfTable == 0) {
+			if ( (M_PI_F < phi) && (phi <= 1.5*M_PI_F) ) {
+				pos += shiftsCS[3];
+			} else if ( (1.5*M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
+				pos += shiftsCS[5];
+			} else if ( (0 < phi) && (phi <= M_PI_2_F) ) {
+				pos += shiftsCS[0];
+			} else if ( (M_PI_2_F < phi) && (phi <= M_PI_F) ) {
+				pos += shiftsCS[2];
+			} else { // так не бывает...
+				return float4();
+			}
+			
+		} else {
+			if ( (M_PI_F < phi) && (phi <= 2*M_PI_F) ) {
+				pos += shiftsCS[4];
+			} else {
+				pos += shiftsCS[1];
+			}
+		}
+	}
 	
 	return float4(pos, 1);
 }

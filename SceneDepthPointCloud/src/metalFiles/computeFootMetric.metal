@@ -3,7 +3,7 @@
 #include "../MyMeshData.h"
 #import "../ShaderTypes.h"
 
-float4 fromGiperbolicToCartesian(float value, int index);
+float4 fromGiperbolicToCartesian(float value, int index, bool doShift);
 bool inFootFrame(float4 spos);
 bool markZoneOfUndefined(float2 spos);
 
@@ -50,66 +50,12 @@ kernel void correctHeight(
 	}
 }
 
-//float calcDzDrho(device MyMeshData* mesh,
-//					  int index,
-//					  int delta) {
-//	const auto stepIndex = delta*PHI_GRID_NODE_COUNT;
-//
-//	const auto index0 = index - stepIndex;
-//	const auto indexN =  index + stepIndex;
-//	if ( index0 < 0 || indexN >= 2*gridTotalNodes ) {
-//		return 0;
-//	}
-////
-////	const auto dU = 10;
-////	const auto indexPlusdU = index + dU*PHI_GRID_NODE_COUNT;
-////	const auto indexMinusdU = index - dU*PHI_GRID_NODE_COUNT;
-////	if ( indexMinusdU < 0 || indexPlusdU > gridTotalNodes ) {
-////		return 0;
-////	}
-////	if (mesh[indexPlusdU].group == Unknown || mesh[indexMinusdU].group == Unknown) {
-////		return 0;
-////	}
-//
-//	const auto r0 = fromGiperbolicToCartesian(mesh[index0].mean, index0);
-//	const auto rN = fromGiperbolicToCartesian(mesh[indexN].mean, indexN);
-//
-//	const auto dR = r0 - rN;
-////	if (length(r0.xy) < length(rN.xy)) {
-////		return 0;
-////	}
-//
-//	if (inFootFrame(r0) && inFootFrame(rN)) {
-//		return dR.z / length(dR.xy);
-//	} else {
-//		return 0;
-//	}
-//
-//}
-
 float3 calcCoord(device MyMeshData* mesh,
 			int index) {
 	device auto& value = mesh[index].mean;
-	const auto r = fromGiperbolicToCartesian(value, index) + float4(0, 0, -mesh[index].heightCorrection, 0);
+	const auto r = fromGiperbolicToCartesian(value, index, true) + float4(0, 0, -mesh[index].heightCorrection, 0);
 	return r.xyz;
 }
-
-
-//constant float EpsilonSqured = 0.003*0.003;
-
-//bool checkCoordSysBorder(int uCoord, int phiCoord, device MyMeshData* mesh) {
-//	const auto uCoord0 = uCoord - 1;
-//	const auto uCoord1 = uCoord + 1;
-//
-//	const auto index0 = uCoord0*PHI_GRID_NODE_COUNT + phiCoord;
-//	const auto index1 = uCoord1*PHI_GRID_NODE_COUNT + phiCoord;
-//	const auto index2 = uCoord*PHI_GRID_NODE_COUNT + phiCoord;
-//
-//	return mesh[index0].group != Unknown &&
-//		   mesh[index1].group != Unknown &&
-//		   mesh[index2].group != Unknown;
-//
-//}
 
 //  проверка на то, что все узлы с номерами (i,j), (i+1,j), (i,j+1) лежат в одной и той же секции
 bool checkThreePoints(int index) {
@@ -127,81 +73,57 @@ bool checkThreePoints(int index) {
 	}
 }
 
+bool inInnerSector(device MyMeshData* mesh, int index) {
+	const auto i = index / PHI_GRID_NODE_COUNT;
+	const auto j = index % PHI_GRID_NODE_COUNT;
+	
+	const auto dY = BOX_HALF_WIDTH;
+	const auto dX = (i < U_GRID_NODE_COUNT) ? 2*BOX_HALF_LENGTH/3 : BOX_HALF_LENGTH/3;
+	
+	
+	device auto& value = mesh[index].mean;
+	const auto r = fromGiperbolicToCartesian(value, index, false);
+	
+	return abs(r.x) < dX && abs(r.y) < dY;
+}
+
+
 kernel void processSegmentation(
 						   uint index [[ thread_position_in_grid ]],
 						   device MyMeshData *myMeshData [[ buffer(kMyMesh) ]]
-//						   constant CoordData& coordData [[ buffer(kPointCloudUniforms) ]],
-//						   constant float3& pointInRise [[ buffer(kRisePoint) ]],
-//						   device BorderPoints* borderBuffer [[ buffer(kBorderBuffer) ]]
 						   ) {
-
-	
 	device auto& mesh = myMeshData[index];
 	
 	if (mesh.mean == 0) {
 		return;
 	}
 	
-	const auto deltaN = 3;
-	const auto criticalSlope = 1;
-//	const auto criticalFloorHeight = 0.005;
-	const auto criticalBorderHeight = 0.006
-	;
+	if (mesh.group == Border) {
+		return;
+	}
 	
-//	const auto phiCoord = index%PHI_GRID_NODE_COUNT;
-//	const auto vCoord = index/PHI_GRID_NODE_COUNT;
-//	device auto& bp = borderBuffer[phiCoord];
+	const auto criticalFloorDeviationHeight = 0.003;
 	const auto r0 = calcCoord(myMeshData, index);
-//	const auto s = calcDzDrho(myMeshData, index, deltaN);
-//	const auto dr = rN - r0;
 	
-
-//	if ( s > criticalSlope &&
-//		 h < criticalBorderHeight &&
-//		 mesh.group != ZoneUndefined ) {
-//		mesh.group = Border;
-//		const auto i = (bp.len++)%MAX_BORDER_POINTS;
-//		bp.coords[i] = float4(r, uCoord);
-////		bp.tgAlpha[i] = s;
-//	}
-////	else if (bp.u_coord != 0) {
-////		auto xyOut = int(index/PHI_GRID_NODE_COUNT) < bp.u_coord;
-////		if ( xyOut ) {
-////			mesh.group = Floor;
-////		} else {
-////			mesh.group = Foot;
-////		}
-////	}
-//	else  {
-	if (mesh.group != Border) {
-		if (markZoneOfUndefined(r0.xy)) {
-			mesh.group = ZoneUndefined;
+	if (!inInnerSector(myMeshData, index)) {
+		mesh.group = ZoneUndefined;
+	} else {
+		if ( abs(r0.z) < criticalFloorDeviationHeight ) {
+			mesh.group = Floor;
 		} else {
-//			if ( length(dr.xy)/abs(dr.z) > 2 ) {
-			if ( abs(r0.z) < 0.003 ) {
-				mesh.group = Floor;
-			} else {
-				mesh.group = Foot;
-			}
-			if (checkThreePoints(index)) {	// тройка индексов подойдёт для оценки вектора нормали
-				if ( 0.003 <= abs(r0.z) && abs(r0.z) < 0.013 ) {
-					const auto rI = calcCoord(myMeshData, index + PHI_GRID_NODE_COUNT);
-					const auto rJ = calcCoord(myMeshData, index + 1);
-					const auto n = cross(rI-r0, rJ-r0);
-					if ( abs(n.z) > length(n.xy) ) {
-						mesh.group = FootDefect;
-					}
+			mesh.group = Foot;
+		}
+		if (checkThreePoints(index)) {	// тройка индексов подойдёт для оценки вектора нормали
+			if ( criticalFloorDeviationHeight <= abs(r0.z) && abs(r0.z) < criticalFloorDeviationHeight + 0.01 ) {
+				const auto rI = calcCoord(myMeshData, index + PHI_GRID_NODE_COUNT);
+				const auto rJ = calcCoord(myMeshData, index + 1);
+				const auto n = cross(rI-r0, rJ-r0);
+				if ( abs(n.z) > length(n.xy) ) {
+					mesh.group = FootDefect;
 				}
 			}
 		}
 	}
-//	}
-	
-	// TODO доделать взятие области 
-//	if ( length_squared(pointInRise) > 0 && length_squared(r.xy - pointInRise.xy) < EpsilonSqured ) {	// заполняем буфер в области подъёма
-//		device auto& bpCenter = borderBuffer[PHI_GRID_NODE_COUNT+9];
-//		bpCenter.coords[(bpCenter.len++)%MAX_BORDER_POINTS] = float4(r, 0);
-//	}
 	
 }
 

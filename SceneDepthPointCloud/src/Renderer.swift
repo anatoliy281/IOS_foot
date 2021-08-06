@@ -277,32 +277,33 @@ class Renderer {
 		let hl = Float(BOX_HALF_LENGTH)
 		let tt = hl/3
 		let hw = Float(BOX_HALF_WIDTH)
+		let dL:Float = 0.005;
 		var arr = [ViewSector]()
 		arr.append( ViewSector(number: 0,
 							   coord: simd_float3(-hl, -hw, ch),
-							   xRange: simd_float2(-hl, -tt),
-							   yRange: simd_float2(-hw, 0)) )
+							   xRange: simd_float2(-hl, -tt + dL),
+							   yRange: simd_float2(-hw, dL)) )
 		arr.append( ViewSector(number: 1,
 							   coord: simd_float3(0, -hw, ch),
-							   xRange: simd_float2(-tt, tt),
-							   yRange: simd_float2(-hw, 0)) )
+							   xRange: simd_float2(-tt - dL, tt + dL),
+							   yRange: simd_float2(-hw, dL)) )
 		arr.append( ViewSector(number: 2,
 							   coord: simd_float3( hl, -hw, ch),
-							   xRange: simd_float2(tt, hl),
-							   yRange: simd_float2(-hw, 0)) )
+							   xRange: simd_float2(tt - dL, hl),
+							   yRange: simd_float2(-hw, dL)) )
 		
 		arr.append( ViewSector(number: 3,
 							   coord: simd_float3( hl,  hw, ch),
-							   xRange: simd_float2(tt, hl),
-							   yRange: simd_float2(0, hw)) )
+							   xRange: simd_float2(tt - dL, hl),
+							   yRange: simd_float2(-dL, hw)) )
 		arr.append( ViewSector(number: 4,
 							   coord: simd_float3(0, hw, ch),
-							   xRange: simd_float2(-tt, tt),
-							   yRange: simd_float2(0, hw)) )
+							   xRange: simd_float2(-tt - dL, tt + dL),
+							   yRange: simd_float2(-dL, hw)) )
 		arr.append( ViewSector(number: 5,
 							   coord: simd_float3(-hl,  hw, ch),
-							   xRange: simd_float2(-hl, -tt),
-							   yRange: simd_float2(0, hw)) )
+							   xRange: simd_float2(-hl, -tt + dL),
+							   yRange: simd_float2(-dL, hw)) )
 		
 		for i in 0..<arr.count {
 			metricPoints[10+i].mean = arr[i].coord
