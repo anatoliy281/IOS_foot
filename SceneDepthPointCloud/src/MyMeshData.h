@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define MAX_MESH_STATISTIC 11
+#define MAX_MESH_STATISTIC 21
 
 // cartesian grid
 #define RADIUS 0.5
@@ -27,7 +27,7 @@ extern "C" {
 
 //#define U0_GRID_NODE_COUNT 200
 //#define U1_GRID_NODE_COUNT 650
-#define U_GRID_NODE_COUNT 850
+#define U_GRID_NODE_COUNT 100
 //#define LENGTH 0.25
 //#define U_STEP ((LENGTH*LENGTH) / (U_GRID_NODE_COUNT))
 #define U_STEP 0.0005

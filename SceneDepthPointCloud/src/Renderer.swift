@@ -316,7 +316,8 @@ class Renderer {
 	public var currentViewSector:ViewSector?
 	
 	func findCamZone() -> ViewSector? {
-		let deltaSqured:Float = 0.02*0.02;
+		let dR = min(BOX_HALF_LENGTH/3, BOX_HALF_WIDTH)
+		let deltaSqured:Float = Float(dR*dR);
 		for camView in cameraViewsPositions {
 			let dr = simd_float2(camPosition.x, camPosition.y) -
 				simd_float2(camView.coord.x, camView.coord.y);
@@ -544,6 +545,7 @@ class Renderer {
 				}
 				
 			}
+			
 		}
 		
 //        currentBufferIndex = (currentBufferIndex + 1) % maxInFlightBuffers
@@ -573,7 +575,7 @@ class Renderer {
 			drawMesh(renderEncoder)
 			drawFootMetrics(renderEncoder)
         }
-    
+//		print(frameAccumulated)
         renderEncoder.endEncoding()
         commandBuffer.present(renderDestination.currentDrawable!)
         commandBuffer.commit()
@@ -652,7 +654,7 @@ private extension Renderer {
 	
 	/// Makes sample points on camera image, also precompute the anchor point for animation
 	func makeGridPoints() -> [Float2] {
-		let numGridPoints = 3000_000;
+		let numGridPoints = 300_000;
 		let gridArea = cameraResolution.x * cameraResolution.y
 		let spacing = sqrt(gridArea / Float(numGridPoints))
 		deltaX = Int32(round(cameraResolution.x / spacing))

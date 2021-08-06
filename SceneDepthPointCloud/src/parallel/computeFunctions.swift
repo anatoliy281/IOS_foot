@@ -439,7 +439,7 @@ extension Renderer {
 
 		
 		
-		print("0: \(1000*floorShifts[0]) | 1: \(1000*floorShifts[1]) | 2: \(1000*floorShifts[2]) | 3: \(1000*floorShifts[3]) | 4: \(1000*floorShifts[4]) | 5: \(1000*floorShifts[5])")
+//		print("0: \(1000*floorShifts[0]) | 1: \(1000*floorShifts[1]) | 2: \(1000*floorShifts[2]) | 3: \(1000*floorShifts[3]) | 4: \(1000*floorShifts[4]) | 5: \(1000*floorShifts[5])")
 	}
 
 }
