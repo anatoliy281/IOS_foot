@@ -13,14 +13,14 @@ final class Renderer {
     // Maximum number of points we store in the point cloud
     private let maxPoints = 500_000
     // Number of sample points on the grid
-    private let numGridPoints = 500
+    private let numGridPoints = 10_000
     // Particle's size in pixels
     private let particleSize: Float = 10
     // We only use landscape orientation in this app
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
     private let cameraRotationThreshold = cos(2 * .degreesToRadian)
-    private let cameraTranslationThreshold: Float = pow(0.02, 2)   // (meter-squared)
+    private let cameraTranslationThreshold: Float = pow(0.001, 2)   // (meter-squared)
     // The max number of command buffers in flight
     private let maxInFlightBuffers = 3
     
@@ -48,13 +48,10 @@ final class Renderer {
     private let inFlightSemaphore: DispatchSemaphore
     private var currentBufferIndex = 0
     
-    
-    public var savedData = String()
-    
     // The current viewport size
     private var viewportSize = CGSize()
     // The grid of sample points
-    private lazy var gridPointsBuffer = MetalBuffer<Float2>(device: device,
+    lazy var gridPointsBuffer = MetalBuffer<Float2>(device: device,
                                                             array: makeGridPoints(),
                                                             index: kGridPoints.rawValue, options: [])
     
@@ -78,7 +75,7 @@ final class Renderer {
     }()
     private var pointCloudUniformsBuffers = [MetalBuffer<PointCloudUniforms>]()
     // Particles buffer
-    private var particlesBuffer: MetalBuffer<ParticleUniforms>
+    var particlesBuffer: MetalBuffer<ParticleUniforms>
     private var currentPointIndex = 0
     private var currentPointCount = 0
     
@@ -202,7 +199,9 @@ final class Renderer {
         
         if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
-        }
+		} else {
+			print("eeee")
+		}
         
         // check and render rgb camera image
         if rgbUniforms.radius > 0 {
@@ -227,15 +226,6 @@ final class Renderer {
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(particlesBuffer)
         
-        for i in 0..<particlesBuffer.count {
-            let pos = particlesBuffer[i].position
-            if pos[0] != 0 && pos[1] != 0 && pos[2] != 0 {
-                savedData.append("v \(pos[0]) \(pos[1]) \(pos[2])\n")
-            }
-
-        }
-        
-        
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
         renderEncoder.endEncoding()
             
@@ -244,10 +234,15 @@ final class Renderer {
     }
     
     private func shouldAccumulate(frame: ARFrame) -> Bool {
+		
+		if ( pointCloudUniforms.pointCloudCurrentIndex + Int32(gridPointsBuffer.count) > maxPoints) {
+			return false;
+		}
+		
         let cameraTransform = frame.camera.transform
         return currentPointCount == 0
             || dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
-            || distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) >= cameraTranslationThreshold
+            || distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) < cameraTranslationThreshold
     }
     
     private func accumulatePoints(frame: ARFrame, commandBuffer: MTLCommandBuffer, renderEncoder: MTLRenderCommandEncoder) {
@@ -271,8 +266,11 @@ final class Renderer {
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(depthTexture!), index: Int(kTextureDepth.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
-        
+		
         currentPointIndex = (currentPointIndex + gridPointsBuffer.count) % maxPoints
+		
+		
+		
         currentPointCount = min(currentPointCount + gridPointsBuffer.count, maxPoints)
         lastCameraTransform = frame.camera.transform
     }

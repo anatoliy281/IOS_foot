@@ -63,6 +63,12 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     const auto sampledColor = (yCbCrToRGB * ycbcr).rgb;
     // Sample the confidence map to get the confidence value
     const auto confidence = confidenceTexture.sample(colorSampler, texCoord).r;
+	
+	if (confidence < 2)
+		return;
+	if (length_squared(position.xz) > 0.2*0.2) {
+		return;
+	}
     
     // Write the data to the buffer
     particleUniforms[currentPointIndex].position = position.xyz;
@@ -114,9 +120,12 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
     // prepare for output
     ParticleVertexOut out;
     out.position = projectedPosition;
-    out.pointSize = pointSize;
-    out.color = float4(sampledColor, visibility);
-    
+//    out.pointSize = pointSize;
+	out.pointSize = 1;
+//    out.color = float4(sampledColor, visibility);
+	out.color = float4(1, 0, 0, 1);
+	
+	
     return out;
 }
 

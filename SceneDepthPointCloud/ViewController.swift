@@ -87,23 +87,39 @@ final class ViewController: UIViewController, ARSessionDelegate {
 //        }
         
         session.pause()
-        let file = "cloud.obj"
-        let text = renderer.savedData
+		
+		
+		var savedData:[String] = .init()
+		var str = ""
+		for i in 0..<renderer.particlesBuffer.count {
+			if i == 0 {	continue }
+			let pos = renderer.particlesBuffer[i].position
+			str.append("v \(pos[0]) \(pos[1]) \(pos[2])\n")
+			if i%renderer.gridPointsBuffer.count == 0 {
+				savedData.append(str)
+				str = ""
+			}
+		}
+		
+
+
         
         if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let fileURL = dir.appendingPathComponent(file)
-           
-            //writing
-            do {
-                try text.write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
-                
-            }
-            catch {/* error handling here */}
-            
-            let activity = UIActivityViewController(activityItems: ["Облако точек", fileURL],
-                                                    applicationActivities: .none)
-            activity.isModalInPresentation = true
-            present(activity, animated: true, completion: nil)
+			var urls:[URL] = .init()
+			for i in 0..<savedData.count {
+				let file = "cloud_\(i).obj"
+				let fileURL = dir.appendingPathComponent(file)
+				urls.append(fileURL)
+				//writing
+				do {
+					try savedData[i].write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
+				}
+				catch {/* error handling here */}
+			}
+			let activity = UIActivityViewController(activityItems: ["Облако точек", urls],
+													applicationActivities: .none)
+			activity.isModalInPresentation = true
+			present(activity, animated: true, completion: nil)
         }
     }
     
@@ -127,7 +143,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         switch view {
             
         case confidenceControl:
-            renderer.confidenceThreshold = confidenceControl.selectedSegmentIndex
+			let conf = confidenceControl.selectedSegmentIndex
+            renderer.confidenceThreshold = conf
             
         case rgbRadiusSlider:
             renderer.rgbRadius = rgbRadiusSlider.value
