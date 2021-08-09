@@ -75,19 +75,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     @objc
     func buttonAction(_ sender: UIButton!) {
         
-        
-//        let file:FileHandle? = FileHandle(forWritingAtPath: )
-//        if file == nil {
-//            print("X      FAIL")
-//        } else {
-//            let obj = (renderer.savedData as NSString).data(using: String.Encoding.utf8.rawValue)
-//            file?.write(obj!)
-//            file?.closeFile()
-//            print("V      DONE!")
-//        }
-        
         session.pause()
-		
 		
 		var savedData:[String] = .init()
 		var str = ""
@@ -116,7 +104,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
 				}
 				catch {/* error handling here */}
 			}
-			let activity = UIActivityViewController(activityItems: [urls], applicationActivities: .none)
+			let activity = UIActivityViewController(activityItems: urls, applicationActivities: .none)
 			activity.isModalInPresentation = true
 			present(activity, animated: true, completion: nil)
         }

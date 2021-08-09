@@ -12,6 +12,10 @@ import ARKit
 final class Renderer {
     // Maximum number of points we store in the point cloud
     private let maxPoints = 500_000
+	
+	private let angleCircleCountSectors = 720	//  количество секторов круга
+	private let scanRadius = 0.2
+	
     // Number of sample points on the grid
     private let numGridPoints = 10_000
     // Particle's size in pixels
@@ -71,11 +75,15 @@ final class Renderer {
         uniforms.confidenceThreshold = Int32(confidenceThreshold)
         uniforms.particleSize = particleSize
         uniforms.cameraResolution = cameraResolution
+		// разбиение границы области сканирования
+		uniforms.radius = Float(scanRadius)
+		uniforms.circleCountSectors = Int32(angleCircleCountSectors)
         return uniforms
     }()
     private var pointCloudUniformsBuffers = [MetalBuffer<PointCloudUniforms>]()
     // Particles buffer
     var particlesBuffer: MetalBuffer<ParticleUniforms>
+	var edgeFloorBuffer: MetalBuffer<ParticleUniforms>
     private var currentPointIndex = 0
     private var currentPointCount = 0
     
@@ -121,6 +129,7 @@ final class Renderer {
             pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
         }
         particlesBuffer = .init(device: device, count: maxPoints, index: kParticleUniforms.rawValue)
+		edgeFloorBuffer = .init(device: device, count: angleCircleCountSectors, index: kCircleUniforms.rawValue)
         
         // rbg does not need to read/write depth
         let relaxedStateDescriptor = MTLDepthStencilDescriptor()
@@ -257,6 +266,7 @@ final class Renderer {
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(particlesBuffer)
+		renderEncoder.setVertexBuffer(edgeFloorBuffer)
         
         
         

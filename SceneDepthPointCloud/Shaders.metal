@@ -44,6 +44,7 @@ static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
                             device ParticleUniforms *particleUniforms [[buffer(kParticleUniforms)]],
+							device ParticleUniforms *edgeUniforms [[buffer(kCircleUniforms)]],
                             constant float2 *gridPoints [[buffer(kGridPoints)]],
                             texture2d<float, access::sample> capturedImageTextureY [[texture(kTextureY)]],
                             texture2d<float, access::sample> capturedImageTextureCbCr [[texture(kTextureCbCr)]],
@@ -66,9 +67,16 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 	
 	if (confidence < 2)
 		return;
-	if (length_squared(position.xz) > 0.2*0.2) {
+	const auto pointRadius = length(position.xz);
+	if ( pointRadius > uniforms.radius) {
 		return;
 	}
+	
+	const auto r_eps = 0.003;
+	if (uniforms.radius - pointRadius < r_eps) {
+		
+	}
+	
     
     // Write the data to the buffer
     particleUniforms[currentPointIndex].position = position.xyz;
