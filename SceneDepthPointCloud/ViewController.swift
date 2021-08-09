@@ -71,43 +71,19 @@ final class ViewController: UIViewController, ARSessionDelegate {
             stackView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -50)
         ])
     }
+	
+	
+	
     
     @objc
     func buttonAction(_ sender: UIButton!) {
-        
         session.pause()
-		
-		var savedData:[String] = .init()
-		var str = ""
-		for i in 0..<renderer.particlesBuffer.count {
-			if i == 0 {	continue }
-			let pos = renderer.particlesBuffer[i].position
-			str.append("v \(pos[0]) \(pos[1]) \(pos[2])\n")
-			if i%renderer.gridPointsBuffer.count == 0 {
-				savedData.append(str)
-				str = ""
-			}
-		}
-		
-
-
-        
-        if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-			var urls:[URL] = .init()
-			for i in 0..<savedData.count {
-				let file = "cloud_\(i).obj"
-				let fileURL = dir.appendingPathComponent(file)
-				urls.append(fileURL)
-				//writing
-				do {
-					try savedData[i].write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
-				}
-				catch {/* error handling here */}
-			}
-			let activity = UIActivityViewController(activityItems: urls, applicationActivities: .none)
-			activity.isModalInPresentation = true
-			present(activity, animated: true, completion: nil)
-        }
+		let exporter = Exporter.init()
+		exporter.setBufferData(buffer: renderer.particlesBuffer, key: "points", parameter: .position)
+		exporter.setBufferData(buffer: renderer.edgeFloorBuffer, key: "edge", parameter: .position)
+		exporter.setBufferData(buffer: renderer.edgeFloorBuffer, key: "floorColor", parameter: .color)
+		guard let activity = exporter.sendAllData() else { return }
+		present(activity, animated: true, completion: nil)
     }
     
     override func viewWillAppear(_ animated: Bool) {

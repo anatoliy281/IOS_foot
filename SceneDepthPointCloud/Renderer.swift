@@ -10,6 +10,9 @@ import MetalKit
 import ARKit
 
 final class Renderer {
+	
+	var bufferIsFull = false
+	
     // Maximum number of points we store in the point cloud
     private let maxPoints = 500_000
 	
@@ -208,10 +211,12 @@ final class Renderer {
         
         if shouldAccumulate(frame: currentFrame), updateDepthTextures(frame: currentFrame) {
             accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
-		} else {
-			print("eeee")
+		} else if bufferIsFull {
+//			print("!!!!!! full Buffer !!!!!!")
 		}
         
+		
+		
         // check and render rgb camera image
         if rgbUniforms.radius > 0 {
             var retainingTextures = [capturedImageTextureY, capturedImageTextureCbCr]
@@ -245,6 +250,7 @@ final class Renderer {
     private func shouldAccumulate(frame: ARFrame) -> Bool {
 		
 		if ( pointCloudUniforms.pointCloudCurrentIndex + Int32(gridPointsBuffer.count) > maxPoints) {
+			bufferIsFull = true
 			return false;
 		}
 		
@@ -278,13 +284,83 @@ final class Renderer {
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 		
         currentPointIndex = (currentPointIndex + gridPointsBuffer.count) % maxPoints
-		
-		
-		
         currentPointCount = min(currentPointCount + gridPointsBuffer.count, maxPoints)
         lastCameraTransform = frame.camera.transform
+		
+		let arrays = getArrays()
+		let devZ = calcDeviations(arrData: arrays.z)
+		let devN = calcDeviations(arrData: arrays.n)
+		print("z:\(devZ.mean) dz:\(devZ.disp) n:\(devN.mean) dn:\(devN.disp)")
     }
+	
+	private func getArrays() -> (z:[Float], n:[Float3]) {
+		let bufLen = edgeFloorBuffer.count
+		let dN = bufLen / 3
+		var z = [Float]()
+		var n = [Float3]()
+		for i in 0..<bufLen {
+			let r0 = edgeFloorBuffer[i].position
+			let r1 = edgeFloorBuffer[(i+dN)%bufLen].position
+			let r2 = edgeFloorBuffer[(i+2*dN)%bufLen].position
+			
+			if r0 != .zero {
+				z.append(r0.y)
+			}
+			if r0 != .zero && r1 != .zero && r2 != .zero {
+				n.append( normalize(cross(r1-r0, r2-r0)) )
+			}
+		}
+		return (z:z, n:n)
+	}
+	
+//	private func calcDeviations<T:Numeric>(arrData:[T]) -> (mean:T, disp:T) {
+//		let arrCnt = Float(arrData.count)
+//
+//		let mean = arrData.reduce(T(), {x, y in
+//					x + y
+//		}) / arrCnt
+//
+//		let dvArr = arrData.map{ ($0 - mean)*($0 - mean) }
+//		let disp = dvArr.reduce(T(), {x, y in
+//			x + y
+//		}) / arrCnt
+//
+//		return (mean:mean, disp:disp)
+//	}
+	
+	private func calcDeviations(arrData:[Float]) -> (mean:Float, disp:Float) {
+		let arrCnt = Float(arrData.count)
+
+		let mean = arrData.reduce(Float(), {x, y in
+					x + y
+		}) / arrCnt
+
+		let dvArr = arrData.map{ ($0 - mean)*($0 - mean) }
+		let disp = dvArr.reduce(Float(), {x, y in
+			x + y
+		}) / arrCnt
+
+		return (mean:mean, disp:sqrt(disp))
+	}
+
+	private func calcDeviations(arrData:[Float3]) -> (mean:Float3, disp:Float3) {
+		let arrCnt = Float(arrData.count)
+
+		let mean = arrData.reduce(Float3(), {x, y in
+					x + y
+		}) / arrCnt
+
+		let dvArr = arrData.map{ ($0 - mean)*($0 - mean) }
+		let disp = dvArr.reduce(Float3(), {x, y in
+			x + y
+		}) / arrCnt
+
+		return (mean:mean, disp:disp)
+	}
+	
 }
+
+
 
 // MARK: - Metal Helpers
 

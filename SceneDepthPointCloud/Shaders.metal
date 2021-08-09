@@ -24,6 +24,20 @@ struct ParticleVertexOut {
     float4 color;
 };
 
+float angle(float2 r) {
+	float phase;
+	auto phi = atan( r.y / r.x );
+	if ( r.x < 0 ) {
+		phase = M_PI_F;
+	} else if (r.x >= 0 && r.y < 0) {
+		phase = 2*M_PI_F;
+	} else {
+		phase = 0;
+	}
+	return phi + phase;
+}
+
+
 constexpr sampler colorSampler(mip_filter::linear, mag_filter::linear, min_filter::linear);
 constant auto yCbCrToRGB = float4x4(float4(+1.0000f, +1.0000f, +1.0000f, +0.0000f),
                                     float4(+0.0000f, -0.3441f, +1.7720f, +0.0000f),
@@ -73,8 +87,14 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 	}
 	
 	const auto r_eps = 0.003;
-	if (uniforms.radius - pointRadius < r_eps) {
-		
+	if ( uniforms.radius - 2*r_eps < pointRadius &&
+		pointRadius < uniforms.radius ) {
+		const auto alpha = angle(position.xy);
+		const auto dAlpha = 2*M_PI_F / float(uniforms.circleCountSectors);
+		const auto angleSec = int( round(alpha / dAlpha) );
+		edgeUniforms[angleSec].position = position.xyz;
+		edgeUniforms[angleSec].color = sampledColor;
+		edgeUniforms[angleSec].confidence = confidence;	// на всякий случай до кучи
 	}
 	
     
