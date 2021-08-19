@@ -10,7 +10,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     private let sendButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     private let startButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
 	public let switchMetricModeButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
-	public var info = UILabel(frame: CGRect(x: 0, y: 0, width: 100, height: 50))
+	public var info = UILabel(frame: CGRect(x: 30, y: 30, width: 400, height: 100))
     private var stackView: UIStackView!
 
     private let session = ARSession()
@@ -18,7 +18,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+		
         sendButton.backgroundColor = .orange
         sendButton.setTitle("Отправить", for: .normal)
         sendButton.addTarget(self, action: #selector(sendAction), for: .touchUpInside)
@@ -33,7 +33,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		
 		info.font = UIFont(name: "Palatino", size: 30)
 		info.textColor = UIColor(red: 0, green: 1, blue: 1, alpha: 1)
-		
+		info.numberOfLines = 5
+		info.adjustsFontSizeToFitWidth = false
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("Metal is not supported on this device")
             return
@@ -59,7 +60,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
 			renderer.label = info
         }
         
-        stackView = UIStackView(arrangedSubviews: [startButton, sendButton, switchMetricModeButton, info])
+        stackView = UIStackView(arrangedSubviews: [startButton, sendButton, switchMetricModeButton])
         sendButton.isHidden = true
 		switchMetricModeButton.isHidden = true
         stackView.isHidden = !isUIEnabled
@@ -67,6 +68,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         stackView.axis = .horizontal
         stackView.spacing = 20
         view.addSubview(stackView)
+		view.addSubview(info)
         NSLayoutConstraint.activate([
             stackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             stackView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -50)
@@ -77,74 +79,103 @@ final class ViewController: UIViewController, ARSessionDelegate {
     func sendAction(_ sender: UIButton!) {
         
         print("SEND!!!")
-
+		info.text = "Обработка данных..."
 		let meshHolder = MeshHolder(renderer)
-        writePerId(meshHolder)
-
-//        renderer.currentState = Renderer.RendererState.findFootArea
-        renderer.currentState.nextState()
-
-
-        sendButton.isHidden = true
-        startButton.isHidden = false
-    }
-    
-    
-    func writePerId(_ meshHolder: MeshHolder) {
-		
-		// список игнорирования данных для записи
-		var ignoreList = [Int]()
-		ignoreList.append(Int(Unknown.rawValue))
-//		ignoreList.append(Int(Floor.rawValue))
-		let objects = meshHolder.convertToObj()
-        let fNames = generateFileCaptionDict(meshHolder)
-		
-		// запись данных meshHolder в соответствующие файлы с именами из fNames
-        var urls:[URL] = []
-        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first  else { return }
-        
-
-		for (id, str) in objects.data {
-			if ignoreList.contains(id) { continue }
-            let fileName = fNames[id]! + "\(Int(Date().timeIntervalSince1970)).obj"
-            let url = dir.appendingPathComponent(fileName)
-            urls.append(url)
-            do {
-                try str.write(to: url, atomically: true, encoding: String.Encoding.utf8)
-            } catch {
-                print("Error!")
-            }
-            
-        }
-        
-        let activity = UIActivityViewController(activityItems: urls, applicationActivities: .none)
-        activity.isModalInPresentation = true
-        present(activity, animated: true, completion: nil)
+        sendPostRequest(meshHolder)
     }
 	
-	private func generateFileCaptionDict(_ meshHolder: MeshHolder) -> [Int:String] {
-		let fNames:[Int:String] = [ Int(Unknown.rawValue): "Unknown",
-									Int(Floor.rawValue): "Floor",
-									Int(Border.rawValue): "Border",
-									Int(Foot.rawValue): "Foot",
-									Int(ZoneUndefined.rawValue): "Zone",
-									Int(FootDefect.rawValue): "FootDefect",
-									// отладочные файлы коррекции по высоте пола
-									meshHolder.NotCorrFloor: "FloorDebug",
-									meshHolder.NotCorrFoot: "FootDebug"
-								]
-		return fNames
+    func sendPostRequest(_ meshHolder: MeshHolder) {
+		
+		// show info on view and activate button
+		func updateUi(_ str: String) {
+			DispatchQueue.main.async { [self] in
+				info.text = str
+				startButton.isHidden = false
+			}
+		}
+		
+		sendButton.isHidden = true
+		let objects = meshHolder.convertToObj()
+		guard let strData = objects.data[Int(Foot.rawValue)] else { return }
+		let side = String("0")
+		
+		
+		let boundary = "Boundary-\(UUID().uuidString)"
+		// Prepare URL
+		guard let requestUrl = URL(string: "http://35.242.213.112:3441/mobile_obj_to_vox") else { fatalError() }
+		// Prepare URL Request Object
+		var request = URLRequest(url: requestUrl)
+		request.addValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+		request.httpMethod = "POST"
+
+		var postString = ""
+		postString += "--\(boundary)\r\n"
+		postString += "Content-Disposition:form-data; name=\"side\""
+		postString += "\r\n\r\n\(side)\r\n"
+		
+		postString += "--\(boundary)\r\n"
+		postString += "Content-Disposition:form-data; name=\"file\""
+		postString += "; filename=\"file.obj\"\r\n"
+		  + "Content-Type: \"content-type header\"\r\n\r\n\(strData)\r\n"
+		postString += "--\(boundary)--\r\n";
+		
+		request.httpBody = postString.data(using: .utf8);
+		
+		let task = URLSession.shared.dataTask(with: request) { [self] (data, response, error) in
+				
+			// Check for Error
+			if error != nil {
+				print("Error took place \(error)")
+				guard let str = error as? String else {
+					updateUi("Ошибка при передаче сообщеиня")
+					return
+				}
+				updateUi(str)
+				return
+			}
+	 
+			var resultText:String = ""
+			// Convert HTTP Response Data to a String
+			if let data = data {
+				do {
+					if let convertedJsonIntoDict = try JSONSerialization.jsonObject(with: data, options: []) as? NSDictionary {
+						// Print out entire dictionary
+//						print(convertedJsonIntoDict)
+						// Get value by key
+						let length = convertedJsonIntoDict["length"]! as! Double
+						
+						let width_bones = convertedJsonIntoDict["girth"]! as! [String:Double]
+						let fascGirth = width_bones["bones"]!
+						
+						let arcLength = convertedJsonIntoDict["arcLength"]! as! Double
+						
+						let width_other = convertedJsonIntoDict["width_other"]! as! [String:Double]
+						let heelWidth = width_other["heel"]!
+						
+						resultText = String("Длина: \(Int(round(length))), обхват в пучках: \(Int(round(fascGirth))), длина арки: \(Int(round(arcLength))), ширина пятки: \(Int(round(heelWidth)))")
+						
+						updateUi(resultText)
+					}
+				} catch let error as NSError {
+					resultText = error.localizedDescription + String(data: data, encoding: .utf8)!
+					
+					updateUi(resultText)
+				}
+			}
+			renderer.currentState.nextState()
+		}
+		task.resume()
 	}
     
 	@objc
     func startAction(_ sender: UIButton!) {
-        
+		info.text = ""
         print("START!!!")
 		if (renderer.pointCloudUniforms.floorHeight != -10) {
 //            let nextState = isDebugMode ? Renderer.RendererState.separate: Renderer.RendererState.scanning
             renderer.currentState.nextState()
         }
-		switchMetricModeButton.isHidden = false
+//		switchMetricModeButton.isHidden = false
         sendButton.isHidden = false
         startButton.isHidden = true
 		

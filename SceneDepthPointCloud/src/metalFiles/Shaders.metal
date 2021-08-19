@@ -512,26 +512,20 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 		color = float4(0.5, 0.5, 0., 0.5);
 	}
 
+	if ( abs(nodeVal) >= 1 ) {
+		color = float4(0.1, 0.1, 0.1, 0.1);
+	}
 	
+	if (vid < 2*U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT) {
+		color.a = 0.4;
+	}
 	
 	// выводим только узлы принадлежащие рамке сканирования
 	if ( !inFootFrame(spos) ) {
 		color.a = 0;
 	}
-
-//	Раскраска по координате v гиперболической системы
-//	if (nodeVal > 0.002 && nodeVal < 0.004 ) {
-//		color.r = 1;
-//		color.g = 0;
-//		color.b = 1;
-//	}
-	if ( abs(nodeVal) >= 1 ) {
-		color = float4(0.1, 0.1, 0.1, 0.1);
-	}
 	
-	if (vid >= U_GRID_NODE_COUNT*PHI_GRID_NODE_COUNT) {
-		color.a = 1;
-	}
+	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);
 	pOut.color = color;

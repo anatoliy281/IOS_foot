@@ -108,7 +108,7 @@ kernel void processSegmentation(
 	if (!inInnerSector(myMeshData, index)) {
 		mesh.group = ZoneUndefined;
 	} else {
-		if ( abs(r0.z) < criticalFloorDeviationHeight ) {
+		if ( r0.z < criticalFloorDeviationHeight ) {
 			mesh.group = Floor;
 		} else {
 			mesh.group = Foot;
