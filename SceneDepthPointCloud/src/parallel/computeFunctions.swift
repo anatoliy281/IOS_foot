@@ -393,10 +393,6 @@ extension Renderer {
 			}
 
 			if u_coord == 0 || secNum == -1 {
-//				if 200 <= index && index < 250 {
-//					print("0 sector")
-//				}
-				print("\(u_coord) & \(secNum)")
 				return (sector:secNum, value: nil)
 			} else {
 
@@ -412,50 +408,29 @@ extension Renderer {
 
 		}
 			
-		func playRandomIndex(sector:Int) -> Int {
-//			let row = Int.random(in: 0..<halfRowCount/10)
-			let row = Int.random(in: 1..<10)
-			let colRange = getIndecesRangeFromSectorNumber(tableRow: row, sector: sector)
-			print("ROW: \(row) indexRange: \(colRange.iStart) \(colRange.iEnd)")
-			let index = Int.random(in: colRange.iStart..<colRange.iEnd)
-			return index
-		}
-			
 		guard let sector = currentViewSector?.number else {
 			print("No sector")
 			return
 		}
 			
-//		let range = getIndecesRangeFromSectorNumber(tableRow: 3, sector: Int(sector))
+		let range = getIndecesRangeFromSectorNumber(tableRow: 3, sector: Int(sector))
 		
 		var heights:(count:Int, totalValue:Float) = (count:0, totalValue:0)
-		let randomCount = 10
-		for _ in 0..<randomCount {
-			let index = playRandomIndex(sector: Int(sector))
-			
-			print("index: \(index)")
-			
+		for index in range.iStart..<range.iEnd {
 			let res = calcBufferValue(index: index)
-			print(res.value)
 			guard let coord = res.value else { continue }
 			if (res.sector == sector) { // лишняя проверка не помешает
-				if abs(coord.z) < 0.003 {
-					curveGridBuffer.buffer[index].group = FloorMarker
-					heights.totalValue += coord.z
-					heights.count += 1
-				}
+				curveGridBuffer.buffer[index].group = FloorMarker
+				heights.totalValue += coord.z
+				heights.count += 1
 			}
 		}
 
 //		runThroughIndeces(i0: columnCount, iN: 3*columnCount)	//
 //		runThroughIndeces(i0: halfTableIndex + columnCount, iN: halfTableIndex + 2*columnCount)
 
-		if (heights.count > 2*randomCount/3) {
-			let deltaFloor = heights.totalValue / Float(heights.count)
-			floorShifts[Int(sector)] = deltaFloor
-		}
-		
-		
+		let deltaFloor = heights.totalValue / Float(heights.count)
+		floorShifts[Int(sector)] = -deltaFloor
 		
 //		print("0: \(1000*floorShifts[0]) | 1: \(1000*floorShifts[1]) | 2: \(1000*floorShifts[2]) | 3: \(1000*floorShifts[3]) | 4: \(1000*floorShifts[4]) | 5: \(1000*floorShifts[5])")
 	}
