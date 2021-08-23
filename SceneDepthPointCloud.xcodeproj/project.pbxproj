@@ -36,6 +36,19 @@
 		E7B7223D24809D1E002E43E8 /* Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B7223C24809D1E002E43E8 /* Helpers.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		8A4E781F26D3850000B80EAC /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		6A2489AC26146C6300A1F3A9 /* CameraStream.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = CameraStream.metal; sourceTree = "<group>"; };
 		6A73C04225DE70C00007853C /* MyMeshData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyMeshData.h; sourceTree = "<group>"; };
@@ -47,6 +60,10 @@
 		8A48A522264179B800FC71A3 /* fittin.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = fittin.jpg; sourceTree = "<group>"; };
 		8A48A524264179BC00FC71A3 /* fittin.mtl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fittin.mtl; sourceTree = "<group>"; };
 		8A48A526264179C100FC71A3 /* fittin.obj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fittin.obj; sourceTree = "<group>"; };
+		8A4E781026D3850000B80EAC /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
+		8A4E781326D3850000B80EAC /* AccountAuthenticationModificationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountAuthenticationModificationViewController.swift; sourceTree = "<group>"; };
+		8A4E781626D3850000B80EAC /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
+		8A4E781826D3850000B80EAC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8A8BFCC8262038D9007F1456 /* AnyStates.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AnyStates.swift; sourceTree = "<group>"; };
 		8A8BFCCA262038D9007F1456 /* computeFunctions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = computeFunctions.swift; sourceTree = "<group>"; };
 		8A9FCA4D2678958B00450484 /* MedianSearcher.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = MedianSearcher.metal; sourceTree = "<group>"; };
@@ -94,6 +111,24 @@
 				8A48A522264179B800FC71A3 /* fittin.jpg */,
 			);
 			path = resources;
+			sourceTree = "<group>";
+		};
+		8A4E780F26D3850000B80EAC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8A4E781026D3850000B80EAC /* AuthenticationServices.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		8A4E781226D3850000B80EAC /* Scaner */ = {
+			isa = PBXGroup;
+			children = (
+				8A4E781326D3850000B80EAC /* AccountAuthenticationModificationViewController.swift */,
+				8A4E781526D3850000B80EAC /* MainInterface.storyboard */,
+				8A4E781826D3850000B80EAC /* Info.plist */,
+			);
+			path = Scaner;
 			sourceTree = "<group>";
 		};
 		8A8BFCC426203721007F1456 /* src */ = {
@@ -164,6 +199,8 @@
 			children = (
 				B57D60B9736905755DECF7CE /* README.md */,
 				E73DD12F24636FEF00D77039 /* SceneDepthPointCloud */,
+				8A4E781226D3850000B80EAC /* Scaner */,
+				8A4E780F26D3850000B80EAC /* Frameworks */,
 				E73DD12E24636FEF00D77039 /* Products */,
 				A6415A999BE1C768F18B2649 /* Configuration */,
 				BF2DD93DB9836723DA6BED14 /* LICENSE */,
@@ -202,6 +239,7 @@
 				E73DD12924636FEF00D77039 /* Sources */,
 				E73DD12A24636FEF00D77039 /* Frameworks */,
 				E73DD12B24636FEF00D77039 /* Resources */,
+				8A4E781F26D3850000B80EAC /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
@@ -218,7 +256,8 @@
 		E73DD12524636FEF00D77039 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 1140;
+				DefaultBuildSystemTypeForWorkspace = Latest;
+				LastSwiftUpdateCheck = 1250;
 				LastUpgradeCheck = 1200;
 				ORGANIZATIONNAME = Apple;
 				TargetAttributes = {
@@ -293,6 +332,14 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
+		8A4E781526D3850000B80EAC /* MainInterface.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				8A4E781626D3850000B80EAC /* Base */,
+			);
+			name = MainInterface.storyboard;
+			sourceTree = "<group>";
+		};
 		E73DD13924636FEF00D77039 /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -437,9 +484,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 948146554F46E56B015690CC /* SampleCode.xcconfig */;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "";
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = UR6DEMSJ84;
@@ -465,6 +513,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 948146554F46E56B015690CC /* SampleCode.xcconfig */;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "iPhone Developer";

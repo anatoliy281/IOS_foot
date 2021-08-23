@@ -54,7 +54,7 @@ extern "C" {
     enum Group {
         Unknown,
         Floor,
-		Border,
+		FloorMarker,
         Foot,
 		ZoneUndefined,
 		FootDefect

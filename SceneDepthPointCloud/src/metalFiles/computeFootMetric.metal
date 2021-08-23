@@ -98,7 +98,7 @@ kernel void processSegmentation(
 		return;
 	}
 	
-	if (mesh.group == Border) {
+	if (mesh.group == FloorMarker) {
 		return;
 	}
 	

@@ -312,7 +312,8 @@ extension Renderer {
 		   ]
 		
 			
-		func getIndecesRangeFromSectorNumber(sector:Int) -> (iStart:Int, iEnd:Int) {
+		// tableRow must less than halfRowCount!
+		func getIndecesRangeFromSectorNumber(tableRow:Int, sector:Int) -> (iStart:Int, iEnd:Int) {
 			var n:Int = 0
 			var width:Int
 			let start:Int
@@ -326,7 +327,7 @@ extension Renderer {
 					n = sector - 2
 				}
 				width = columnCount/4
-				start = columnCount
+				start = tableRow*columnCount
 			case 1,4:
 				if sector == 1 {
 					n = 0
@@ -334,7 +335,7 @@ extension Renderer {
 					n = 1
 				}
 				width = columnCount/2
-				start = halfTableIndex + columnCount
+				start = halfTableIndex + tableRow*columnCount
 			default:
 				return (iStart:0, iEnd:0)
 			}
@@ -346,32 +347,30 @@ extension Renderer {
 		}
 		
 		func calcBufferValue(index:Int) -> (sector:Int,value:Float3?) {
-			
+
 			let dPhi:Float = 2*Float.pi / Float(columnCount)
 			let dV:Float = Float(U_STEP)
-			var grid = curveGridBuffer.buffer
-			
+			let grid = curveGridBuffer.buffer
+
 			let i = index / columnCount
 			let j = index % columnCount
 			let u_coord = grid[index].mean
-			
-			grid[index].group = Border
-			
+
 			let k:Float = 1
 			let h0:Float = -0.03
-			
+
 			let isSecondTable = i > halfRowCount
-			
+
 			let iShift = isSecondTable ? Int(U_GRID_NODE_COUNT) : 0;
-			
+
 			let v_coord = Float(i - iShift)*dV;
-			
+
 			let uv_sqrt = sqrt(k*k*v_coord*v_coord + u_coord*u_coord);
 			let rho = sqrt(0.5*(u_coord + uv_sqrt)) / k;
 			let h = sqrt(k*k*rho*rho - u_coord) + h0;
-			
+
 			let phi = Float(j)*dPhi
-			
+
 			// detect sector
 			var secNum:Int = -1
 			if isSecondTable {
@@ -390,53 +389,72 @@ extension Renderer {
 				} else if ( (0.5*Float.pi < phi) && (phi < Float.pi) ) {
 					secNum = 2
 				}
-				
+
 			}
-			
+
 			if u_coord == 0 || secNum == -1 {
 //				if 200 <= index && index < 250 {
 //					print("0 sector")
 //				}
-				
+				print("\(u_coord) & \(secNum)")
 				return (sector:secNum, value: nil)
 			} else {
-				
+
 //				if 200 < index && index < 250 {
 //					print("0 sector")
 //				}
-				
+
 				let pos = Float3(rho*cos(phi), rho*sin(phi), h) + shiftsCS[secNum]
 //				print("*** r:\(pos) phi:\(phi)(\(Float.pi)) ")
 				return (sector:secNum, value:pos)
 			}
-			
-			
+
+
 		}
 			
+		func playRandomIndex(sector:Int) -> Int {
+//			let row = Int.random(in: 0..<halfRowCount/10)
+			let row = Int.random(in: 1..<10)
+			let colRange = getIndecesRangeFromSectorNumber(tableRow: row, sector: sector)
+			print("ROW: \(row) indexRange: \(colRange.iStart) \(colRange.iEnd)")
+			let index = Int.random(in: colRange.iStart..<colRange.iEnd)
+			return index
+		}
 			
 		guard let sector = currentViewSector?.number else {
+			print("No sector")
 			return
 		}
 			
-		let range = getIndecesRangeFromSectorNumber(sector: Int(sector))
+//		let range = getIndecesRangeFromSectorNumber(tableRow: 3, sector: Int(sector))
 		
 		var heights:(count:Int, totalValue:Float) = (count:0, totalValue:0)
-		for index in range.iStart..<range.iEnd {
+		let randomCount = 10
+		for _ in 0..<randomCount {
+			let index = playRandomIndex(sector: Int(sector))
+			
+			print("index: \(index)")
+			
 			let res = calcBufferValue(index: index)
+			print(res.value)
 			guard let coord = res.value else { continue }
 			if (res.sector == sector) { // лишняя проверка не помешает
-				heights.totalValue += coord.z
-				heights.count += 1
-			} else {
-				print("-")
+				if abs(coord.z) < 0.003 {
+					curveGridBuffer.buffer[index].group = FloorMarker
+					heights.totalValue += coord.z
+					heights.count += 1
+				}
 			}
 		}
 
 //		runThroughIndeces(i0: columnCount, iN: 3*columnCount)	//
 //		runThroughIndeces(i0: halfTableIndex + columnCount, iN: halfTableIndex + 2*columnCount)
 
-		floorShifts[Int(sector)] = heights.totalValue / Float(heights.count)
-
+		if (heights.count > 2*randomCount/3) {
+			let deltaFloor = heights.totalValue / Float(heights.count)
+			floorShifts[Int(sector)] = deltaFloor
+		}
+		
 		
 		
 //		print("0: \(1000*floorShifts[0]) | 1: \(1000*floorShifts[1]) | 2: \(1000*floorShifts[2]) | 3: \(1000*floorShifts[3]) | 4: \(1000*floorShifts[4]) | 5: \(1000*floorShifts[5])")

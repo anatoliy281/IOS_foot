@@ -555,9 +555,11 @@ class Renderer {
                       
         if canUpdateDepthTextures(frame: currentFrame) {
 			calcIsNotFreezed = shouldAccumulate(frame: currentFrame)
-			if calcIsNotFreezed {
+			
+			if frameAccumulated%3 == 0 && calcIsNotFreezed {
 				accumulatePoints(frame: currentFrame, commandBuffer: commandBuffer, renderEncoder: renderEncoder)
 			}
+			frameAccumulated += 1
         }
 		renderEncoder.setDepthStencilState(relaxedStencilState)
 		updateCapturedImageTextures(frame: currentFrame)
@@ -643,10 +645,9 @@ class Renderer {
 			calcFloorShifts()
 			startHeightCorrection()
 			startSegmentation()
-			reductBorderPoints()
+//			reductBorderPoints()
 //			updateMetric()
 		}
-		frameAccumulated += 1
     }
 }
 

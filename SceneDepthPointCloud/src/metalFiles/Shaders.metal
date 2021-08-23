@@ -424,7 +424,7 @@ float4 colorLengthDirection(float4 color, int index) {
 float4 colorByGroup(float4 color, constant MyMeshData& mesh) {
 	const auto saturation = 0.5;
 	const auto group = mesh.group;
-	if (group == Border) {
+	if (group == FloorMarker) {
 		return float4(0, 0, 1, saturation);
 	}
 	if (group == Floor) {
@@ -525,6 +525,10 @@ vertex ParticleVertexOut gridCurvedMeshVertex( constant MyMeshData* myMeshData [
 		color.a = 0;
 	}
 	
+	
+	if (spos.z < 0) {
+		color.a = 0;
+	}
 	
     ParticleVertexOut pOut;
     pOut.position = projectOnScreen(uniforms, pos);

@@ -63,7 +63,7 @@ class MeshHolder {
 
 		res.data = [ Int(Unknown.rawValue):.init(),
 					 Int(Floor.rawValue):.init(),
-					 Int(Border.rawValue):.init(),
+					 Int(FloorMarker.rawValue):.init(),
 					 Int(Foot.rawValue):.init(),
 					 Int(ZoneUndefined.rawValue):.init(),
 					 Int(FootDefect.rawValue):.init(),
