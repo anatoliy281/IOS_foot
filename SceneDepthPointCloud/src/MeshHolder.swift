@@ -99,14 +99,98 @@ class MeshHolder {
 	// упаковать данные в строку
 	private func writeEdges(input key: Int) -> String {
 		fullTable(key)
+		if (key == Foot.rawValue) {
+			checkTable() // проверить на наличие оторванных ложных кусков, что могут повлиять на подсчет в сервисе измерения
+		}
 		return writeNodes()
 	}
+	
 	
 	private	func fullTable( _ key: Int ) {
 		table = Array(repeating:Array(repeating: (mean:Float(),correction:Float()), count: tableSize.Phi), count: tableSize.V)
 		for ( i, j, val ) in coords.data[key]! {
 			table[i][j] = val
 		}
+	}
+	
+	func checkTable() {
+		
+		enum Component: Int {
+			case x = 0, y = 1
+		}
+		
+		func formDencityVectors(componentNumber:Component) -> (positive:[[(Int,Int)]],negative:[[(Int,Int)]]) {
+			let dr:Int = 2 // шаг в мм
+			let intervalLength = (componentNumber == .x) ? Int(1000*BOX_HALF_LENGTH) : Int(1000*BOX_HALF_WIDTH)
+			var res: (positive:[[(Int, Int)]], negative:[[(Int, Int)]])
+			res.positive = .init(repeating: .init(), count: 1 + intervalLength / dr)
+			res.negative = .init(repeating: .init(), count: 1 + intervalLength / dr)
+			for i in 0..<tableSize.V {
+				for j in 0..<tableSize.Phi {
+					if table[i][j].mean == Float() { continue }
+					let point = calcCoords(i, j, table[i][j])
+					let component = point[componentNumber.rawValue]
+					let l = Int(abs(component)) / dr
+					if component > 0 {
+						res.positive[l].append((i,j))
+					} else if component < 0 {
+						res.negative[l].append((i,j))
+					}
+				}
+			}
+			
+			return res
+		}
+		
+		func removeFromTable(arr:[[(Int,Int)]]) {
+			var removeIndex:Int = arr.count
+			for i in 0..<arr.count {
+				if arr[i].isEmpty {
+					removeIndex = i
+					break
+				}
+			}
+			
+			for l in removeIndex..<arr.count {
+				for indexPair in arr[l] {
+					let i = indexPair.0
+					let j = indexPair.1
+					table[i][j].mean = Float()
+				}
+			}
+		}
+		
+		
+		var timeInterval:(start:DispatchTime, end: DispatchTime)
+		
+		timeInterval.start	= DispatchTime.now()
+		var dencityVec = formDencityVectors(componentNumber: .x)
+		removeFromTable(arr: dencityVec.positive)
+		removeFromTable(arr: dencityVec.negative)
+		timeInterval.end = DispatchTime.now()
+		print("time elapsed: \(Double(timeInterval.end.uptimeNanoseconds - timeInterval.start.uptimeNanoseconds) / 1e-9)")
+		
+		timeInterval.start = DispatchTime.now()
+		dencityVec = formDencityVectors(componentNumber: .y)
+		removeFromTable(arr: dencityVec.positive)
+		removeFromTable(arr: dencityVec.negative)
+		timeInterval.end = DispatchTime.now()
+		print("time elapsed: \(Double(timeInterval.end.uptimeNanoseconds - timeInterval.start.uptimeNanoseconds) / 1e-9)")
+	}
+	
+	private func writeNodes() -> String {
+		var res:String = ""
+		for i in 0..<tableSize.V {
+			for j in 0..<tableSize.Phi {
+				var str = ""
+				if table[i][j].mean != Float() {
+					let pos = calcCoords(i, j, table[i][j])
+					str = "v \(pos.x) \(pos.y) \(pos.z)\n"
+				}
+				res.append(str)
+			}
+		}
+		return res
 	}
 	
 	private func inFootFrame(_ spos:simd_float3) -> Bool {
@@ -167,37 +251,7 @@ class MeshHolder {
 	}
 
 	
-	private func writeNodes() -> String {
-		var res:String = ""
-		for i in 0..<tableSize.V {
-			for j in 0..<tableSize.Phi {
-				var str = ""
-				if table[i][j].mean != Float() {
-					let pos = calcCoords(i, j, table[i][j])
-					str = "v \(pos.x) \(pos.y) \(pos.z)\n"
-				}
-				res.append(str)
-			}
-		}
-		// опустили пока соединение узлов
-//		for i in 0..<tableSize.V {
-//			for j in 0..<tableSize.Phi {
-//				if (table[i][j].mean != Float()) {
-//					if (j+1 != tableSize.Phi && table[i][j+1].mean != Float()) {
-//						let index = i*tableSize.Phi + j
-//						res.append("l \(index+1) \(index+2)\n")
-//					}
-//					if (i+1 != tableSize.V && table[i+1][j].mean != Float()) {
-//						let index = (i+1)*tableSize.Phi + j
-//						res.append("l \(index-tableSize.Phi+1) \(index+1)\n")
-//					}
-//				}
-//			}
-//		}
 
-
-		return res
-	}
 	
 //	private func writeNodes(_ coords: [Float3], connectNodes:Bool = true) -> String {
 //		var res:String = ""

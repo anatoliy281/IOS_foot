@@ -120,47 +120,45 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		postString += "--\(boundary)--\r\n";
 		
 		request.httpBody = postString.data(using: .utf8);
+		request.timeoutInterval = 300
 		
 		let task = URLSession.shared.dataTask(with: request) { [self] (data, response, error) in
 				
-			// Check for Error
-			if error != nil {
-				print("Error took place \(error)")
-				guard let str = error as? String else {
-					updateUi("Ошибка при передаче сообщеиня")
-					return
-				}
-				updateUi(str)
-				return
-			}
-	 
-			var resultText:String = ""
 			// Convert HTTP Response Data to a String
-			if let data = data {
-				do {
-					if let convertedJsonIntoDict = try JSONSerialization.jsonObject(with: data, options: []) as? NSDictionary {
+			if data != nil {
+				print("data not nil")
+				if let convertedJsonIntoDict = try? JSONSerialization.jsonObject(with: data!, options: []) as? NSDictionary {
 						// Print out entire dictionary
 //						print(convertedJsonIntoDict)
 						// Get value by key
-						let length = convertedJsonIntoDict["length"]! as! Double
-						
-						let width_bones = convertedJsonIntoDict["girth"]! as! [String:Double]
-						let fascGirth = width_bones["bones"]!
-						
-						let arcLength = convertedJsonIntoDict["arcLength"]! as! Double
-						
-						let width_other = convertedJsonIntoDict["width_other"]! as! [String:Double]
-						let heelWidth = width_other["heel"]!
-						
-						resultText = String("Длина: \(Int(round(length))), обхват в пучках: \(Int(round(fascGirth))), длина арки: \(Int(round(arcLength))), ширина пятки: \(Int(round(heelWidth)))")
-						
-						updateUi(resultText)
-					}
-				} catch let error as NSError {
-					resultText = error.localizedDescription + String(data: data, encoding: .utf8)!
+					let length = convertedJsonIntoDict["length"]! as! Double
+					
+					let width_bones = convertedJsonIntoDict["girth"]! as! [String:Double]
+					let fascGirth = width_bones["bones"]!
+					
+					let arcLength = convertedJsonIntoDict["arcLength"]! as! Double
+					
+					let width_other = convertedJsonIntoDict["width_other"]! as! [String:Double]
+					let heelWidth = width_other["heel"]!
+					
+					let resultText = String("Длина: \(Int(round(length))), обхват в пучках: \(Int(round(fascGirth))), длина арки: \(Int(round(arcLength))), ширина пятки: \(Int(round(heelWidth)))")
 					
 					updateUi(resultText)
+					print("data OK")
+				} else {
+					let resultText = "Ошибка (code=1)"
+					updateUi(resultText)
+					print("json error")
 				}
+			} else {
+				if error == nil {
+					updateUi("Oшибка (code=0)")
+					print("error nil")
+					return
+				}
+				updateUi(error.debugDescription)
+				print("data nil!!! " + error.debugDescription)
+				return
 			}
 			renderer.currentState.nextState()
 		}
