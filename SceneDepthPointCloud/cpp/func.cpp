@@ -1,6 +1,7 @@
 #include "func.hpp"
 
 #include "ShaderTypes.h"
+#include "gsl/gsl.h"
 
 #include <CGAL/Triangulation_data_structure_3.h>
 #include <iostream>
@@ -62,12 +63,14 @@ void showBufferCPP(mtlpp::Buffer buffer) {
 	const auto contents = static_cast<ParticleUniforms*>( buffer.GetContents() );
 	const auto count = buffer.GetLength() / sizeof(ParticleUniforms);
 
-	for (int i=0; i < count; ++i) {
-		const auto p = contents[i];
-		std::cout << "(" << p.position.x
-						 << p.position.y
-						 << p.position.z
-				  << ")\n";
-	}
+	
+	gsl::span<ParticleUniforms> spanned {contents, count};
+	std::for_each(spanned.begin(), spanned.end(),
+				  [](const auto& p) {
+		cout << "(" << p.position.x << ","
+					<< p.position.y << ","
+					<< p.position.z
+			 << ")\n";
+	});
 }
 

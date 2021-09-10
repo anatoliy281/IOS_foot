@@ -29,6 +29,16 @@
 		8A156F2D26EB8E8000B077FB /* CPPCaller.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CPPCaller.mm; sourceTree = "<group>"; };
 		8A156F3726EB9BB900B077FB /* mtlpp.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = mtlpp.mm; sourceTree = "<group>"; };
 		8A156F3826EB9BB900B077FB /* mtlpp.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = mtlpp.hpp; sourceTree = "<group>"; };
+		8A156F3F26EBA8CF00B077FB /* gsl_pointers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_pointers.h; sourceTree = "<group>"; };
+		8A156F4026EBA8CF00B077FB /* gsl_byte.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_byte.h; sourceTree = "<group>"; };
+		8A156F4126EBA8CF00B077FB /* gsl_narrow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_narrow.h; sourceTree = "<group>"; };
+		8A156F4226EBA8CF00B077FB /* gsl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl.h; sourceTree = "<group>"; };
+		8A156F4326EBA8CF00B077FB /* gsl_span_ext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_span_ext.h; sourceTree = "<group>"; };
+		8A156F4426EBA8CF00B077FB /* gsl_assert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_assert.h; sourceTree = "<group>"; };
+		8A156F4526EBA8CF00B077FB /* gsl_string_span.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_string_span.h; sourceTree = "<group>"; };
+		8A156F4626EBA8CF00B077FB /* gsl_util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_util.h; sourceTree = "<group>"; };
+		8A156F4726EBA8CF00B077FB /* gsl_algorithm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_algorithm.h; sourceTree = "<group>"; };
+		8A156F4826EBA8CF00B077FB /* gsl_span.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_span.h; sourceTree = "<group>"; };
 		8A7A38A026C14B1A00469FF7 /* Exporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exporter.swift; sourceTree = "<group>"; };
 		948146554F46E56B015690CC /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		B57D60B9736905755DECF7CE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -62,6 +72,7 @@
 		8A156F2726EB8BA900B077FB /* cpp */ = {
 			isa = PBXGroup;
 			children = (
+				8A156F3E26EBA8A500B077FB /* gsl */,
 				8A156F3626EB9B3A00B077FB /* mtlpp */,
 				8A156F2826EB8CA500B077FB /* func.cpp */,
 				8A156F2926EB8CA500B077FB /* func.hpp */,
@@ -106,6 +117,23 @@
 				8A156F3726EB9BB900B077FB /* mtlpp.mm */,
 			);
 			path = mtlpp;
+			sourceTree = "<group>";
+		};
+		8A156F3E26EBA8A500B077FB /* gsl */ = {
+			isa = PBXGroup;
+			children = (
+				8A156F4726EBA8CF00B077FB /* gsl_algorithm.h */,
+				8A156F4426EBA8CF00B077FB /* gsl_assert.h */,
+				8A156F4026EBA8CF00B077FB /* gsl_byte.h */,
+				8A156F4126EBA8CF00B077FB /* gsl_narrow.h */,
+				8A156F3F26EBA8CF00B077FB /* gsl_pointers.h */,
+				8A156F4326EBA8CF00B077FB /* gsl_span_ext.h */,
+				8A156F4826EBA8CF00B077FB /* gsl_span.h */,
+				8A156F4526EBA8CF00B077FB /* gsl_string_span.h */,
+				8A156F4626EBA8CF00B077FB /* gsl_util.h */,
+				8A156F4226EBA8CF00B077FB /* gsl.h */,
+			);
+			path = gsl;
 			sourceTree = "<group>";
 		};
 		A6415A999BE1C768F18B2649 /* Configuration */ = {
