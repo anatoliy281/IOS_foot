@@ -7,7 +7,7 @@ The sample app's shaders.
 
 #include <metal_stdlib>
 #include <simd/simd.h>
-#import "ShaderTypes.h"
+#import "../ShaderTypes.h"
 
 using namespace metal;
 
