@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		8A156F2A26EB8CA500B077FB /* func.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8A156F2826EB8CA500B077FB /* func.cpp */; };
 		8A156F2E26EB8E8000B077FB /* CPPCaller.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8A156F2D26EB8E8000B077FB /* CPPCaller.mm */; };
+		8A156F3926EB9BB900B077FB /* mtlpp.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8A156F3726EB9BB900B077FB /* mtlpp.mm */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		8A7A38A126C14B1A00469FF7 /* Exporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7A38A026C14B1A00469FF7 /* Exporter.swift */; };
 		E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13024636FEF00D77039 /* AppDelegate.swift */; };
 		E73DD13324636FEF00D77039 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13224636FEF00D77039 /* Shaders.metal */; };
@@ -26,6 +27,8 @@
 		8A156F2926EB8CA500B077FB /* func.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = func.hpp; sourceTree = "<group>"; };
 		8A156F2C26EB8E8000B077FB /* CPPCaller.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CPPCaller.h; sourceTree = "<group>"; };
 		8A156F2D26EB8E8000B077FB /* CPPCaller.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = CPPCaller.mm; sourceTree = "<group>"; };
+		8A156F3726EB9BB900B077FB /* mtlpp.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = mtlpp.mm; sourceTree = "<group>"; };
+		8A156F3826EB9BB900B077FB /* mtlpp.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = mtlpp.hpp; sourceTree = "<group>"; };
 		8A7A38A026C14B1A00469FF7 /* Exporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exporter.swift; sourceTree = "<group>"; };
 		948146554F46E56B015690CC /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		B57D60B9736905755DECF7CE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -59,6 +62,7 @@
 		8A156F2726EB8BA900B077FB /* cpp */ = {
 			isa = PBXGroup;
 			children = (
+				8A156F3626EB9B3A00B077FB /* mtlpp */,
 				8A156F2826EB8CA500B077FB /* func.cpp */,
 				8A156F2926EB8CA500B077FB /* func.hpp */,
 			);
@@ -93,6 +97,15 @@
 				E73DD13224636FEF00D77039 /* Shaders.metal */,
 			);
 			path = metal;
+			sourceTree = "<group>";
+		};
+		8A156F3626EB9B3A00B077FB /* mtlpp */ = {
+			isa = PBXGroup;
+			children = (
+				8A156F3826EB9BB900B077FB /* mtlpp.hpp */,
+				8A156F3726EB9BB900B077FB /* mtlpp.mm */,
+			);
+			path = mtlpp;
 			sourceTree = "<group>";
 		};
 		A6415A999BE1C768F18B2649 /* Configuration */ = {
@@ -225,6 +238,7 @@
 				E7B7223B24807ACA002E43E8 /* MetalBuffer.swift in Sources */,
 				E73DD13624636FEF00D77039 /* Renderer.swift in Sources */,
 				8A156F2A26EB8CA500B077FB /* func.cpp in Sources */,
+				8A156F3926EB9BB900B077FB /* mtlpp.mm in Sources */,
 				E73DD13824636FEF00D77039 /* ViewController.swift in Sources */,
 				E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */,
 			);

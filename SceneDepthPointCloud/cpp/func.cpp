@@ -1,3 +1,7 @@
+#include "func.hpp"
+
+#include "ShaderTypes.h"
+
 #include <CGAL/Triangulation_data_structure_3.h>
 #include <iostream>
 #include <cassert>
@@ -7,6 +11,7 @@ using Tds = CGAL::Triangulation_data_structure_3<>;
 using size_type = Tds::size_type;
 using Cell_handle = Tds::Cell_handle;
 using Vertex_handle = Tds::Vertex_handle;
+
 using namespace std;
 
 void testCall() {
@@ -51,3 +56,18 @@ void testCall() {
 	// writing file output_tds;
 	cout << T;
 }
+
+
+void showBufferCPP(mtlpp::Buffer buffer) {
+	const auto contents = static_cast<ParticleUniforms*>( buffer.GetContents() );
+	const auto count = buffer.GetLength() / sizeof(ParticleUniforms);
+
+	for (int i=0; i < count; ++i) {
+		const auto p = contents[i];
+		std::cout << "(" << p.position.x
+						 << p.position.y
+						 << p.position.z
+				  << ")\n";
+	}
+}
+

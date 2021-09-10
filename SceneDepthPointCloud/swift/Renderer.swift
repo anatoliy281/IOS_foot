@@ -146,8 +146,11 @@ final class Renderer {
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
 		
-		CPPCaller().call()
+		let caller = CPPCaller()
+		caller.call()
+		caller.show_buffer(particlesBuffer.buffer)
 		
+		print("stop here!")
     }
     
     func drawRectResized(size: CGSize) {
