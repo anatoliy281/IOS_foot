@@ -74,6 +74,27 @@
 			path = objc;
 			sourceTree = "<group>";
 		};
+		8A156F2F26EB90DA00B077FB /* swift */ = {
+			isa = PBXGroup;
+			children = (
+				8A7A38A026C14B1A00469FF7 /* Exporter.swift */,
+				E7B7223C24809D1E002E43E8 /* Helpers.swift */,
+				E73DD13524636FEF00D77039 /* Renderer.swift */,
+				E7B7223A24807ACA002E43E8 /* MetalBuffer.swift */,
+				E73DD13724636FEF00D77039 /* ViewController.swift */,
+				E73DD13024636FEF00D77039 /* AppDelegate.swift */,
+			);
+			path = swift;
+			sourceTree = "<group>";
+		};
+		8A156F3026EB912400B077FB /* metal */ = {
+			isa = PBXGroup;
+			children = (
+				E73DD13224636FEF00D77039 /* Shaders.metal */,
+			);
+			path = metal;
+			sourceTree = "<group>";
+		};
 		A6415A999BE1C768F18B2649 /* Configuration */ = {
 			isa = PBXGroup;
 			children = (
@@ -112,21 +133,16 @@
 		E73DD12F24636FEF00D77039 /* SceneDepthPointCloud */ = {
 			isa = PBXGroup;
 			children = (
+				8A156F3026EB912400B077FB /* metal */,
+				8A156F2F26EB90DA00B077FB /* swift */,
 				8A156F2B26EB8E1200B077FB /* objc */,
 				8A156F2726EB8BA900B077FB /* cpp */,
-				E73DD13024636FEF00D77039 /* AppDelegate.swift */,
-				E73DD13724636FEF00D77039 /* ViewController.swift */,
-				E73DD13224636FEF00D77039 /* Shaders.metal */,
 				E73DD13424636FEF00D77039 /* ShaderTypes.h */,
-				E7B7223A24807ACA002E43E8 /* MetalBuffer.swift */,
-				E73DD13524636FEF00D77039 /* Renderer.swift */,
-				E7B7223C24809D1E002E43E8 /* Helpers.swift */,
 				E73DD13924636FEF00D77039 /* Main.storyboard */,
 				E73DD13C24636FF100D77039 /* Assets.xcassets */,
 				E73DD13E24636FF100D77039 /* LaunchScreen.storyboard */,
 				E73DD14124636FF100D77039 /* Info.plist */,
 				E73DD14224636FF100D77039 /* SceneDepthPointCloud-Bridging-Header.h */,
-				8A7A38A026C14B1A00469FF7 /* Exporter.swift */,
 			);
 			path = SceneDepthPointCloud;
 			sourceTree = "<group>";
