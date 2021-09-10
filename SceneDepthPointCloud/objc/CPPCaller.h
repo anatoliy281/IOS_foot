@@ -8,6 +8,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 	-(void) show_buffer:(id<MTLBuffer>)buffer;
 
+	-(void) triangulate;
 @end
 
 NS_ASSUME_NONNULL_END

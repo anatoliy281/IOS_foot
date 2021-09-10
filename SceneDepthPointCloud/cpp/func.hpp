@@ -7,4 +7,6 @@ void testCall();
 
 void showBufferCPP(mtlpp::Buffer buffer);
 
+void triangulate();
+
 #endif /* func_hpp */

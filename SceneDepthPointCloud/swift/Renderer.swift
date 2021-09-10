@@ -147,8 +147,9 @@ final class Renderer {
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
 		
 		let caller = CPPCaller()
-		caller.call()
-		caller.show_buffer(particlesBuffer.buffer)
+//		caller.call()
+//		caller.show_buffer(particlesBuffer.buffer)
+		caller.triangulate()
 		
 		print("stop here!")
     }

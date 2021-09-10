@@ -12,4 +12,8 @@
 	showBufferCPP( ns::Handle{(__bridge void*)buffer} );
 }
 
+-(void) triangulate {
+	triangulate();
+}
+
 @end
