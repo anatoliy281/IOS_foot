@@ -145,6 +145,9 @@ final class Renderer {
         depthStencilState = device.makeDepthStencilState(descriptor: depthStateDescriptor)!
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
+		
+		CPPCaller().call()
+		
     }
     
     func drawRectResized(size: CGSize) {
