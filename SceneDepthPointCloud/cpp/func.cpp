@@ -65,6 +65,9 @@ void testCall() {
 	cout << T;
 }
 
+
+
+
 void showBufferCPP(mtlpp::Buffer buffer) {
 	const auto contents = static_cast<ParticleUniforms*>( buffer.GetContents() );
 	const auto count = buffer.GetLength() / sizeof(ParticleUniforms);
@@ -122,19 +125,58 @@ struct Perimeter {
 	}
 };
 
-void triangulate() {
-	double per = 0;
-//	double radius_ratio_bound = 5.0;
-	vector<Point> points = { Point(1,4,6), Point(1,4,6), Point(4,4,4),
-							 Point(1,4,3), Point(1,7,6), Point(8,4,6) };
-	vector<Facet> facets;
-	Perimeter perimeter(per);
 
-	CGAL::advancing_front_surface_reconstruction(points.begin(),
-											   points.end(),
-											   std::back_inserter(facets));
+void triangulate() {
+	
+	struct v5 {
+		float a;
+		float b;
+		float c;
+		float d;
+	};
+	
+	vector<v5> points = { {3, 6, 3, 2}, {1, 4, 6, 6}, {4, 4, 4, 6} };
+	vector<Facet> facets;
+	Perimeter perimeter(0);
+
+	auto convToPoint = [](const auto& data) { return Point(data.a, data.b, data.c); };
+	auto pInBeginIt = boost::make_transform_iterator(points.begin(), convToPoint );
+	auto pInEndIt = boost::make_transform_iterator(points.end(), convToPoint );
+	
+	CGAL::advancing_front_surface_reconstruction(pInBeginIt,
+												 pInEndIt,
+											     std::back_inserter(facets));
 
 	cout << "		Done!!!: " << points.size() << " " << facets.size() << "\n";
-	copy(points.begin(), points.end(), ostream_iterator<Point>(cout, "\n"));
+	copy(pInBeginIt, pInEndIt, ostream_iterator<Point>(cout, "\n"));
 	copy(facets.begin(), facets.end(), ostream_iterator<Facet>(cout, "\n"));
+}
+
+void triangulate(mtlpp::Buffer pointBuffer, mtlpp::Buffer indexBuffer) {
+	
+	// tune access to input points buffer
+	const auto inContents = static_cast<ParticleUniforms*>( pointBuffer.GetContents() );
+	const auto inCount = pointBuffer.GetLength() / sizeof(ParticleUniforms);
+	gsl::span<ParticleUniforms> inspanned {inContents, inCount};
+	
+	auto convToPoint = [](const auto& data) {
+		const auto& p = data.position;
+		return Point(p.x, p.y, p.z);
+	};
+	auto pInBeginIt = boost::make_transform_iterator(inspanned.begin(), convToPoint);
+	auto pInEndIt = boost::make_transform_iterator(inspanned.end(), convToPoint);
+	
+//	double radius_ratio_bound = 5.0;
+	const auto outContents = static_cast<int*>( indexBuffer.GetContents() );
+	const auto outCount = indexBuffer.GetLength() / sizeof(int);
+	gsl::span<int> outspanned {outContents, outCount};
+	Perimeter perimeter(0);
+
+	CGAL::advancing_front_surface_reconstruction( pInBeginIt,
+											      pInEndIt,
+											      outspanned.begin());
+
+//	cout << "		Done!!!:\n";
+//	copy(pInEndIt, pInEndIt, ostream_iterator<Point>(cout, "\n"));
+//	copy(facets.begin(), facets.end(), ostream_iterator<Facet>(cout, "\n"));
 }
