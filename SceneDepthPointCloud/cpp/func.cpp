@@ -152,7 +152,8 @@ void triangulate() {
 	copy(facets.begin(), facets.end(), ostream_iterator<Facet>(cout, "\n"));
 }
 
-void triangulate(mtlpp::Buffer pointBuffer, mtlpp::Buffer indexBuffer) {
+void triangulate(mtlpp::Buffer pointBuffer,
+				 mtlpp::Buffer indexBuffer) {
 	
 	// tune access to input points buffer
 	const auto inContents = static_cast<ParticleUniforms*>( pointBuffer.GetContents() );
@@ -167,15 +168,22 @@ void triangulate(mtlpp::Buffer pointBuffer, mtlpp::Buffer indexBuffer) {
 	auto pInEndIt = boost::make_transform_iterator(inspanned.end(), convToPoint);
 	
 //	double radius_ratio_bound = 5.0;
-	const auto outContents = static_cast<int*>( indexBuffer.GetContents() );
-	const auto outCount = indexBuffer.GetLength() / sizeof(int);
-	gsl::span<int> outspanned {outContents, outCount};
+	const auto outContents = static_cast<Facet*>( indexBuffer.GetContents() );
+	const auto outCount = indexBuffer.GetLength() / sizeof(Facet);
+	gsl::span<Facet> outspanned {outContents, outCount};
 	Perimeter perimeter(0);
 
-	CGAL::advancing_front_surface_reconstruction( pInBeginIt,
-											      pInEndIt,
-											      outspanned.begin());
 
+//	std::set_terminate(
+//					   []() { cout << "Unhandled exception!!";
+//							}
+//					   );
+	
+	CGAL::advancing_front_surface_reconstruction( pInBeginIt,
+												  pInEndIt,
+												  outspanned.begin());
+	
+	
 //	cout << "		Done!!!:\n";
 //	copy(pInEndIt, pInEndIt, ostream_iterator<Point>(cout, "\n"));
 //	copy(facets.begin(), facets.end(), ostream_iterator<Facet>(cout, "\n"));

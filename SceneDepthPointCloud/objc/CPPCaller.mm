@@ -16,12 +16,12 @@
 	triangulate();
 }
 
-//-(void) triangulate:(id<MTLBuffer>)pointBuffer:
-//					(id<MTLBuffer>)indexBuffer {
-//	
-//	triangulate( ns::Handle{(__bridge void*)pointBuffer},
-//				 ns::Handle{(__bridge void*)indexBuffer} );
-//	
-//}
+-(void) triangulate:(id<MTLBuffer>)pointBuffer:
+					(id<MTLBuffer>)indexBuffer {
+	
+	triangulate( ns::Handle{(__bridge void*)pointBuffer},
+				 ns::Handle{(__bridge void*)indexBuffer} );
+	
+}
 
 @end

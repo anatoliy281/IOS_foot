@@ -10,8 +10,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 	-(void) triangulate;
 
-//	-(void) triangulate:(id<MTLBuffer>)pointBuffer:
-//						(id<MTLBuffer>)indexBuffer;
+	-(void) triangulate:(id<MTLBuffer>)pointBuffer:
+						(id<MTLBuffer>)indexBuffer;
 
 
 @end

@@ -35,7 +35,7 @@ final class Renderer {
     private let session: ARSession
     
     // Metal objects and textures
-    private let device: MTLDevice
+    internal let device: MTLDevice
     private let library: MTLLibrary
     private let renderDestination: RenderDestinationProvider
     private let relaxedStencilState: MTLDepthStencilState
@@ -87,6 +87,8 @@ final class Renderer {
     // Particles buffer
     var particlesBuffer: MetalBuffer<ParticleUniforms>
 	var edgeFloorBuffer: MetalBuffer<ParticleUniforms>
+	let caller:CPPCaller = CPPCaller()
+	
     private var currentPointIndex = 0
     private var currentPointCount = 0
     
@@ -149,9 +151,10 @@ final class Renderer {
 //		let caller = CPPCaller()
 //		caller.call()
 //		caller.show_buffer(particlesBuffer.buffer)
-		caller.triangulate()
+//		caller.triangulate()
+	
+		testBufferModifications()
 		
-		print("stop here!")
     }
     
     func drawRectResized(size: CGSize) {

@@ -12,6 +12,7 @@
 		8A156F3926EB9BB900B077FB /* mtlpp.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8A156F3726EB9BB900B077FB /* mtlpp.mm */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		8A156F4C26EBACEE00B077FB /* libgmp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A156F4A26EBACEE00B077FB /* libgmp.a */; };
 		8A156F4D26EBACEE00B077FB /* libmpfr.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A156F4B26EBACEE00B077FB /* libmpfr.a */; };
+		8A1D960326EF893C004E8140 /* Experiments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D960226EF893C004E8140 /* Experiments.swift */; };
 		8A7A38A126C14B1A00469FF7 /* Exporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7A38A026C14B1A00469FF7 /* Exporter.swift */; };
 		E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13024636FEF00D77039 /* AppDelegate.swift */; };
 		E73DD13324636FEF00D77039 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13224636FEF00D77039 /* Shaders.metal */; };
@@ -43,6 +44,7 @@
 		8A156F4826EBA8CF00B077FB /* gsl_span.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gsl_span.h; sourceTree = "<group>"; };
 		8A156F4A26EBACEE00B077FB /* libgmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgmp.a; path = ../../../../../opt/homebrew/ioslib/libgmp.a; sourceTree = "<group>"; };
 		8A156F4B26EBACEE00B077FB /* libmpfr.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmpfr.a; path = ../../../../../opt/homebrew/ioslib/libmpfr.a; sourceTree = "<group>"; };
+		8A1D960226EF893C004E8140 /* Experiments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Experiments.swift; sourceTree = "<group>"; };
 		8A7A38A026C14B1A00469FF7 /* Exporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exporter.swift; sourceTree = "<group>"; };
 		948146554F46E56B015690CC /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		B57D60B9736905755DECF7CE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -104,6 +106,7 @@
 				E73DD13724636FEF00D77039 /* ViewController.swift */,
 				E73DD13024636FEF00D77039 /* AppDelegate.swift */,
 				E73DD13524636FEF00D77039 /* Renderer.swift */,
+				8A1D960226EF893C004E8140 /* Experiments.swift */,
 			);
 			path = swift;
 			sourceTree = "<group>";
@@ -281,6 +284,7 @@
 				E7B7223D24809D1E002E43E8 /* Helpers.swift in Sources */,
 				E7B7223B24807ACA002E43E8 /* MetalBuffer.swift in Sources */,
 				E73DD13624636FEF00D77039 /* Renderer.swift in Sources */,
+				8A1D960326EF893C004E8140 /* Experiments.swift in Sources */,
 				8A156F2A26EB8CA500B077FB /* func.cpp in Sources */,
 				8A156F3926EB9BB900B077FB /* mtlpp.mm in Sources */,
 				E73DD13824636FEF00D77039 /* ViewController.swift in Sources */,
