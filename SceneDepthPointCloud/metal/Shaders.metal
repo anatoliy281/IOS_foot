@@ -149,7 +149,7 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
     ParticleVertexOut out;
     out.position = projectedPosition;
 //    out.pointSize = pointSize;
-	out.pointSize = 1;
+	out.pointSize = 5;
 //    out.color = float4(sampledColor, visibility);
 	out.color = float4(1, 0, 0, 1);
 	

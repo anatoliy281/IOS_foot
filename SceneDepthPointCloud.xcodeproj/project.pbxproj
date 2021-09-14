@@ -45,6 +45,9 @@
 		8A156F4A26EBACEE00B077FB /* libgmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgmp.a; path = ../../../../../opt/homebrew/ioslib/libgmp.a; sourceTree = "<group>"; };
 		8A156F4B26EBACEE00B077FB /* libmpfr.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmpfr.a; path = ../../../../../opt/homebrew/ioslib/libmpfr.a; sourceTree = "<group>"; };
 		8A1D960226EF893C004E8140 /* Experiments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Experiments.swift; sourceTree = "<group>"; };
+		8A1D960426F0CE37004E8140 /* Perimeter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Perimeter.h; sourceTree = "<group>"; };
+		8A1D960526F0CEA8004E8140 /* FacetAdaptor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FacetAdaptor.h; sourceTree = "<group>"; };
+		8A1D960626F0D9DE004E8140 /* VertexAdaptor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VertexAdaptor.h; sourceTree = "<group>"; };
 		8A7A38A026C14B1A00469FF7 /* Exporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exporter.swift; sourceTree = "<group>"; };
 		948146554F46E56B015690CC /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		B57D60B9736905755DECF7CE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -83,7 +86,10 @@
 				8A156F3E26EBA8A500B077FB /* gsl */,
 				8A156F3626EB9B3A00B077FB /* mtlpp */,
 				8A156F2826EB8CA500B077FB /* func.cpp */,
+				8A1D960426F0CE37004E8140 /* Perimeter.h */,
 				8A156F2926EB8CA500B077FB /* func.hpp */,
+				8A1D960526F0CEA8004E8140 /* FacetAdaptor.h */,
+				8A1D960626F0D9DE004E8140 /* VertexAdaptor.h */,
 			);
 			path = cpp;
 			sourceTree = "<group>";

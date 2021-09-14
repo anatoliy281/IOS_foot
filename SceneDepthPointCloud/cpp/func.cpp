@@ -2,6 +2,9 @@
 
 #include "ShaderTypes.h"
 #include "gsl/gsl.h"
+#include "Perimeter.h"
+#include "FacetAdaptor.h"
+#include "VertexAdaptor.h"
 
 #include <CGAL/Triangulation_data_structure_3.h>
 #include <CGAL/Simple_cartesian.h>
@@ -67,7 +70,6 @@ void testCall() {
 
 
 
-
 void showBufferCPP(mtlpp::Buffer buffer) {
 	const auto contents = static_cast<ParticleUniforms*>( buffer.GetContents() );
 	const auto count = buffer.GetLength() / sizeof(ParticleUniforms);
@@ -91,40 +93,6 @@ namespace std {
 	}
 }
 
-struct Perimeter {
-	
-	double bound;
-	Perimeter(double bound) : bound(bound) {}
-
-	template <typename AdvancingFront, typename Cell_handle>
-	double operator() (const AdvancingFront& adv,
-					   Cell_handle& c,
-					   const int& index) const {
-		// bound == 0 is better than bound < infinity
-		// as it avoids the distance computations
-		if(bound == 0){
-			return adv.smallest_radius_delaunay_sphere (c, index);
-		}
-		// If perimeter > bound, return infinity so that facet is not used
-		double d  = 0;
-		d = sqrt(squared_distance(c->vertex((index+1)%4)->point(),
-								  c->vertex((index+2)%4)->point()));
-		if(d > bound)
-			return adv.infinity();
-		d += sqrt(squared_distance(c->vertex((index+2)%4)->point(),
-								   c->vertex((index+3)%4)->point()));
-		if(d > bound)
-			return adv.infinity();
-		d += sqrt(squared_distance(c->vertex((index+1)%4)->point(),
-								   c->vertex((index+3)%4)->point()));
-		if(d > bound)
-			return adv.infinity();
-		// Otherwise, return usual priority value: smallest radius of
-		// delaunay sphere
-		return adv.smallest_radius_delaunay_sphere (c, index);
-	}
-};
-
 
 void triangulate() {
 	
@@ -146,45 +114,17 @@ void triangulate() {
 	CGAL::advancing_front_surface_reconstruction(pInBeginIt,
 												 pInEndIt,
 											     std::back_inserter(facets));
-
-	cout << "		Done!!!: " << points.size() << " " << facets.size() << "\n";
-	copy(pInBeginIt, pInEndIt, ostream_iterator<Point>(cout, "\n"));
-	copy(facets.begin(), facets.end(), ostream_iterator<Facet>(cout, "\n"));
 }
+
+
 
 void triangulate(mtlpp::Buffer pointBuffer,
 				 mtlpp::Buffer indexBuffer) {
 	
 	// tune access to input points buffer
-	const auto inContents = static_cast<ParticleUniforms*>( pointBuffer.GetContents() );
-	const auto inCount = pointBuffer.GetLength() / sizeof(ParticleUniforms);
-	gsl::span<ParticleUniforms> inspanned {inContents, inCount};
-	
-	auto convToPoint = [](const auto& data) {
-		const auto& p = data.position;
-		return Point(p.x, p.y, p.z);
-	};
-	auto pInBeginIt = boost::make_transform_iterator(inspanned.begin(), convToPoint);
-	auto pInEndIt = boost::make_transform_iterator(inspanned.end(), convToPoint);
-	
-//	double radius_ratio_bound = 5.0;
-	const auto outContents = static_cast<Facet*>( indexBuffer.GetContents() );
-	const auto outCount = indexBuffer.GetLength() / sizeof(Facet);
-	gsl::span<Facet> outspanned {outContents, outCount};
-	Perimeter perimeter(0);
-
-
-//	std::set_terminate(
-//					   []() { cout << "Unhandled exception!!";
-//							}
-//					   );
-	
-	CGAL::advancing_front_surface_reconstruction( pInBeginIt,
-												  pInEndIt,
-												  outspanned.begin());
-	
-	
-//	cout << "		Done!!!:\n";
-//	copy(pInEndIt, pInEndIt, ostream_iterator<Point>(cout, "\n"));
-//	copy(facets.begin(), facets.end(), ostream_iterator<Facet>(cout, "\n"));
+	auto vertexWrapper = VertexAdaptor(&pointBuffer);
+	auto indexWrapper = FacetAdaptor(&indexBuffer);
+	CGAL::advancing_front_surface_reconstruction( vertexWrapper.begin(),
+												  vertexWrapper.end(),
+												  indexWrapper);
 }

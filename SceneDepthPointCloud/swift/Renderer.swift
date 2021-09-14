@@ -20,7 +20,7 @@ final class Renderer {
 	private let scanRadius = 0.2
 	
     // Number of sample points on the grid
-    private let numGridPoints = 10_000
+    private let numGridPoints = 1_000
     // Particle's size in pixels
     private let particleSize: Float = 10
     // We only use landscape orientation in this app
@@ -87,6 +87,8 @@ final class Renderer {
     // Particles buffer
     var particlesBuffer: MetalBuffer<ParticleUniforms>
 	var edgeFloorBuffer: MetalBuffer<ParticleUniforms>
+	var indecesBuffer: MetalBuffer<UInt32>
+	
 	let caller:CPPCaller = CPPCaller()
 	
     private var currentPointIndex = 0
@@ -135,7 +137,7 @@ final class Renderer {
         }
         particlesBuffer = .init(device: device, count: maxPoints, index: kParticleUniforms.rawValue)
 		edgeFloorBuffer = .init(device: device, count: angleCircleCountSectors, index: kCircleUniforms.rawValue)
-        
+		indecesBuffer = .init(device: device, count: maxPoints, index: 0)
         // rbg does not need to read/write depth
         let relaxedStateDescriptor = MTLDepthStencilDescriptor()
         relaxedStencilState = device.makeDepthStencilState(descriptor: relaxedStateDescriptor)!
@@ -152,9 +154,8 @@ final class Renderer {
 //		caller.call()
 //		caller.show_buffer(particlesBuffer.buffer)
 //		caller.triangulate()
-	
 		testBufferModifications()
-		
+		print()
     }
     
     func drawRectResized(size: CGSize) {
@@ -243,14 +244,29 @@ final class Renderer {
             renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
             renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         }
+		
+		caller.triangulate(particlesBuffer.buffer, indecesBuffer.buffer)
        
+		showIndexBuffer(buffer: indecesBuffer)
+		
         // render particles
         renderEncoder.setDepthStencilState(depthStencilState)
         renderEncoder.setRenderPipelineState(particlePipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
         renderEncoder.setVertexBuffer(particlesBuffer)
         
-        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
+//        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
+		renderEncoder.drawIndexedPrimitives(type: .triangle,
+													indexCount: indecesBuffer.count,
+													indexType: .uint32,
+													indexBuffer: indecesBuffer.buffer,
+													indexBufferOffset: 0)
+		
+		renderEncoder.drawIndexedPrimitives(type: .point,
+													indexCount: indecesBuffer.count,
+													indexType: .uint32,
+													indexBuffer: indecesBuffer.buffer,
+													indexBufferOffset: 0)
         renderEncoder.endEncoding()
             
         commandBuffer.present(renderDestination.currentDrawable!)
@@ -258,11 +274,11 @@ final class Renderer {
     }
     
     private func shouldAccumulate(frame: ARFrame) -> Bool {
-		
-		if ( pointCloudUniforms.pointCloudCurrentIndex + Int32(gridPointsBuffer.count) > maxPoints) {
-			bufferIsFull = true
-			return false;
-		}
+//
+//		if ( pointCloudUniforms.pointCloudCurrentIndex + Int32(gridPointsBuffer.count) > maxPoints) {
+////			bufferIsFull = true
+////			return false;
+//		}
 		
         let cameraTransform = frame.camera.transform
         return currentPointCount == 0
@@ -297,10 +313,10 @@ final class Renderer {
         currentPointCount = min(currentPointCount + gridPointsBuffer.count, maxPoints)
         lastCameraTransform = frame.camera.transform
 		
-		let arrays = getArrays()
-		let devZ = calcDeviations(arrData: arrays.z)
-		let devN = calcDeviations(arrData: arrays.n)
-		print("z:\(devZ.mean) dz:\(devZ.disp) n:\(devN.mean) dn:\(devN.disp)")
+//		let arrays = getArrays()
+//		let devZ = calcDeviations(arrData: arrays.z)
+//		let devN = calcDeviations(arrData: arrays.n)
+//		print("z:\(devZ.mean) dz:\(devZ.disp) n:\(devN.mean) dn:\(devN.disp)")
     }
 	
 	private func getArrays() -> (z:[Float], n:[Float3]) {
