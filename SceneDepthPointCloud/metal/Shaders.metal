@@ -82,9 +82,9 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 	if (confidence < 2)
 		return;
 	const auto pointRadius = length(position.xz);
-	if ( pointRadius > uniforms.radius) {
-		return;
-	}
+//	if ( pointRadius > uniforms.radius) {
+//		return;
+//	}
 	
 	const auto r_eps = 0.003;
 	if ( uniforms.radius - 2*r_eps < pointRadius &&
@@ -157,13 +157,6 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
     return out;
 }
 
-fragment float4 particleFragment(ParticleVertexOut in [[stage_in]],
-                                 const float2 coords [[point_coord]]) {
-    // we draw within a circle
-    const float distSquared = length_squared(coords - float2(0.5));
-    if (in.color.a == 0 || distSquared > 0.25) {
-        discard_fragment();
-    }
-    
-    return in.color;
+fragment float4 particleFragment(ParticleVertexOut in[[stage_in]]) {
+	return in.color;
 }

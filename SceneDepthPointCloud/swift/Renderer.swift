@@ -9,7 +9,7 @@ import Metal
 import MetalKit
 import ARKit
 
-final class Renderer {
+class Renderer {
 	
 	var bufferIsFull = false
 	
@@ -91,6 +91,8 @@ final class Renderer {
 	
 	let caller:CPPCaller = CPPCaller()
 	
+	let extentClass:RendererExtension
+	
     private var currentPointIndex = 0
     private var currentPointCount = 0
     
@@ -150,12 +152,9 @@ final class Renderer {
         
         inFlightSemaphore = DispatchSemaphore(value: maxInFlightBuffers)
 		
-//		let caller = CPPCaller()
-//		caller.call()
-//		caller.show_buffer(particlesBuffer.buffer)
-//		caller.triangulate()
-		testBufferModifications()
-		print()
+		extentClass = RendererExtension(renderDevice: device, renderCPPCaller: caller)
+		let buffers = extentClass.buildBuffers(points: extentClass.resources.bufferSquare)
+		extentClass.showIndexBuffer(buffer: buffers.indecesBuffer, hideEmpty: false)
     }
     
     func drawRectResized(size: CGSize) {
@@ -245,28 +244,34 @@ final class Renderer {
             renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         }
 		
-		caller.triangulate(particlesBuffer.buffer, indecesBuffer.buffer)
-       
-		showIndexBuffer(buffer: indecesBuffer)
+//		caller.triangulate(particlesBuffer.buffer, indecesBuffer.buffer)
+		let testBuffers = extentClass.buildBuffers(points: extentClass.resources.bufferSquare)
+//		extentClass.showIndexBuffer(buffer: indecesBuffer)
+
+		extentClass.renderBuffers(verteces: testBuffers.vertecesBuffer,
+								  indeces: testBuffers.indecesBuffer,
+								  encoder: renderEncoder,
+								  state: particlePipelineState,
+								  uniforms: pointCloudUniformsBuffers[currentBufferIndex])
 		
         // render particles
-        renderEncoder.setDepthStencilState(depthStencilState)
-        renderEncoder.setRenderPipelineState(particlePipelineState)
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        renderEncoder.setVertexBuffer(particlesBuffer)
-        
-//        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
-		renderEncoder.drawIndexedPrimitives(type: .triangle,
-													indexCount: indecesBuffer.count,
-													indexType: .uint32,
-													indexBuffer: indecesBuffer.buffer,
-													indexBufferOffset: 0)
-		
-		renderEncoder.drawIndexedPrimitives(type: .point,
-													indexCount: indecesBuffer.count,
-													indexType: .uint32,
-													indexBuffer: indecesBuffer.buffer,
-													indexBufferOffset: 0)
+//        renderEncoder.setDepthStencilState(depthStencilState)
+//        renderEncoder.setRenderPipelineState(particlePipelineState)
+//        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+//        renderEncoder.setVertexBuffer(particlesBuffer)
+//        
+////        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
+//		renderEncoder.drawIndexedPrimitives(type: .triangle,
+//													indexCount: indecesBuffer.count,
+//													indexType: .uint32,
+//													indexBuffer: indecesBuffer.buffer,
+//													indexBufferOffset: 0)
+//		
+//		renderEncoder.drawIndexedPrimitives(type: .point,
+//													indexCount: indecesBuffer.count,
+//													indexType: .uint32,
+//													indexBuffer: indecesBuffer.buffer,
+//													indexBufferOffset: 0)
         renderEncoder.endEncoding()
             
         commandBuffer.present(renderDestination.currentDrawable!)
