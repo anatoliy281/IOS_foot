@@ -1,6 +1,9 @@
 #ifndef FacetAdaptor_h
 #define FacetAdaptor_h
 
+#include <string>
+#include <iostream>
+
 using Facet = std::array<std::size_t,3>;
 
 
@@ -9,8 +12,13 @@ using Facet = std::array<std::size_t,3>;
 struct FacetAdaptor {
 	mtlpp::Buffer* buffer;
 	int position {0};
+	int length;
 	bool isPrev {false};
-	FacetAdaptor(mtlpp::Buffer* indexBuffer) : buffer{indexBuffer} {};
+	FacetAdaptor(mtlpp::Buffer* indexBuffer) : buffer{indexBuffer} {
+		const auto contents = static_cast<int*>( buffer->GetContents() );
+		length = buffer->GetLength() / sizeof(int);
+		std::cout << "FacetAdaptor() position: " << position << std::endl;
+	};
 	
 	FacetAdaptor& operator*() {
 		return *this;
@@ -18,6 +26,12 @@ struct FacetAdaptor {
 	
 	FacetAdaptor& operator++() {
 		position += 3;
+		if (position >= length) {
+			auto error = std::string("out of index buffer: ") +
+				std::to_string(position) +
+				"(" + std::to_string(length) + ")";
+			throw error;
+		}
 		return *this;
 	};
 	

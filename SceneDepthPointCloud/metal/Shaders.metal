@@ -82,9 +82,10 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 	if (confidence < 2)
 		return;
 	const auto pointRadius = length(position.xz);
-//	if ( pointRadius > uniforms.radius) {
-//		return;
-//	}
+	
+	if ( pointRadius > uniforms.radius) {
+		return;
+	}
 	
 	const auto r_eps = 0.003;
 	if ( uniforms.radius - 2*r_eps < pointRadius &&
@@ -151,7 +152,11 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
 //    out.pointSize = pointSize;
 	out.pointSize = 5;
 //    out.color = float4(sampledColor, visibility);
-	out.color = float4(1, 0, 0, 1);
+	const auto aCh = 0.5;
+	const auto red = 	float4(1, 0, 0, aCh);
+	const auto green = 	float4(0, 1, 0, aCh);
+	const auto color = mix(red, green, 1*abs(position.y));
+	out.color = color;
 	
 	
     return out;

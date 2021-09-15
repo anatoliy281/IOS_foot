@@ -120,11 +120,15 @@ void triangulate() {
 
 void triangulate(mtlpp::Buffer pointBuffer,
 				 mtlpp::Buffer indexBuffer) {
-	
 	// tune access to input points buffer
 	auto vertexWrapper = VertexAdaptor(&pointBuffer);
 	auto indexWrapper = FacetAdaptor(&indexBuffer);
-	CGAL::advancing_front_surface_reconstruction( vertexWrapper.begin(),
-												  vertexWrapper.end(),
-												  indexWrapper);
+	
+	try {
+		CGAL::advancing_front_surface_reconstruction( vertexWrapper.begin(),
+													  vertexWrapper.end(),
+													  indexWrapper );
+	} catch (const std::string& exception) {
+		cout << "error catched: " << exception << endl;
+	}
 }
