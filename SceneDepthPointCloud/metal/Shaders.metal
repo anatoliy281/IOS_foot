@@ -143,7 +143,6 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
     
     // animate and project the point
     float4 projectedPosition = uniforms.viewProjectionMatrix * float4(position, 1.0);
-    const float pointSize = max(uniforms.particleSize / max(1.0, projectedPosition.z), 2.0);
     projectedPosition /= projectedPosition.w;
     
     // prepare for output

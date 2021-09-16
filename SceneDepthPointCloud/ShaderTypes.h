@@ -38,7 +38,6 @@ struct PointCloudUniforms {
     
 	float radius;
 	int circleCountSectors;
-    float particleSize;
     int maxPoints;
     int pointCloudCurrentIndex;
     int confidenceThreshold;

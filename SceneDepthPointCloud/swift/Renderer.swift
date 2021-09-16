@@ -21,8 +21,6 @@ class Renderer {
 	
     // Number of sample points on the grid
     private let numGridPoints = 6_000
-    // Particle's size in pixels
-    private let particleSize: Float = 10
     // We only use landscape orientation in this app
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
@@ -78,7 +76,6 @@ class Renderer {
         var uniforms = PointCloudUniforms()
         uniforms.maxPoints = Int32(maxPoints)
         uniforms.confidenceThreshold = Int32(confidenceThreshold)
-        uniforms.particleSize = particleSize
         uniforms.cameraResolution = cameraResolution
 		// разбиение границы области сканирования
 		uniforms.radius = Float(scanRadius)
