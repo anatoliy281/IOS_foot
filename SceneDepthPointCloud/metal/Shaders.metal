@@ -81,6 +81,7 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 	
 	if (confidence < 2)
 		return;
+	
 	const auto pointRadius = length(position.xz);
 	
 	if ( pointRadius > uniforms.radius) {
@@ -95,14 +96,12 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 		const auto angleSec = int( round(alpha / dAlpha) );
 		edgeUniforms[angleSec].position = position.xyz;
 		edgeUniforms[angleSec].color = sampledColor;
-		edgeUniforms[angleSec].confidence = confidence;	// на всякий случай до кучи
 	}
 	
     
     // Write the data to the buffer
     particleUniforms[currentPointIndex].position = position.xyz;
     particleUniforms[currentPointIndex].color = sampledColor;
-    particleUniforms[currentPointIndex].confidence = confidence;
 }
 
 vertex RGBVertexOut rgbVertex(uint vertexID [[vertex_id]],
@@ -137,9 +136,7 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
     // get point data
     const auto particleData = particleUniforms[vertexID];
     const auto position = particleData.position;
-    const auto confidence = particleData.confidence;
     const auto sampledColor = particleData.color;
-    const auto visibility = confidence >= uniforms.confidenceThreshold;
     
     // animate and project the point
     float4 projectedPosition = uniforms.viewProjectionMatrix * float4(position, 1.0);
@@ -156,7 +153,6 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
 	const auto green = 	float4(0, 1, 0, aCh);
 	const auto color = mix(red, green, 1*abs(position.y));
 	out.color = color;
-	
 	
     return out;
 }

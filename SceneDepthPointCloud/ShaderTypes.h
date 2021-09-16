@@ -46,7 +46,6 @@ struct PointCloudUniforms {
 struct ParticleUniforms {
     simd_float3 position;
     simd_float3 color;
-    float confidence;
 };
 
 #endif /* ShaderTypes_h */
