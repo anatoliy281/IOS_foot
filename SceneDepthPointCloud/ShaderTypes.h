@@ -40,7 +40,6 @@ struct PointCloudUniforms {
 	int circleCountSectors;
     int maxPoints;
     int pointCloudCurrentIndex;
-    int confidenceThreshold;
 };
 
 struct ParticleUniforms {

@@ -1,10 +1,3 @@
-/*
-See LICENSE folder for this sample’s licensing information.
-
-Abstract:
-The host app renderer.
-*/
-
 import Metal
 import MetalKit
 import ARKit
@@ -75,7 +68,6 @@ class Renderer {
     private lazy var pointCloudUniforms: PointCloudUniforms = {
         var uniforms = PointCloudUniforms()
         uniforms.maxPoints = Int32(maxPoints)
-        uniforms.confidenceThreshold = Int32(confidenceThreshold)
         uniforms.cameraResolution = cameraResolution
 		// разбиение границы области сканирования
 		uniforms.radius = Float(scanRadius)
@@ -106,14 +98,6 @@ class Renderer {
     func getPointBuffer() -> MetalBuffer<ParticleUniforms> {
 //        return pointCloudUniformsBuffers[currentPointIndex]
         return particlesBuffer
-    }
-    
-    // interfaces
-    var confidenceThreshold = 1 {
-        didSet {
-            // apply the change for the shader
-            pointCloudUniforms.confidenceThreshold = Int32(confidenceThreshold)
-        }
     }
     
     var rgbRadius: Float = 0 {

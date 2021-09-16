@@ -13,6 +13,7 @@ import ARKit
 final class ViewController: UIViewController, ARSessionDelegate {
     private let isUIEnabled = true
     private let confidenceControl = UISegmentedControl(items: ["Low", "Medium", "High"])
+	private let label = UILabel()
     private let myButton = UIButton(frame: CGRect(x: 100, y:100, width: 100, height: 50));
     
     private let rgbRadiusSlider = UISlider()
@@ -48,19 +49,16 @@ final class ViewController: UIViewController, ARSessionDelegate {
             renderer.drawRectResized(size: view.bounds.size)
         }
         
-        // Confidence control
-        confidenceControl.backgroundColor = .white
-        confidenceControl.selectedSegmentIndex = renderer.confidenceThreshold
-        confidenceControl.addTarget(self, action: #selector(viewValueChanged), for: .valueChanged)
-        
         // RGB Radius control
         rgbRadiusSlider.minimumValue = 0
         rgbRadiusSlider.maximumValue = 1.5
         rgbRadiusSlider.isContinuous = true
         rgbRadiusSlider.value = renderer.rgbRadius
         rgbRadiusSlider.addTarget(self, action: #selector(viewValueChanged), for: .valueChanged)
+		
+		label.text = "Прозрачность"
         
-        let stackView = UIStackView(arrangedSubviews: [confidenceControl, rgbRadiusSlider])
+		let stackView = UIStackView(arrangedSubviews: [rgbRadiusSlider, label])
         stackView.isHidden = !isUIEnabled
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
@@ -104,10 +102,6 @@ final class ViewController: UIViewController, ARSessionDelegate {
     @objc
     private func viewValueChanged(view: UIView) {
         switch view {
-            
-        case confidenceControl:
-			let conf = confidenceControl.selectedSegmentIndex
-            renderer.confidenceThreshold = conf
             
         case rgbRadiusSlider:
             renderer.rgbRadius = rgbRadiusSlider.value
