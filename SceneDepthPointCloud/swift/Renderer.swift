@@ -7,13 +7,13 @@ class Renderer {
 	var bufferIsFull = false
 	
     // Maximum number of points we store in the point cloud
-    private let maxPoints = 3_000
+    private let maxPoints = 10_000
 	
 	private let angleCircleCountSectors = 720	//  количество секторов круга
 	private let scanRadius = 0.2
 	
     // Number of sample points on the grid
-    private let numGridPoints = 6_000
+    private let numGridPoints = 2_000
     // We only use landscape orientation in this app
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
@@ -108,6 +108,7 @@ class Renderer {
     }
     
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
+//		let tmp = CPPCaller();
         self.session = session
         self.device = device
         self.renderDestination = renderDestination
@@ -265,11 +266,12 @@ class Renderer {
 ////			bufferIsFull = true
 ////			return false;
 //		}
-		
-        let cameraTransform = frame.camera.transform
-        return currentPointCount == 0
-            || dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
-            || distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) < cameraTranslationThreshold
+//
+//        let cameraTransform = frame.camera.transform
+//        return currentPointCount == 0
+//            || dot(cameraTransform.columns.2, lastCameraTransform.columns.2) <= cameraRotationThreshold
+//            || distance_squared(cameraTransform.columns.3, lastCameraTransform.columns.3) < cameraTranslationThreshold
+		true
     }
     
     private func accumulatePoints(frame: ARFrame, commandBuffer: MTLCommandBuffer, renderEncoder: MTLRenderCommandEncoder) {

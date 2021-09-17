@@ -94,40 +94,23 @@ namespace std {
 }
 
 
-void triangulate() {
-	
-	struct v5 {
-		float a;
-		float b;
-		float c;
-		float d;
-	};
-	
-	vector<v5> points = { {3, 6, 3, 2}, {1, 4, 6, 6}, {4, 4, 4, 6} };
-	vector<Facet> facets;
-	Perimeter perimeter(0);
-
-	auto convToPoint = [](const auto& data) { return Point(data.a, data.b, data.c); };
-	auto pInBeginIt = boost::make_transform_iterator(points.begin(), convToPoint );
-	auto pInEndIt = boost::make_transform_iterator(points.end(), convToPoint );
-	
-	CGAL::advancing_front_surface_reconstruction(pInBeginIt,
-												 pInEndIt,
-											     std::back_inserter(facets));
-}
-
-
-
 void triangulate(mtlpp::Buffer pointBuffer,
 				 mtlpp::Buffer indexBuffer) {
 	// tune access to input points buffer
 	auto vertexWrapper = VertexAdaptor(&pointBuffer);
 	auto indexWrapper = FacetAdaptor(&indexBuffer);
 	
+	
+	Perimeter perimeter (0.5);
+	
+//	double radius_ratio_bound = 1;
+	
 	try {
 		CGAL::advancing_front_surface_reconstruction( vertexWrapper.begin(),
 													  vertexWrapper.end(),
-													  indexWrapper );
+													 indexWrapper);
+//													  perimeter,
+//													  radius_ratio_bound );
 	} catch (const std::string& exception) {
 		cout << "error catched: " << exception << endl;
 	}

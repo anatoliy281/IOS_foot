@@ -1,25 +1,27 @@
 #import "CPPCaller.h"
 #include "func.hpp"
 #include "mtlpp.hpp"
+#include "BufferPreprocessor.hpp"
+
+@interface CPPCaller()
+@property (readonly) BufferPreprocessor bufferPreprocessor;
+@end
 
 @implementation CPPCaller
 
--(void) call {
-	testCall();
-}
 
 -(void) show_buffer:(id<MTLBuffer>)buffer {
 	showBufferCPP( ns::Handle{(__bridge void*)buffer} );
 }
 
--(void) triangulate {
-	triangulate();
+-(void) preprocessPointChunk:(id<MTLBuffer>)points {
+	_bufferPreprocessor.newPortion( ns::Handle{(__bridge void*)points} );
 }
 
--(void) triangulate:(id<MTLBuffer>)pointBuffer:
-					(id<MTLBuffer>)indexBuffer {
+-(void) triangulate:(id<MTLBuffer>)pointBuffer
+				   :(id<MTLBuffer>)indexBuffer {
 	
-	triangulate( ns::Handle{(__bridge void*)pointBuffer},
+	_bufferPreprocessor.triangulate( ns::Handle{(__bridge void*)pointBuffer},
 				 ns::Handle{(__bridge void*)indexBuffer} );
 	
 }

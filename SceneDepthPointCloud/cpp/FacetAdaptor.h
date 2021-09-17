@@ -15,8 +15,7 @@ struct FacetAdaptor {
 	int length;
 	bool isPrev {false};
 	FacetAdaptor(mtlpp::Buffer* indexBuffer) : buffer{indexBuffer} {
-		const auto contents = static_cast<int*>( buffer->GetContents() );
-		length = buffer->GetLength() / sizeof(int);
+		length = buffer->GetLength() / sizeof(unsigned int);
 		std::cout << "FacetAdaptor() position: " << position << std::endl;
 	};
 	

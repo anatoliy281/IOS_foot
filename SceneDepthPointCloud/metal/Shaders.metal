@@ -136,7 +136,7 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
     // get point data
     const auto particleData = particleUniforms[vertexID];
     const auto position = particleData.position;
-    const auto sampledColor = particleData.color;
+//    const auto sampledColor = particleData.color;
     
     // animate and project the point
     float4 projectedPosition = uniforms.viewProjectionMatrix * float4(position, 1.0);
