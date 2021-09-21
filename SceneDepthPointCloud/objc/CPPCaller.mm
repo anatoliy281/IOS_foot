@@ -18,12 +18,14 @@
 	_bufferPreprocessor.newPortion( ns::Handle{(__bridge void*)points} );
 }
 
--(int) triangulate:(id<MTLBuffer>)pointBuffer
-				   :(id<MTLBuffer>)indexBuffer {
+-(int) triangulate:(id<MTLBuffer>)indexBuffer {
 	
-	return _bufferPreprocessor.triangulate( ns::Handle{(__bridge void*)pointBuffer},
-				 ns::Handle{(__bridge void*)indexBuffer} );
+	return _bufferPreprocessor.triangulate( ns::Handle{(__bridge void*)indexBuffer} );
 	
+}
+
+-(int) getVertexBuffer:(id<MTLBuffer>)pointBuffer {
+	return _bufferPreprocessor.writeVerteces( ns::Handle{(__bridge void*)pointBuffer} );
 }
 
 @end

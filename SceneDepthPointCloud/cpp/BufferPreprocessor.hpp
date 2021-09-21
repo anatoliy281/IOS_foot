@@ -34,8 +34,9 @@ public:
 	
 	void newPortion(mtlpp::Buffer points);
 	
-	int triangulate(mtlpp::Buffer pointBuffer,
-					 mtlpp::Buffer indexBuffer);
+	int writeVerteces(mtlpp::Buffer vertecesBuffer);
+	
+	int triangulate(mtlpp::Buffer indexBuffer);
 
 private:
 	int pointBufferSize {0};

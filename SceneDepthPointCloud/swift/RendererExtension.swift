@@ -28,15 +28,15 @@ class RendererExtension {
 		print("buffer end")
 	}
 	
-	func buildBuffers (points:[ParticleUniforms]) -> (vertecesBuffer: PointBuffer,indecesBuffer: IndexBuffer) {
-		let testPointBuf:PointBuffer = .init(device: device, array: points, index: kParticleUniforms.rawValue)
-		let trianglesCount = 8
-		let vertexInTriangle = 3
-		let testIndexBuf:IndexBuffer = .init(device: device, count: trianglesCount*vertexInTriangle, index: 0)
-		caller.triangulate(testPointBuf.buffer, testIndexBuf.buffer)
-
-		return (testPointBuf, testIndexBuf)
-	}
+//	func buildBuffers (points:[ParticleUniforms]) -> (vertecesBuffer: PointBuffer,indecesBuffer: IndexBuffer) {
+//		let testPointBuf:PointBuffer = .init(device: device, array: points, index: kParticleUniforms.rawValue)
+//		let trianglesCount = 8
+//		let vertexInTriangle = 3
+//		let testIndexBuf:IndexBuffer = .init(device: device, count: trianglesCount*vertexInTriangle, index: 0)
+//		caller.triangulate(testPointBuf.buffer, testIndexBuf.buffer)
+//
+//		return (testPointBuf, testIndexBuf)
+//	}
 	
 	func renderBuffers(verteces:PointBuffer,
 					   indeces:IndexBuffer,

@@ -128,8 +128,8 @@ class Renderer {
 		
 		// временный класс, созданный для отладки
 		extentClass = RendererExtension(renderDevice: device, renderCPPCaller: caller)
-		let buffers = extentClass.buildBuffers(points: extentClass.resources.bufferSquare)
-		extentClass.showIndexBuffer(buffer: buffers.indecesBuffer, hideEmpty: false)
+//		let buffers = extentClass.buildBuffers(points: extentClass.resources.bufferSquare)
+//		extentClass.showIndexBuffer(buffer: buffers.indecesBuffer, hideEmpty: false)
     }
     
     func drawRectResized(size: CGSize) {
@@ -219,18 +219,14 @@ class Renderer {
             renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         }
 		caller.preprocessPointChunk(pointChunkBuffer.buffer)
-		let meshLength = caller.triangulate(particlesBuffer.buffer, indecesBuffer.buffer)
+		let meshLength = caller.getVertexBuffer(particlesBuffer.buffer)
+//		let meshLength = caller.triangulate(particlesBuffer.buffer, indecesBuffer.buffer)
 		if meshLength > 0 {
 			renderEncoder.setDepthStencilState(depthStencilState)
 			renderEncoder.setRenderPipelineState(particlePipelineState)
 			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
 			renderEncoder.setVertexBuffer(particlesBuffer)
-			renderEncoder.drawIndexedPrimitives(type: .triangle,
-	//													indexCount: indecesBuffer.count,
-														indexCount: Int(meshLength),
-														indexType: .uint32,
-														indexBuffer: indecesBuffer.buffer,
-														indexBufferOffset: 0)
+			renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: particlesBuffer.count)
 		}
 //		extentClass.showIndexBuffer(buffer: indecesBuffer)
 //		let testBuffers = extentClass.buildBuffers(points: extentClass.resources.bufferSquare)

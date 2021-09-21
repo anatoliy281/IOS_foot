@@ -133,7 +133,7 @@ vertex ParticleVertexOut particleVertex(uint vertexID [[vertex_id]],
     ParticleVertexOut out;
     out.position = projectedPosition;
 //    out.pointSize = pointSize;
-	out.pointSize = 5;
+	out.pointSize = 10;
 //    out.color = float4(sampledColor, visibility);
 	const auto aCh = 0.5;
 	const auto red = 	float4(1, 0, 0, aCh);
