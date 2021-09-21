@@ -78,8 +78,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
         session.pause()
 		let exporter = Exporter.init()
 		exporter.setBufferData(buffer: renderer.particlesBuffer, key: "points", parameter: .position)
-		exporter.setBufferData(buffer: renderer.edgeFloorBuffer, key: "edge", parameter: .position)
-		exporter.setBufferData(buffer: renderer.edgeFloorBuffer, key: "floorColor", parameter: .color)
+//		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "edge", parameter: .position)
+//		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "floorColor", parameter: .color)
 		guard let activity = exporter.sendAllData() else { return }
 		present(activity, animated: true, completion: nil)
     }

@@ -57,8 +57,7 @@ static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float
 ///  Vertex shader that takes in a 2D grid-point and infers its 3D position in world-space, along with RGB and confidence
 vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             constant PointCloudUniforms &uniforms [[buffer(kPointCloudUniforms)]],
-                            device ParticleUniforms *particleUniforms [[buffer(kParticleUniforms)]],
-							device ParticleUniforms *edgeUniforms [[buffer(kCircleUniforms)]],
+							device ParticleUniforms *pointsChunk [[buffer(kCurrentChunk)]],
                             constant float2 *gridPoints [[buffer(kGridPoints)]],
                             texture2d<float, access::sample> capturedImageTextureY [[texture(kTextureY)]],
                             texture2d<float, access::sample> capturedImageTextureCbCr [[texture(kTextureCbCr)]],
@@ -66,7 +65,6 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
                             texture2d<unsigned int, access::sample> confidenceTexture [[texture(kTextureConfidence)]]) {
     
     const auto gridPoint = gridPoints[vertexID];
-    const auto currentPointIndex = (uniforms.pointCloudCurrentIndex + vertexID) % uniforms.maxPoints;
     const auto texCoord = gridPoint / uniforms.cameraResolution;
     // Sample the depth map to get the depth value
     const auto depth = depthTexture.sample(colorSampler, texCoord).r;
@@ -84,24 +82,13 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 	
 	const auto pointRadius = length(position.xz);
 	
-	if ( pointRadius > uniforms.radius) {
-		return;
+	if ( pointRadius < uniforms.radius) {
+		pointsChunk[vertexID].position = position.xyz;
+		pointsChunk[vertexID].color = sampledColor;
+	} else {
+		pointsChunk[vertexID].position = float3();
+		pointsChunk[vertexID].color = float3();
 	}
-	
-	const auto r_eps = 0.003;
-	if ( uniforms.radius - 2*r_eps < pointRadius &&
-		pointRadius < uniforms.radius ) {
-		const auto alpha = angle(position.xy);
-		const auto dAlpha = 2*M_PI_F / float(uniforms.circleCountSectors);
-		const auto angleSec = int( round(alpha / dAlpha) );
-		edgeUniforms[angleSec].position = position.xyz;
-		edgeUniforms[angleSec].color = sampledColor;
-	}
-	
-    
-    // Write the data to the buffer
-    particleUniforms[currentPointIndex].position = position.xyz;
-    particleUniforms[currentPointIndex].color = sampledColor;
 }
 
 vertex RGBVertexOut rgbVertex(uint vertexID [[vertex_id]],

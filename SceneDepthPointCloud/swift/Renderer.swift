@@ -7,13 +7,12 @@ class Renderer {
 	var bufferIsFull = false
 	
     // Maximum number of points we store in the point cloud
-    private let maxPoints = 10_000
-	
-	private let angleCircleCountSectors = 720	//  количество секторов круга
+    private let maxPoints = 100_000
+
 	private let scanRadius = 0.2
 	
     // Number of sample points on the grid
-    private let numGridPoints = 2_000
+    private let pointsChunkLength = 20_000
     // We only use landscape orientation in this app
     private let orientation = UIInterfaceOrientation.landscapeRight
     // Camera's threshold values for detecting when the camera moves so that we can accumulate the points
@@ -71,7 +70,6 @@ class Renderer {
         uniforms.cameraResolution = cameraResolution
 		// разбиение границы области сканирования
 		uniforms.radius = Float(scanRadius)
-		uniforms.circleCountSectors = Int32(angleCircleCountSectors)
         return uniforms
     }()
 	
@@ -79,27 +77,19 @@ class Renderer {
 	
     // Particles buffer
     var particlesBuffer: MetalBuffer<ParticleUniforms>
-	var edgeFloorBuffer: MetalBuffer<ParticleUniforms>
+	var pointChunkBuffer: MetalBuffer<ParticleUniforms>
 	var indecesBuffer: MetalBuffer<UInt32>
 	
 	let caller:CPPCaller = .init()
 	
 	let extentClass:RendererExtension
-	
-    private var currentPointIndex = 0
-    private var currentPointCount = 0
     
     // Camera data
     private var sampleFrame: ARFrame { session.currentFrame! }
     private lazy var cameraResolution = Float2(Float(sampleFrame.camera.imageResolution.width), Float(sampleFrame.camera.imageResolution.height))
     private lazy var viewToCamera = sampleFrame.displayTransform(for: orientation, viewportSize: viewportSize).inverted()
     private lazy var lastCameraTransform = sampleFrame.camera.transform
-    
-    func getPointBuffer() -> MetalBuffer<ParticleUniforms> {
-//        return pointCloudUniformsBuffers[currentPointIndex]
-        return particlesBuffer
-    }
-    
+       
     var rgbRadius: Float = 0 {
         didSet {
             // apply the change for the shader
@@ -122,7 +112,7 @@ class Renderer {
             pointCloudUniformsBuffers.append(.init(device: device, count: 1, index: kPointCloudUniforms.rawValue))
         }
         particlesBuffer = .init(device: device, count: maxPoints, index: kParticleUniforms.rawValue)
-		edgeFloorBuffer = .init(device: device, count: angleCircleCountSectors, index: kCircleUniforms.rawValue)
+		pointChunkBuffer = .init(device: device, count: pointsChunkLength, index: kCurrentChunk.rawValue)
 		indecesBuffer = .init(device: device, count: 7*maxPoints, index: 0)
         // rbg does not need to read/write depth
         let relaxedStateDescriptor = MTLDepthStencilDescriptor()
@@ -228,8 +218,20 @@ class Renderer {
             renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
             renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         }
-		
-		caller.triangulate(particlesBuffer.buffer, indecesBuffer.buffer)
+		caller.preprocessPointChunk(pointChunkBuffer.buffer)
+		let meshLength = caller.triangulate(particlesBuffer.buffer, indecesBuffer.buffer)
+		if meshLength > 0 {
+			renderEncoder.setDepthStencilState(depthStencilState)
+			renderEncoder.setRenderPipelineState(particlePipelineState)
+			renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
+			renderEncoder.setVertexBuffer(particlesBuffer)
+			renderEncoder.drawIndexedPrimitives(type: .triangle,
+	//													indexCount: indecesBuffer.count,
+														indexCount: Int(meshLength),
+														indexType: .uint32,
+														indexBuffer: indecesBuffer.buffer,
+														indexBufferOffset: 0)
+		}
 //		extentClass.showIndexBuffer(buffer: indecesBuffer)
 //		let testBuffers = extentClass.buildBuffers(points: extentClass.resources.bufferSquare)
 //		extentClass.renderBuffers(verteces: testBuffers.vertecesBuffer,
@@ -242,17 +244,7 @@ class Renderer {
 		
 		
         // render particles
-        renderEncoder.setDepthStencilState(depthStencilState)
-        renderEncoder.setRenderPipelineState(particlePipelineState)
-        renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-		renderEncoder.setVertexBuffer(particlesBuffer)
-        
-//        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: currentPointCount)
-		renderEncoder.drawIndexedPrimitives(type: .triangle,
-													indexCount: indecesBuffer.count,
-													indexType: .uint32,
-													indexBuffer: indecesBuffer.buffer,
-													indexBufferOffset: 0)
+       
 		
         renderEncoder.endEncoding()
             
@@ -275,7 +267,6 @@ class Renderer {
     }
     
     private func accumulatePoints(frame: ARFrame, commandBuffer: MTLCommandBuffer, renderEncoder: MTLRenderCommandEncoder) {
-        pointCloudUniforms.pointCloudCurrentIndex = Int32(currentPointIndex)
         
         var retainingTextures = [capturedImageTextureY, capturedImageTextureCbCr, depthTexture, confidenceTexture]
         commandBuffer.addCompletedHandler { buffer in
@@ -285,11 +276,7 @@ class Renderer {
         renderEncoder.setDepthStencilState(relaxedStencilState)
         renderEncoder.setRenderPipelineState(unprojectPipelineState)
         renderEncoder.setVertexBuffer(pointCloudUniformsBuffers[currentBufferIndex])
-        renderEncoder.setVertexBuffer(particlesBuffer)
-		renderEncoder.setVertexBuffer(edgeFloorBuffer)
-        
-        
-        
+		renderEncoder.setVertexBuffer(pointChunkBuffer)
         renderEncoder.setVertexBuffer(gridPointsBuffer)
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureY!), index: Int(kTextureY.rawValue))
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(capturedImageTextureCbCr!), index: Int(kTextureCbCr.rawValue))
@@ -297,80 +284,9 @@ class Renderer {
         renderEncoder.setVertexTexture(CVMetalTextureGetTexture(confidenceTexture!), index: Int(kTextureConfidence.rawValue))
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: gridPointsBuffer.count)
 		
-        currentPointIndex = (currentPointIndex + gridPointsBuffer.count) % maxPoints
-        currentPointCount = min(currentPointCount + gridPointsBuffer.count, maxPoints)
+//        currentPointIndex = (currentPointIndex + gridPointsBuffer.count) % maxPoints //TODO перенести на этап триангуляции в коде с++
         lastCameraTransform = frame.camera.transform
-		
-//		let arrays = getArrays()
-//		let devZ = calcDeviations(arrData: arrays.z)
-//		let devN = calcDeviations(arrData: arrays.n)
-//		print("z:\(devZ.mean) dz:\(devZ.disp) n:\(devN.mean) dn:\(devN.disp)")
     }
-	
-	private func getArrays() -> (z:[Float], n:[Float3]) {
-		let bufLen = edgeFloorBuffer.count
-		let dN = bufLen / 3
-		var z = [Float]()
-		var n = [Float3]()
-		for i in 0..<bufLen {
-			let r0 = edgeFloorBuffer[i].position
-			let r1 = edgeFloorBuffer[(i+dN)%bufLen].position
-			let r2 = edgeFloorBuffer[(i+2*dN)%bufLen].position
-			
-			if r0 != .zero {
-				z.append(r0.y)
-			}
-			if r0 != .zero && r1 != .zero && r2 != .zero {
-				n.append( normalize(cross(r1-r0, r2-r0)) )
-			}
-		}
-		return (z:z, n:n)
-	}
-	
-//	private func calcDeviations<T:Numeric>(arrData:[T]) -> (mean:T, disp:T) {
-//		let arrCnt = Float(arrData.count)
-//
-//		let mean = arrData.reduce(T(), {x, y in
-//					x + y
-//		}) / arrCnt
-//
-//		let dvArr = arrData.map{ ($0 - mean)*($0 - mean) }
-//		let disp = dvArr.reduce(T(), {x, y in
-//			x + y
-//		}) / arrCnt
-//
-//		return (mean:mean, disp:disp)
-//	}
-	
-	private func calcDeviations(arrData:[Float]) -> (mean:Float, disp:Float) {
-		let arrCnt = Float(arrData.count)
-
-		let mean = arrData.reduce(Float(), {x, y in
-					x + y
-		}) / arrCnt
-
-		let dvArr = arrData.map{ ($0 - mean)*($0 - mean) }
-		let disp = dvArr.reduce(Float(), {x, y in
-			x + y
-		}) / arrCnt
-
-		return (mean:mean, disp:sqrt(disp))
-	}
-
-	private func calcDeviations(arrData:[Float3]) -> (mean:Float3, disp:Float3) {
-		let arrCnt = Float(arrData.count)
-
-		let mean = arrData.reduce(Float3(), {x, y in
-					x + y
-		}) / arrCnt
-
-		let dvArr = arrData.map{ ($0 - mean)*($0 - mean) }
-		let disp = dvArr.reduce(Float3(), {x, y in
-			x + y
-		}) / arrCnt
-
-		return (mean:mean, disp:disp)
-	}
 	
 }
 
@@ -430,7 +346,7 @@ private extension Renderer {
     /// Makes sample points on camera image, also precompute the anchor point for animation
     func makeGridPoints() -> [Float2] {
         let gridArea = cameraResolution.x * cameraResolution.y
-        let spacing = sqrt(gridArea / Float(numGridPoints))
+        let spacing = sqrt(gridArea / Float(pointsChunkLength))
         let deltaX = Int(round(cameraResolution.x / spacing))
         let deltaY = Int(round(cameraResolution.y / spacing))
         

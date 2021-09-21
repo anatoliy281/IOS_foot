@@ -20,7 +20,7 @@ enum TextureIndices {
 enum BufferIndices {
     kPointCloudUniforms = 0,
     kParticleUniforms = 1,
-	kCircleUniforms = 2,
+	kCurrentChunk = 2,
     kGridPoints = 3,
 };
 
@@ -37,9 +37,7 @@ struct PointCloudUniforms {
     simd_float2 cameraResolution;
     
 	float radius;
-	int circleCountSectors;
     int maxPoints;
-    int pointCloudCurrentIndex;
 };
 
 struct ParticleUniforms {

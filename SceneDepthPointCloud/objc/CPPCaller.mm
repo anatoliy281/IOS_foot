@@ -18,10 +18,10 @@
 	_bufferPreprocessor.newPortion( ns::Handle{(__bridge void*)points} );
 }
 
--(void) triangulate:(id<MTLBuffer>)pointBuffer
+-(int) triangulate:(id<MTLBuffer>)pointBuffer
 				   :(id<MTLBuffer>)indexBuffer {
 	
-	_bufferPreprocessor.triangulate( ns::Handle{(__bridge void*)pointBuffer},
+	return _bufferPreprocessor.triangulate( ns::Handle{(__bridge void*)pointBuffer},
 				 ns::Handle{(__bridge void*)indexBuffer} );
 	
 }
