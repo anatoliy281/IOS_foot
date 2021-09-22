@@ -90,15 +90,8 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
 	if (confidence < 2)
 		return;
 	
-	const auto pointRadius = length(position.xz);
-	
-	if ( pointRadius < uniforms.radius) {
-		pointsChunk[vertexID].position = position.xyz;
-		pointsChunk[vertexID].color = sampledColor;
-	} else {
-		pointsChunk[vertexID].position = float3();
-		pointsChunk[vertexID].color = float3();
-	}
+	pointsChunk[vertexID].position = position.xyz;
+	pointsChunk[vertexID].color = sampledColor;
 }
 
 vertex RGBVertexOut rgbVertex(uint vertexID [[vertex_id]],

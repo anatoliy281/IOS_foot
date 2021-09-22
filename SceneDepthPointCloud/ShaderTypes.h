@@ -35,8 +35,6 @@ struct PointCloudUniforms {
     matrix_float4x4 localToWorld;
     matrix_float3x3 cameraIntrinsicsInversed;
     simd_float2 cameraResolution;
-    
-	float radius;
     int maxPoints;
 };
 

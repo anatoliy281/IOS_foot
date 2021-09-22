@@ -8,8 +8,6 @@ class Renderer {
 	
     // Maximum number of points we store in the point cloud
     private let maxPoints = 100_000
-
-	private let scanRadius = 0.2
 	
     // Number of sample points on the grid
     private let pointsChunkLength = 20_000
@@ -69,7 +67,6 @@ class Renderer {
         uniforms.maxPoints = Int32(maxPoints)
         uniforms.cameraResolution = cameraResolution
 		// разбиение границы области сканирования
-		uniforms.radius = Float(scanRadius)
         return uniforms
     }()
 	
