@@ -2,27 +2,52 @@ import UIKit
 
 class Exporter {
 	
-	enum Parameter {
-		case position, color
+	enum Parameter: Int {
+		case position, color, surfaceMesh
 	}
 	
-	var savedData:[String:String] = [:]
+	typealias FileDescr = (fName:String, data:String)
 	
-	public func setBufferData(buffer: MetalBuffer<ParticleUniforms>, key:String, parameter:Parameter) {
-		var str = ""
-		for i in 0..<buffer.count {
-			var vec: simd_float3
-			if length_squared(buffer[i].position) == 0 {
-				continue
+	var savedData:[Int: FileDescr] = [:]
+	
+	public func setBufferData(buffer: MetalBuffer<ParticleUniforms>,
+							  indeces: MetalBuffer<UInt32>, parameter:Parameter) {
+		var fileName = ""
+		var fileContent = ""
+		if (parameter == .surfaceMesh) {
+			fileName = "mesh.off"
+			var vertStr = ""
+			var vertCount = 0
+			for i in 0..<buffer.count {
+				let vec = buffer[i].position
+				if length_squared(vec) == 0 { continue }
+				vertCount += 1
+				vertStr.append("\(vec[0]) \(vec[1]) \(vec[2])\n")
 			}
-			if (parameter == .position) {
-				vec = buffer[i].position
-			} else {
-				vec = buffer[i].color
+			// индексы сетки
+			var indecesStr = ""
+			var indecesCount = 0
+			for i in stride(from: 0, to: indeces.count-3, by: 3) {
+				if indeces[i] ==  0 && indeces[i+1] == 0 && indeces[i+2] == 0 { continue }
+				indecesCount += 1
+ 				indecesStr.append("3 \(indeces[i]) \(indeces[i+1]) \(indeces[i+2])\n")
 			}
-			str.append("v \(vec[0]) \(vec[1]) \(vec[2])\n")
+			let capStr = "OFF\n\(vertCount) \(indecesCount) 0\n"
+			fileContent = capStr + vertStr + indecesStr
+		} else {
+			fileName = (parameter == .position) ? "cloud.obj" : "color.obj"
+			for i in 0..<buffer.count {
+				var vec: simd_float3
+				if length_squared(buffer[i].position) == 0 { continue }
+				if (parameter == .position) {
+					vec = buffer[i].position
+				} else {
+					vec = buffer[i].color
+				}
+				fileContent.append("v \(vec[0]) \(vec[1]) \(vec[2])\n")
+			}
 		}
-		savedData[key] = str
+		savedData[parameter.rawValue] = FileDescr(fileName, fileContent)
 	}
 	
 	public func sendAllData() -> UIActivityViewController? {
@@ -32,12 +57,11 @@ class Exporter {
 		}
 		let dir = dirs.first!
 		var urls:[URL] = []
-		for (key, value) in savedData {
-			let fileURL = dir.appendingPathComponent("\(key).obj")
+		for (_, value) in savedData {
+			let fileURL = dir.appendingPathComponent(value.fName)
 			urls.append(fileURL)
-			//writing
 			do {
-				try value.write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
+				try value.data.write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
 			}
 			catch {/* error handling here */}
 		}

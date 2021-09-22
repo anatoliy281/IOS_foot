@@ -49,6 +49,12 @@ constant float2 viewTexCoords[] = { float2(0, 0), float2(0, 1), float2(1, 0), fl
 /// Retrieves the world position of a specified camera point with depth
 static simd_float4 worldPoint(simd_float2 cameraPoint, float depth, matrix_float3x3 cameraIntrinsicsInversed, matrix_float4x4 localToWorld) {
     const auto localPoint = cameraIntrinsicsInversed * simd_float3(cameraPoint, 1) * depth;
+	
+	const auto tgAlpha = tan(M_PI_F/120);
+	if ( length_squared(localPoint.xy) / localPoint.z*localPoint.z > tgAlpha*tgAlpha ) {
+		return simd_float4();
+	}
+	
     const auto worldPoint = localToWorld * simd_float4(localPoint, 1);
     
     return worldPoint / worldPoint.w;
@@ -71,6 +77,10 @@ vertex void unprojectVertex(uint vertexID [[vertex_id]],
     // With a 2D point plus depth, we can now get its 3D position
     const auto position = worldPoint(gridPoint, depth, uniforms.cameraIntrinsicsInversed, uniforms.localToWorld);
     
+	if (length_squared(position) == 0) {
+		return;
+	}
+	
     // Sample Y and CbCr textures to get the YCbCr color at the given texture coordinate
     const auto ycbcr = float4(capturedImageTextureY.sample(colorSampler, texCoord).r, capturedImageTextureCbCr.sample(colorSampler, texCoord.xy).rg, 1);
     const auto sampledColor = (yCbCrToRGB * ycbcr).rgb;

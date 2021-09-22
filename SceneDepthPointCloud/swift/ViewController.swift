@@ -76,8 +76,18 @@ final class ViewController: UIViewController, ARSessionDelegate {
     @objc
     func buttonAction(_ sender: UIButton!) {
         session.pause()
+		
+		print("triangulation start...")
+		renderer.caller.triangulate(renderer.indecesBuffer.buffer)
+		print ("... done!")
+		
 		let exporter = Exporter.init()
-		exporter.setBufferData(buffer: renderer.particlesBuffer, key: "points", parameter: .position)
+		exporter.setBufferData(buffer: renderer.particlesBuffer,
+							   indeces: renderer.indecesBuffer,
+							   parameter: .position)
+		exporter.setBufferData(buffer: renderer.particlesBuffer,
+							   indeces: renderer.indecesBuffer,
+							   parameter: .surfaceMesh)
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "edge", parameter: .position)
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "floorColor", parameter: .color)
 		guard let activity = exporter.sendAllData() else { return }
