@@ -49,37 +49,25 @@ void BufferPreprocessor::newPortion(mtlpp::Buffer buffer) {
 	const auto poinsCount = pointsVec.size();
 	if (poinsCount <= 24)
 		return;
-	
 	profiler.measure(string("form point set(")
 					 + to_string(poinsCount) + ")");
 	
-	auto itRmv = CGAL::remove_outliers<CGAL::Sequential_tag>( pointsVec, 6 );
-////	cout << newPoints.number_of_removed_points() << " point(s) are outliers." << endl;
+	auto itRmv = CGAL::remove_outliers<CGAL::Sequential_tag>( pointsVec, 24 );
 	pointsVec.erase(itRmv, pointsVec.end());
 	profiler.measure("remove outliers");
-	
-//	double spacing = CGAL::compute_average_spacing<CGAL::Sequential_tag>(pointsVec, 6);
 
 	simplifyPointCloud(pointsVec);
-	
-//	double spacing2 = CGAL::compute_average_spacing<CGAL::Sequential_tag>(pointsVec, 6);
-//	cout << "!!! spacing before: " << spacing << " and after:" << spacing2 << endl;
-	
 	profiler.measure(string("simplify(") + to_string(pointsVec.size()) + ")");
 
-//	CGAL::jet_smooth_point_set<CGAL::Sequential_tag> (pointsVec, 12);
-//	cout << endl;
-//	cout << "=== 1 | " << allPoints.size() << endl;
+
 	std::copy( pointsVec.cbegin(), pointsVec.cend(), back_inserter(allPoints) );
-//	cout << "=== 2 | " << allPoints.size() << endl;
-	
 	profiler.measure("join");
 	
 	simplifyPointCloud(allPoints);
-	cout << "=== 3 | " << allPoints.size() << endl;
-//	cout << " -> after second simplification" << allPoints.size();
-//	cout << " <d>:" << CGAL::compute_average_spacing<CGAL::Sequential_tag>(pointsVec, 6) << endl;
 	profiler.measure("simplify joined");
+	
+	CGAL::jet_smooth_point_set<CGAL::Sequential_tag> (allPoints, 24);
+	profiler.measure("smooth");
 	
 	cout << profiler << endl;
 }

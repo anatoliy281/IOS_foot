@@ -466,6 +466,7 @@
 				HEADER_SEARCH_PATHS = (
 					"${ROOTDIR}",
 					/opt/homebrew/include,
+					/opt/homebrew/include/eigen3,
 				);
 				INFOPLIST_FILE = SceneDepthPointCloud/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -502,6 +503,7 @@
 				HEADER_SEARCH_PATHS = (
 					"${ROOTDIR}",
 					/opt/homebrew/include,
+					/opt/homebrew/include/eigen3,
 				);
 				INFOPLIST_FILE = SceneDepthPointCloud/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
