@@ -17,7 +17,6 @@ using PointSet = std::vector<Point3>;
 class BufferPreprocessor {
 
 private:
-	
 	template <typename T>
 	std::pair<T*,int> returnPointerAndCount(mtlpp::Buffer buffer) {
 		const auto contents = static_cast<T*>( buffer.GetContents() );
@@ -42,6 +41,7 @@ private:
 	int pointBufferSize {0};
 	int indexBufferSize {0};
 	int capacity {3000};
+	bool isReadyForAcceptionNewChunk {true};
 	PointSet allPoints;
 };
 

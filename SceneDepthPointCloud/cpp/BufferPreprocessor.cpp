@@ -1,5 +1,6 @@
 #include "BufferPreprocessor.hpp"
 #include <iostream>
+#include <algorithm>
 #include "ShaderTypes.h"
 
 #include <CGAL/remove_outliers.h>
@@ -9,11 +10,14 @@
 #include <CGAL/compute_average_spacing.h>
 //#include <CGAL/jet_estimate_normals.h>
 
+#include "gsl.h"
+
 #include "func.hpp"
 
 using CGAL::grid_simplify_point_set;
 using CGAL::remove_outliers;
 using CGAL::advancing_front_surface_reconstruction;
+using CGAL::Sequential_tag;
 
 using std::vector;
 using std::cout;
@@ -32,6 +36,10 @@ BufferPreprocessor::~BufferPreprocessor() {
 }
 
 void BufferPreprocessor::newPortion(mtlpp::Buffer buffer) {
+	
+	if (!isReadyForAcceptionNewChunk)
+		return;
+	
 	Profiler profiler {"New portion of points"};
 	int count;
 	ParticleUniforms* contents;
@@ -52,24 +60,18 @@ void BufferPreprocessor::newPortion(mtlpp::Buffer buffer) {
 	profiler.measure(string("form point set(")
 					 + to_string(poinsCount) + ")");
 	
-	auto itRmv = CGAL::remove_outliers<CGAL::Sequential_tag>( pointsVec, 24 );
+	auto itRmv = remove_outliers<Sequential_tag>(pointsVec, 24);
 	pointsVec.erase(itRmv, pointsVec.end());
 	profiler.measure("remove outliers");
 
-	simplifyPointCloud(pointsVec);
-	profiler.measure(string("simplify(") + to_string(pointsVec.size()) + ")");
-
-
-	std::copy( pointsVec.cbegin(), pointsVec.cend(), back_inserter(allPoints) );
+	copy( pointsVec.cbegin(), pointsVec.cend(), back_inserter(allPoints) );
 	profiler.measure("join");
 	
 	simplifyPointCloud(allPoints);
 	profiler.measure("simplify joined");
-	
-	CGAL::jet_smooth_point_set<CGAL::Sequential_tag> (allPoints, 24);
-	profiler.measure("smooth");
-	
+
 	cout << profiler << endl;
+	cout << "size: " << allPoints.size() << endl;
 }
 
 void BufferPreprocessor::simplifyPointCloud(PointSet& points) {
@@ -79,17 +81,25 @@ void BufferPreprocessor::simplifyPointCloud(PointSet& points) {
 
 int BufferPreprocessor::triangulate(mtlpp::Buffer indexBuffer) {
 	Profiler profiler {"Triangulation"};
-	using Facet = array<size_t, 3>; // Triple of indices
+	isReadyForAcceptionNewChunk = false;
+	
+	jet_smooth_point_set<Sequential_tag> (allPoints, 192);
+	profiler.measure("smooth");
+	
+	const auto nBefore = allPoints.size();
+	simplifyPointCloud(allPoints);
+	const auto nAfter = allPoints.size();
+	profiler.measure(string("simplify(") + to_string(nBefore) + "/" + to_string(nAfter) + ")");
+	
+	using Facet = array<size_t, 3>;
 	vector<Facet> facets;
-	
-	
 	advancing_front_surface_reconstruction(allPoints.cbegin(),
 										   allPoints.cend(),
 										   back_inserter(facets));
 	profiler.measure("reconstruction");
 	
-	const auto facetsCount = static_cast<int>(facets.size());
-	for (int i=0; i < facetsCount; ++i) {
+	const auto facetsCount = static_cast<size_t>(facets.size());
+	for (size_t i=0; i < facetsCount; ++i) {
 		auto contents = returnPointerAndCount<unsigned int>(indexBuffer).first;
 		const auto& facet = facets[i];
 		auto tripleIndex = 3*i;
@@ -101,7 +111,7 @@ int BufferPreprocessor::triangulate(mtlpp::Buffer indexBuffer) {
 
 	cout << profiler << endl;
 	
-	return 3*facetsCount;
+	return static_cast<int>(3*facetsCount);
 }
 
 int BufferPreprocessor::writeVerteces(mtlpp::Buffer vertecesBuffer) {

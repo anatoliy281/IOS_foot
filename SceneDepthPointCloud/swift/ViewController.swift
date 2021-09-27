@@ -51,7 +51,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
         
         // RGB Radius control
         rgbRadiusSlider.minimumValue = 0
-        rgbRadiusSlider.maximumValue = 1.5
+        rgbRadiusSlider.maximumValue = 2*renderer.rgbRadius
         rgbRadiusSlider.isContinuous = true
         rgbRadiusSlider.value = renderer.rgbRadius
         rgbRadiusSlider.addTarget(self, action: #selector(viewValueChanged), for: .valueChanged)
@@ -85,6 +85,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		exporter.setBufferData(buffer: renderer.particlesBuffer,
 							   indeces: renderer.indecesBuffer,
 							   parameter: .position)
+		
+		renderer.caller.getVertexBuffer(renderer.particlesBuffer.buffer)	// обновили узловую сетку перед экспортом поверхности
 		exporter.setBufferData(buffer: renderer.particlesBuffer,
 							   indeces: renderer.indecesBuffer,
 							   parameter: .surfaceMesh)

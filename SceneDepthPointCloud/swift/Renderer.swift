@@ -87,7 +87,7 @@ class Renderer {
     private lazy var viewToCamera = sampleFrame.displayTransform(for: orientation, viewportSize: viewportSize).inverted()
     private lazy var lastCameraTransform = sampleFrame.camera.transform
        
-    var rgbRadius: Float = 0 {
+	var rgbRadius: Float = 0.75 {
         didSet {
             // apply the change for the shader
             rgbUniforms.radius = rgbRadius
