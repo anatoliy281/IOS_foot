@@ -32,6 +32,29 @@ private:
 	void simplifyPointCloud(PointVec& points);
 	int writePointsCoordsToBuffer(mtlpp::Buffer vertecesBuffer, const PointVec& points) const;
 	
+	// вычисляет координату comp сентра грани faset
+	// comp: 0 == x, 1 == y, 2 == z
+	float getFaceCenter(const Facet& faset, int comp=1) const;
+	
+	// interval задаёт интервал такой, что interval[0] < interval[2] && interval[1] = 0.5*(interval[0]+interval[2])
+	// v01 и v12 хранит номера граней такие, что высота центра каждой грани лежат в соответствующих интервалах
+	// [interval[0], interval[1]] и [interval[1], interval[2]]
+	// v0 задаёт начальные индексы для их дальнейшего распределения по v01 и v12 (на начальном этапе перебираются все грани сетки => v0 пуст)
+	void fillBigramm(const std::array<float,3>& interval,
+					 std::vector<std::size_t>& v01,
+					 std::vector<std::size_t>& v12) const;
+	
+	void fillBigramm(const std::array<float,3>& interval,
+					 std::vector<std::size_t>& v01,
+					 std::vector<std::size_t>& v12,
+					 const std::vector<std::size_t>& v0) const;
+	
+	void fillForIndex(std::vector<std::size_t>& v01,
+					  std::vector<std::size_t>& v12,
+					  std::size_t index,
+					  float intervalCenter) const;
+	
+	
 public:
 	BufferPreprocessor();
 	~BufferPreprocessor();

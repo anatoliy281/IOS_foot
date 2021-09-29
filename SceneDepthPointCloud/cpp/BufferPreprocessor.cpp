@@ -114,11 +114,81 @@ void BufferPreprocessor::triangulate() {
 void BufferPreprocessor::separate() {
 	Profiler profiler {"Separation"};
 	
-	faces[Foot].clear();
-	faces[Floor].clear();
 	
+	array<float,3> yInterval {-2.f, -1.f, 0.f};		// начало поиска взято с запасом (от 0 до 2 метров)
+	vector<size_t> v01, v12, v0;
+	fillBigramm(yInterval, v01, v12);
+	while (yInterval[2] - yInterval[0] > 0.001) {
+		const auto n01 {v01.size()};
+		const auto n12 {v12.size()};
+		if (n01 < n12) {
+			v0 = v12;
+			yInterval[0] = yInterval[1];
+		} else {
+			v0 = v01;
+			yInterval[2] = yInterval[1];
+		}
+		yInterval[1] = 0.5f*(yInterval[0] + yInterval[2]);
+		v01 = v12 = {};
+		fillBigramm(yInterval, v01, v12, v0);
+	}
+	profiler.measure("floor height level search");
+	
+	auto& footFaces {faces[Foot]};
+	auto& floorFaces {faces[Floor]};
+	const auto& allFaces {faces[Undefined]};
+	floorFaces.clear();
+	footFaces.clear();
+	for (const auto& fct: allFaces) {
+		const auto yC = getFaceCenter(fct);
+		if ( yInterval[0] < yC && yC < yInterval[2] ) {
+			floorFaces.push_back(fct);
+		} else if (yC > yInterval[2]) {
+			footFaces.push_back(fct);
+		}
+	}
+	profiler.measure("facets types save");
 	
 	cout << profiler << endl;
+}
+
+void BufferPreprocessor::fillBigramm(const array<float,3>& interval,
+									 vector<size_t>& v01,
+									 vector<size_t>& v12) const {
+
+	for (size_t i=0; i < faces.at(Undefined).size(); ++i) {
+		fillForIndex(v01, v12, i, interval[1]);
+	}
+}
+
+void BufferPreprocessor::fillBigramm(const array<float,3>& interval,
+									 vector<size_t>& v01,
+									 vector<size_t>& v12,
+									 const vector<size_t>& v0) const {
+	for (const auto& i: v0) {
+		fillForIndex(v01, v12, i, interval[1]);
+	}
+}
+
+void BufferPreprocessor::fillForIndex(std::vector<std::size_t>& v01,
+									  std::vector<std::size_t>& v12,
+									  std::size_t index,
+									  float intervalCenter) const {
+	const auto facets = faces.at(Undefined);
+	const auto yC = getFaceCenter(facets[index]);
+	if (yC < intervalCenter) {
+		v01.push_back(index);
+	} else {
+		v12.push_back(index);
+	}
+}
+
+float BufferPreprocessor::getFaceCenter(const Facet& facet, int comp) const {
+	const auto p0 = smoothedPoints[facet[0]];
+	const auto p1 = smoothedPoints[facet[1]];
+	const auto p2 = smoothedPoints[facet[2]];
+	
+	return (p0[comp] + p1[comp] + p2[comp]) / 3;
 }
 
 int BufferPreprocessor::writeCoords(mtlpp::Buffer vertecesBuffer, bool isSmoothed) const {
