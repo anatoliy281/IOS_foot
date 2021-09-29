@@ -77,19 +77,22 @@ final class ViewController: UIViewController, ARSessionDelegate {
     func buttonAction(_ sender: UIButton!) {
         session.pause()
 		
-		print("triangulation start...")
-		renderer.caller.triangulate(renderer.indecesBuffer.buffer)
-		print ("... done!")
+		
+		renderer.caller.triangulate()
+		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Undefined.rawValue]!.buffer)
+		
+		renderer.caller.separate()
+		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Foot.rawValue]!.buffer)
+		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Floor.rawValue]!.buffer)
 		
 		let exporter = Exporter.init()
 		exporter.setBufferData(buffer: renderer.particlesBuffer,
-							   indeces: renderer.indecesBuffer,
-							   parameter: .position)
+							   parameter: .position, indeces: nil)
 		
-		renderer.caller.getVertexBuffer(renderer.particlesBuffer.buffer)	// обновили узловую сетку перед экспортом поверхности
-		exporter.setBufferData(buffer: renderer.particlesBuffer,
-							   indeces: renderer.indecesBuffer,
-							   parameter: .surfaceMesh)
+		renderer.caller.getVertexBuffer(renderer.vertecesBuffer.buffer)	// обновили узловую сетку перед экспортом поверхности
+		exporter.setBufferData(buffer: renderer.vertecesBuffer,
+							   parameter: .surfaceMesh,
+							   indeces: renderer.indecesBuffer)
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "edge", parameter: .position)
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "floorColor", parameter: .color)
 		guard let activity = exporter.sendAllData() else { return }

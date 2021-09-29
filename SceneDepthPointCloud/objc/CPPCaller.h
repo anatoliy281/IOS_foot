@@ -9,9 +9,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(void) preprocessPointChunk:(id<MTLBuffer>)points;
 
--(int) triangulate:(id<MTLBuffer>)indexBuffer;
+-(void) triangulate;
+
+-(void) separate;
+
+-(int) getIndexBuffer:(id<MTLBuffer>)indexBuffer;
 
 -(int) getVertexBuffer:(id<MTLBuffer>)pointBuffer;
+
+-(int) getPointCloudBuffer:(id<MTLBuffer>)pointBuffer;
 
 @end
 

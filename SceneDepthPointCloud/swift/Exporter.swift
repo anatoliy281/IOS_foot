@@ -3,37 +3,55 @@ import UIKit
 class Exporter {
 	
 	enum Parameter: Int {
-		case position, color, surfaceMesh
+		case position,
+			 color,
+			 surfaceMesh
 	}
 	
 	typealias FileDescr = (fName:String, data:String)
 	
-	var savedData:[Int: FileDescr] = [:]
+	var savedData:[FileDescr] = []
+	
+	private func writeSubmesh(vertexBuffer: MetalBuffer<ParticleUniforms>,
+							  sumMeshIndeces: MetalBuffer<UInt32>) -> String {
+		var vertStr = ""
+		var vertCount = 0
+		for i in 0..<vertexBuffer.count {
+			let vec = vertexBuffer[i].position
+			if length_squared(vec) == 0 { continue }
+			vertCount += 1
+			vertStr.append("\(vec[0]) \(vec[1]) \(vec[2])\n")
+		}
+		// индексы сетки
+		var indecesStr = ""
+		var indecesCount = 0
+		for i in stride(from: 0, to: sumMeshIndeces.count-3, by: 3) {
+			if sumMeshIndeces[i] ==  0 && sumMeshIndeces[i+1] == 0 && sumMeshIndeces[i+2] == 0 { continue }
+			indecesCount += 1
+			indecesStr.append("3 \(sumMeshIndeces[i]) \(sumMeshIndeces[i+1]) \(sumMeshIndeces[i+2])\n")
+		}
+		let capStr = "OFF\n\(vertCount) \(indecesCount) 0\n"
+		return capStr + vertStr + indecesStr
+	}
 	
 	public func setBufferData(buffer: MetalBuffer<ParticleUniforms>,
-							  indeces: MetalBuffer<UInt32>, parameter:Parameter) {
+							  parameter:Parameter,
+							  indeces: [UInt32:MetalBuffer<UInt32>]?) {
 		var fileName = ""
 		var fileContent = ""
 		if (parameter == .surfaceMesh) {
-			fileName = "mesh.off"
-			var vertStr = ""
-			var vertCount = 0
-			for i in 0..<buffer.count {
-				let vec = buffer[i].position
-				if length_squared(vec) == 0 { continue }
-				vertCount += 1
-				vertStr.append("\(vec[0]) \(vec[1]) \(vec[2])\n")
-			}
-			// индексы сетки
-			var indecesStr = ""
-			var indecesCount = 0
-			for i in stride(from: 0, to: indeces.count-3, by: 3) {
-				if indeces[i] ==  0 && indeces[i+1] == 0 && indeces[i+2] == 0 { continue }
-				indecesCount += 1
- 				indecesStr.append("3 \(indeces[i]) \(indeces[i+1]) \(indeces[i+2])\n")
-			}
-			let capStr = "OFF\n\(vertCount) \(indecesCount) 0\n"
-			fileContent = capStr + vertStr + indecesStr
+			fileName = "mesh.off";
+			fileContent = writeSubmesh(vertexBuffer: buffer,
+									   sumMeshIndeces:indeces![Undefined.rawValue]!)
+			savedData.append( FileDescr(fileName, fileContent) )
+			fileName = "floor.off";
+			fileContent = writeSubmesh(vertexBuffer: buffer,
+									   sumMeshIndeces:indeces![Floor.rawValue]!)
+			savedData.append( FileDescr(fileName, fileContent) )
+			fileName = "foot.off";
+			fileContent = writeSubmesh(vertexBuffer: buffer,
+									   sumMeshIndeces:indeces![Foot.rawValue]!)
+			savedData.append( FileDescr(fileName, fileContent) )
 		} else {
 			fileName = (parameter == .position) ? "cloud.obj" : "color.obj"
 			for i in 0..<buffer.count {
@@ -46,8 +64,9 @@ class Exporter {
 				}
 				fileContent.append("v \(vec[0]) \(vec[1]) \(vec[2])\n")
 			}
+			savedData.append( FileDescr(fileName, fileContent) )
 		}
-		savedData[parameter.rawValue] = FileDescr(fileName, fileContent)
+		
 	}
 	
 	public func sendAllData() -> UIActivityViewController? {
@@ -57,7 +76,7 @@ class Exporter {
 		}
 		let dir = dirs.first!
 		var urls:[URL] = []
-		for (_, value) in savedData {
+		for value in savedData {
 			let fileURL = dir.appendingPathComponent(value.fName)
 			urls.append(fileURL)
 			do {

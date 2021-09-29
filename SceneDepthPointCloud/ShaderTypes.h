@@ -22,6 +22,7 @@ enum BufferIndices {
     kParticleUniforms = 1,
 	kCurrentChunk = 2,
     kGridPoints = 3,
+	kVerteces = 4
 };
 
 struct RGBUniforms {
@@ -41,6 +42,10 @@ struct PointCloudUniforms {
 struct ParticleUniforms {
     simd_float3 position;
     simd_float3 color;
+};
+
+enum FacetType {
+	Foot, Floor, Undefined
 };
 
 #endif /* ShaderTypes_h */

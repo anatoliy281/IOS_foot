@@ -75,7 +75,8 @@ class Renderer {
     // Particles buffer
     var particlesBuffer: MetalBuffer<ParticleUniforms>
 	var pointChunkBuffer: MetalBuffer<ParticleUniforms>
-	var indecesBuffer: MetalBuffer<UInt32>
+	var vertecesBuffer: MetalBuffer<ParticleUniforms>
+	var indecesBuffer: [UInt32:MetalBuffer<UInt32>]
 	
 	let caller:CPPCaller = .init()
 	
@@ -110,7 +111,11 @@ class Renderer {
         }
         particlesBuffer = .init(device: device, count: maxPoints, index: kParticleUniforms.rawValue)
 		pointChunkBuffer = .init(device: device, count: pointsChunkLength, index: kCurrentChunk.rawValue)
-		indecesBuffer = .init(device: device, count: 7*maxPoints, index: 0)
+		vertecesBuffer = .init(device: device, count: maxPoints, index: kVerteces.rawValue)
+		indecesBuffer = [:]
+		indecesBuffer[Foot.rawValue] = .init(device: device, count: 3*maxPoints, index: 0)
+		indecesBuffer[Floor.rawValue] = .init(device: device, count: 3*maxPoints, index: 1)
+		indecesBuffer[Undefined.rawValue] = .init(device: device, count: 3*maxPoints, index: 2)
         // rbg does not need to read/write depth
         let relaxedStateDescriptor = MTLDepthStencilDescriptor()
         relaxedStencilState = device.makeDepthStencilState(descriptor: relaxedStateDescriptor)!
@@ -216,7 +221,7 @@ class Renderer {
             renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         }
 		caller.preprocessPointChunk(pointChunkBuffer.buffer)
-		let meshLength = caller.getVertexBuffer(particlesBuffer.buffer)
+		let meshLength = caller.getPointCloudBuffer(particlesBuffer.buffer)
 //		let meshLength = caller.triangulate(particlesBuffer.buffer, indecesBuffer.buffer)
 		if meshLength > 0 {
 			renderEncoder.setDepthStencilState(depthStencilState)

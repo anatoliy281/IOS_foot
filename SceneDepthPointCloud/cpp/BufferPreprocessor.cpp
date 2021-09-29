@@ -26,8 +26,16 @@ using std::tie;
 
 using namespace std;
 
+using mtlpp::Buffer;
+
 BufferPreprocessor::BufferPreprocessor() {
 	allPoints.reserve(capacity);
+	allPoints.reserve(capacity);
+	
+	faces[Foot].reserve(2*capacity);
+	faces[Floor].reserve(0.5*capacity);
+	faces[Undefined].reserve(2*capacity);
+	
 	cout << "::BufferPreprocessor" << endl;
 }
 
@@ -35,7 +43,7 @@ BufferPreprocessor::~BufferPreprocessor() {
 	cout << "~BufferPreprocessor" << endl;
 }
 
-void BufferPreprocessor::newPortion(mtlpp::Buffer buffer) {
+void BufferPreprocessor::newPortion(Buffer buffer) {
 	
 	if (!isReadyForAcceptionNewChunk)
 		return;
@@ -74,55 +82,62 @@ void BufferPreprocessor::newPortion(mtlpp::Buffer buffer) {
 	cout << "size: " << allPoints.size() << endl;
 }
 
-void BufferPreprocessor::simplifyPointCloud(PointSet& points) {
+void BufferPreprocessor::simplifyPointCloud(PointVec& points) {
 	const auto pointDist = 0.002;
 	points.erase(grid_simplify_point_set(points, pointDist), points.end());
 }
 
-int BufferPreprocessor::triangulate(mtlpp::Buffer indexBuffer) {
+void BufferPreprocessor::triangulate() {
 	Profiler profiler {"Triangulation"};
 	isReadyForAcceptionNewChunk = false;
 	
-	jet_smooth_point_set<Sequential_tag> (allPoints, 192);
+	smoothedPoints.clear();
+	copy(allPoints.cbegin(), allPoints.cend(), back_inserter(smoothedPoints));
+	profiler.measure("form smoothed array");
+	jet_smooth_point_set<Sequential_tag> (smoothedPoints, 192);
 	profiler.measure("smooth");
 	
-	const auto nBefore = allPoints.size();
-	simplifyPointCloud(allPoints);
-	const auto nAfter = allPoints.size();
+	const auto nBefore = smoothedPoints.size();
+	simplifyPointCloud(smoothedPoints);
+	const auto nAfter = smoothedPoints.size();
 	profiler.measure(string("simplify(") + to_string(nBefore) + "/" + to_string(nAfter) + ")");
 	
-	using Facet = array<size_t, 3>;
-	vector<Facet> facets;
-	advancing_front_surface_reconstruction(allPoints.cbegin(),
-										   allPoints.cend(),
-										   back_inserter(facets));
+	faces[Undefined].clear();
+	advancing_front_surface_reconstruction( smoothedPoints.cbegin(),
+										   smoothedPoints.cend(),
+										   back_inserter(faces[Undefined]) );
 	profiler.measure("reconstruction");
-	
-	const auto facetsCount = static_cast<size_t>(facets.size());
-	for (size_t i=0; i < facetsCount; ++i) {
-		auto contents = returnPointerAndCount<unsigned int>(indexBuffer).first;
-		const auto& facet = facets[i];
-		auto tripleIndex = 3*i;
-		contents[tripleIndex] 	= static_cast<unsigned int>(facet[0]);
-		contents[++tripleIndex] = static_cast<unsigned int>(facet[1]);
-		contents[++tripleIndex] = static_cast<unsigned int>(facet[2]);
-	}
-	profiler.measure("write indeces");
 
 	cout << profiler << endl;
-	
-	return static_cast<int>(3*facetsCount);
 }
 
-int BufferPreprocessor::writeVerteces(mtlpp::Buffer vertecesBuffer) {
+void BufferPreprocessor::separate() {
+	Profiler profiler {"Separation"};
+	
+	faces[Foot].clear();
+	faces[Floor].clear();
+	
+	
+	cout << profiler << endl;
+}
+
+int BufferPreprocessor::writeCoords(mtlpp::Buffer vertecesBuffer, bool isSmoothed) const {
+	if (isSmoothed) {
+		return writePointsCoordsToBuffer(vertecesBuffer, smoothedPoints);
+	} else {
+		return writePointsCoordsToBuffer(vertecesBuffer, allPoints);
+	}
+}
+
+int BufferPreprocessor::writePointsCoordsToBuffer(Buffer vertecesBuffer, const PointVec& points) const {
 	Profiler profiler {"Writing verteces..."};
 	int count;
 	ParticleUniforms* contents;
 	tie(contents, count) = returnPointerAndCount<ParticleUniforms>(vertecesBuffer);
 	const auto zeroColor = simd::float3();
-	const auto vertecesCount = static_cast<int>(allPoints.size());
-	for (int i=0; i < allPoints.size(); ++i) {
-		const auto pos3 = allPoints[i];
+	const auto vertecesCount = static_cast<int>(points.size());
+	for (int i=0; i < points.size(); ++i) {
+		const auto pos3 = points[i];
 		auto sf3 = simd::float3();
 		sf3.x = pos3.x();
 		sf3.y = pos3.y();
@@ -132,4 +147,21 @@ int BufferPreprocessor::writeVerteces(mtlpp::Buffer vertecesBuffer) {
 	profiler.measure("write verices");
 	
 	return vertecesCount;
+}
+
+int BufferPreprocessor::writeFaces(mtlpp::Buffer indexBuffer) const {
+	Profiler profiler {"Writing faces..."};
+	const auto fc = faces.at(Undefined);
+	for (size_t i=0; i < fc.size(); ++i) {
+		auto contents = returnPointerAndCount<unsigned int>(indexBuffer).first;
+		auto& facet = fc[i];
+		auto tripleIndex = 3*i;
+		contents[tripleIndex] 	= static_cast<unsigned int>(facet[0]);
+		contents[++tripleIndex] = static_cast<unsigned int>(facet[1]);
+		contents[++tripleIndex] = static_cast<unsigned int>(facet[2]);
+	}
+	
+	profiler.measure("write indeces");
+	
+	return static_cast<int>(3*fc.size());
 }
