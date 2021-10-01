@@ -79,11 +79,11 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		
 		
 		renderer.caller.triangulate()
-		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Undefined.rawValue]!.buffer)
+		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Undefined.rawValue]!.buffer, Undefined.rawValue)
 		
 		renderer.caller.separate()
-		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Foot.rawValue]!.buffer)
-		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Floor.rawValue]!.buffer)
+		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Foot.rawValue]!.buffer, Foot.rawValue)
+		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Floor.rawValue]!.buffer, Floor.rawValue)
 		
 		let exporter = Exporter.init()
 		exporter.setBufferData(buffer: renderer.particlesBuffer,

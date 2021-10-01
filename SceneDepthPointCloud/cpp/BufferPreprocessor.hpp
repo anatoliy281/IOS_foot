@@ -6,9 +6,12 @@
 
 #include "mtlpp.hpp"
 #include "ShaderTypes.h"
+#include "FloorSearcher.hpp"
+
 #include <utility>
 #include <vector>
 #include <map>
+#include <memory>
 
 using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
 using FT = Kernel::FT;
@@ -18,7 +21,8 @@ using Facet = std::array<std::size_t, 3>;
 using FacetMap = std::map<FacetType, std::vector<Facet>>;
 using PointVec = std::vector<Point3>;
 
-class BufferPreprocessor {
+
+class BufferPreprocessor : public std::enable_shared_from_this<BufferPreprocessor> {
 
 private:
 	template <typename T>
@@ -32,40 +36,34 @@ private:
 	void simplifyPointCloud(PointVec& points);
 	int writePointsCoordsToBuffer(mtlpp::Buffer vertecesBuffer, const PointVec& points) const;
 	
-	// вычисляет координату comp сентра грани faset
-	// comp: 0 == x, 1 == y, 2 == z
-	float getFaceCenter(const Facet& faset, int comp=1) const;
 	
-	// interval задаёт интервал такой, что interval[0] < interval[2] && interval[1] = 0.5*(interval[0]+interval[2])
-	// v01 и v12 хранит номера граней такие, что высота центра каждой грани лежат в соответствующих интервалах
-	// [interval[0], interval[1]] и [interval[1], interval[2]]
-	// v0 задаёт начальные индексы для их дальнейшего распределения по v01 и v12 (на начальном этапе перебираются все грани сетки => v0 пуст)
-	void fillBigramm(const std::array<float,3>& interval,
-					 std::vector<std::size_t>& v01,
-					 std::vector<std::size_t>& v12) const;
+	void filterFaces(IndexFacetVec& v0, float threshold) const;
 	
-	void fillBigramm(const std::array<float,3>& interval,
-					 std::vector<std::size_t>& v01,
-					 std::vector<std::size_t>& v12,
-					 const std::vector<std::size_t>& v0) const;
-	
-	void fillForIndex(std::vector<std::size_t>& v01,
-					  std::vector<std::size_t>& v12,
-					  std::size_t index,
-					  float intervalCenter) const;
-	
+	void writeSeparatedData(float floorHeight, float heightWidth);
 	
 public:
 	BufferPreprocessor();
-	~BufferPreprocessor();
+	BufferPreprocessor(const BufferPreprocessor& bp);
+	BufferPreprocessor(BufferPreprocessor&& bp) = delete;
+	~BufferPreprocessor() = default;
 	
 	void newPortion(mtlpp::Buffer points);
 	
 	int writeCoords(mtlpp::Buffer vertecesBuffer, bool isSmoothed) const;
-	int writeFaces(mtlpp::Buffer indexBuffer) const;
+	int writeFaces(mtlpp::Buffer indexBuffer, unsigned int type ) const;
+	
+	const std::vector<Facet>& getAccesToUndefinedFacets() const;
 	
 	void triangulate();
 	void separate();
+	
+	// вычисляет координату comp сентра грани faset
+	// comp: 0 == x, 1 == y, 2 == z
+	float getFaceCenter(const Facet& facet, int comp=1) const;
+
+	// вычисляет квадрат компоненты comp нормали грани facet. Нормаль предполагается нормированной.
+	float getFaceNormalSquared(const Facet& facet, int comp=1) const;
+
 
 private:
 	int pointBufferSize {0};
@@ -75,6 +73,8 @@ private:
 	PointVec allPoints;
 	PointVec smoothedPoints;
 	FacetMap faces;
+	
+	std::unique_ptr<FloorSeacher> seacher {nullptr};
 };
 
 #endif /* BufferPreprocessor_hpp */

@@ -5,6 +5,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CPPCaller : NSObject
 
+- (id)init;
+
 -(void) show_buffer:(id<MTLBuffer>)buffer;
 
 -(void) preprocessPointChunk:(id<MTLBuffer>)points;
@@ -13,7 +15,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(void) separate;
 
--(int) getIndexBuffer:(id<MTLBuffer>)indexBuffer;
+-(int) getIndexBuffer:(id<MTLBuffer>)indexBuffer
+					 :(unsigned int)type;
 
 -(int) getVertexBuffer:(id<MTLBuffer>)pointBuffer;
 

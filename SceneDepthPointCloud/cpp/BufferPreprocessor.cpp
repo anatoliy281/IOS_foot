@@ -39,9 +39,16 @@ BufferPreprocessor::BufferPreprocessor() {
 	cout << "::BufferPreprocessor" << endl;
 }
 
-BufferPreprocessor::~BufferPreprocessor() {
-	cout << "~BufferPreprocessor" << endl;
-}
+BufferPreprocessor::BufferPreprocessor(const BufferPreprocessor& bp) :
+										pointBufferSize {bp.pointBufferSize},
+										indexBufferSize {bp.indexBufferSize},
+										capacity {bp.capacity},
+										isReadyForAcceptionNewChunk {bp.isReadyForAcceptionNewChunk},
+										allPoints{bp.allPoints},
+										smoothedPoints {bp.smoothedPoints},
+										faces {bp.faces},
+										seacher {nullptr}
+{}
 
 void BufferPreprocessor::newPortion(Buffer buffer) {
 	
@@ -113,85 +120,85 @@ void BufferPreprocessor::triangulate() {
 
 void BufferPreprocessor::separate() {
 	Profiler profiler {"Separation"};
+
+	Interval yInterval {-2.f, -1.f, 0.f};		// начало поиска взято с запасом (от 0 до 2 метров)
+	seacher = make_unique<BisectionFloorSearcher>(yInterval, shared_from_this());
+
+	IndexFacetVec v0;
+	filterFaces(v0, 0.9f);
+
+	auto result = seacher->search(v0);
+	profiler.measure("floor height level search...   1");
 	
+	seacher = make_unique<HistogramSearcher>(result.first, shared_from_this());
+	result = seacher->search(result.second);
+	profiler.measure("floor height level search...   2");
+
+	auto seachInterval = result.first;
+	auto floorHeight = seachInterval[1];
+	auto heightWidth = seachInterval[2] - seachInterval[0];
 	
-	array<float,3> yInterval {-2.f, -1.f, 0.f};		// начало поиска взято с запасом (от 0 до 2 метров)
-	vector<size_t> v01, v12, v0;
-	fillBigramm(yInterval, v01, v12);
-	while (yInterval[2] - yInterval[0] > 0.001) {
-		const auto n01 {v01.size()};
-		const auto n12 {v12.size()};
-		if (n01 < n12) {
-			v0 = v12;
-			yInterval[0] = yInterval[1];
-		} else {
-			v0 = v01;
-			yInterval[2] = yInterval[1];
-		}
-		yInterval[1] = 0.5f*(yInterval[0] + yInterval[2]);
-		v01 = v12 = {};
-		fillBigramm(yInterval, v01, v12, v0);
-	}
-	profiler.measure("floor height level search");
-	
+	cout << floorHeight << " / " << heightWidth << endl;
+	writeSeparatedData(floorHeight, heightWidth);
+	profiler.measure("facets types save");
+
+	cout << profiler << endl;
+}
+
+void BufferPreprocessor::writeSeparatedData(float floorHeight, float heightWidth) {
 	auto& footFaces {faces[Foot]};
 	auto& floorFaces {faces[Floor]};
 	const auto& allFaces {faces[Undefined]};
 	floorFaces.clear();
 	footFaces.clear();
-	for (const auto& fct: allFaces) {
-		const auto yC = getFaceCenter(fct);
-		if ( yInterval[0] < yC && yC < yInterval[2] ) {
-			floorFaces.push_back(fct);
-		} else if (yC > yInterval[2]) {
-			footFaces.push_back(fct);
-		}
-	}
-	profiler.measure("facets types save");
 	
-	cout << profiler << endl;
-}
-
-void BufferPreprocessor::fillBigramm(const array<float,3>& interval,
-									 vector<size_t>& v01,
-									 vector<size_t>& v12) const {
-
-	for (size_t i=0; i < faces.at(Undefined).size(); ++i) {
-		fillForIndex(v01, v12, i, interval[1]);
+	const auto a = floorHeight - heightWidth;
+	const auto b = floorHeight + heightWidth;
+	
+	for (const auto& fct: allFaces) {
+		const auto pos = getFaceCenter(fct);
+		auto lowBoundIsOK = a < pos;
+		auto highBoundIsOK = pos < b;
+		if ( lowBoundIsOK && highBoundIsOK) // критерий разделения
+			floorFaces.push_back(fct);
+		else if (!highBoundIsOK)
+			footFaces.push_back(fct);
+		else
+			continue;
 	}
 }
 
-void BufferPreprocessor::fillBigramm(const array<float,3>& interval,
-									 vector<size_t>& v01,
-									 vector<size_t>& v12,
-									 const vector<size_t>& v0) const {
-	for (const auto& i: v0) {
-		fillForIndex(v01, v12, i, interval[1]);
+void BufferPreprocessor::filterFaces(IndexFacetVec& v0, float threshold) const {
+	const auto& allFaces = faces.at(Undefined);
+	const auto nsq = threshold*threshold;
+	for (size_t i=0; i < allFaces.size(); ++i) {
+		const auto& fct = allFaces[i];
+		if ( getFaceNormalSquared(fct) > nsq )
+			v0.push_back(i);
 	}
 }
 
-void BufferPreprocessor::fillForIndex(std::vector<std::size_t>& v01,
-									  std::vector<std::size_t>& v12,
-									  std::size_t index,
-									  float intervalCenter) const {
-	const auto facets = faces.at(Undefined);
-	const auto yC = getFaceCenter(facets[index]);
-	if (yC < intervalCenter) {
-		v01.push_back(index);
-	} else {
-		v12.push_back(index);
-	}
+float BufferPreprocessor::getFaceNormalSquared(const Facet& facet, int comp) const {
+	const auto& p0 = smoothedPoints[facet[0]];
+	const auto& p1 = smoothedPoints[facet[1]];
+	const auto& p2 = smoothedPoints[facet[2]];
+	
+	const auto& n = CGAL::cross_product(p1 - p0, p2 - p0);
+	auto lsq = n.squared_length();
+	return n[comp]*n[comp] / lsq;
 }
+
+
 
 float BufferPreprocessor::getFaceCenter(const Facet& facet, int comp) const {
-	const auto p0 = smoothedPoints[facet[0]];
-	const auto p1 = smoothedPoints[facet[1]];
-	const auto p2 = smoothedPoints[facet[2]];
+	const auto& p0 = smoothedPoints[facet[0]];
+	const auto& p1 = smoothedPoints[facet[1]];
+	const auto& p2 = smoothedPoints[facet[2]];
 	
 	return (p0[comp] + p1[comp] + p2[comp]) / 3;
 }
 
-int BufferPreprocessor::writeCoords(mtlpp::Buffer vertecesBuffer, bool isSmoothed) const {
+int BufferPreprocessor::writeCoords(Buffer vertecesBuffer, bool isSmoothed) const {
 	if (isSmoothed) {
 		return writePointsCoordsToBuffer(vertecesBuffer, smoothedPoints);
 	} else {
@@ -219,9 +226,9 @@ int BufferPreprocessor::writePointsCoordsToBuffer(Buffer vertecesBuffer, const P
 	return vertecesCount;
 }
 
-int BufferPreprocessor::writeFaces(mtlpp::Buffer indexBuffer) const {
+int BufferPreprocessor::writeFaces(Buffer indexBuffer, unsigned int type) const {
 	Profiler profiler {"Writing faces..."};
-	const auto fc = faces.at(Undefined);
+	const auto fc = faces.at(FacetType(type));
 	for (size_t i=0; i < fc.size(); ++i) {
 		auto contents = returnPointerAndCount<unsigned int>(indexBuffer).first;
 		auto& facet = fc[i];
@@ -234,4 +241,9 @@ int BufferPreprocessor::writeFaces(mtlpp::Buffer indexBuffer) const {
 	profiler.measure("write indeces");
 	
 	return static_cast<int>(3*fc.size());
+}
+
+
+const std::vector<Facet>& BufferPreprocessor::getAccesToUndefinedFacets() const {
+	return faces.at(Undefined);
 }

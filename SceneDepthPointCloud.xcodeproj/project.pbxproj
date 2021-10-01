@@ -17,6 +17,7 @@
 		8A65033A2702FA3A00D62FE8 /* tmp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8A6503392702FA3A00D62FE8 /* tmp.cpp */; };
 		8A7A38A126C14B1A00469FF7 /* Exporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7A38A026C14B1A00469FF7 /* Exporter.swift */; };
 		8AC320C226F1C8D00055AB18 /* Resourses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC320C126F1C8D00055AB18 /* Resourses.swift */; };
+		8AE1F6202706E62E00D78B46 /* FloorSearcher.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8AE1F61E2706E62E00D78B46 /* FloorSearcher.cpp */; };
 		E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13024636FEF00D77039 /* AppDelegate.swift */; };
 		E73DD13324636FEF00D77039 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13224636FEF00D77039 /* Shaders.metal */; };
 		E73DD13624636FEF00D77039 /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73DD13524636FEF00D77039 /* Renderer.swift */; };
@@ -56,6 +57,8 @@
 		8A6503392702FA3A00D62FE8 /* tmp.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = tmp.cpp; sourceTree = "<group>"; };
 		8A7A38A026C14B1A00469FF7 /* Exporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exporter.swift; sourceTree = "<group>"; };
 		8AC320C126F1C8D00055AB18 /* Resourses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resourses.swift; sourceTree = "<group>"; };
+		8AE1F61E2706E62E00D78B46 /* FloorSearcher.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = FloorSearcher.cpp; sourceTree = "<group>"; };
+		8AE1F61F2706E62E00D78B46 /* FloorSearcher.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = FloorSearcher.hpp; sourceTree = "<group>"; };
 		948146554F46E56B015690CC /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		B57D60B9736905755DECF7CE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		E73DD12D24636FEF00D77039 /* Point Cloud.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Point Cloud.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -100,6 +103,8 @@
 				8A01001626F4736400297E04 /* BufferPreprocessor.cpp */,
 				8A01001726F4736400297E04 /* BufferPreprocessor.hpp */,
 				8A6503392702FA3A00D62FE8 /* tmp.cpp */,
+				8AE1F61E2706E62E00D78B46 /* FloorSearcher.cpp */,
+				8AE1F61F2706E62E00D78B46 /* FloorSearcher.hpp */,
 			);
 			path = cpp;
 			sourceTree = "<group>";
@@ -309,6 +314,7 @@
 				E73DD13824636FEF00D77039 /* ViewController.swift in Sources */,
 				E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */,
 				8A65033A2702FA3A00D62FE8 /* tmp.cpp in Sources */,
+				8AE1F6202706E62E00D78B46 /* FloorSearcher.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
