@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <utility>
+#include <iostream>
 
 class BufferPreprocessor;
 			
@@ -27,13 +28,32 @@ public:
 	
 	virtual ~FloorSeacher() = default;
 	virtual std::pair<Interval,IndexFacetVec> search(const IndexFacetVec& inIndeces) = 0;
+	virtual const std::string getTraceInfo() const = 0;
 	
 };
 
+std::ostream& operator<<(std::ostream& os, const FloorSeacher& seacher);
+
+// ====================== BisectionFloorSearcher ===============================
+
 class BisectionFloorSearcher : public FloorSeacher {
+	
+	struct SomeInfo {
+		Interval _interval;
+		int _percent;
+		std::pair<std::size_t,std::size_t> _counts;
+		
+		SomeInfo(Interval interval, int percent, std::pair<std::size_t,std::size_t> counts) :
+			_interval{interval},
+			_percent{percent},
+			_counts{counts}
+			{};
+	};
 	
 	static constexpr float epsilon {0.001f};
 	static constexpr int stopPercent {10};
+	
+	std::vector<SomeInfo> _information;
 	
 	float maxIntervalWidth {0.1f};
 	IndexFacetVec lower {};
@@ -44,6 +64,7 @@ public:
 	BisectionFloorSearcher(Interval interval, std::weak_ptr<BufferPreprocessor> master);
 	
 	std::pair<Interval,IndexFacetVec> search(const IndexFacetVec& inIndeces) override;
+	const std::string getTraceInfo() const override;
 	
 private:
 	// interval задаёт интервал такой, что _interval[0] < _interval[2] && _interval[1] = 0.5*(_interval[0]+_interval[2])
@@ -56,14 +77,25 @@ private:
 };
 
 
+// ====================== HistogramSearcher ===============================
 
 
 class HistogramSearcher : public FloorSeacher {
+	static constexpr float minHistroWidth = 0.001f;
+	float _width;
+	int _histroCount;
+	std::vector<int> _statistic;
+	
+private:
+	float interpretStatistic(std::size_t i) const;
+	float findIntervalCenter() const;		// more precise method may be impemented here
 	
 public:
-	HistogramSearcher(Interval interval, std::weak_ptr<BufferPreprocessor> master);
-	
+	HistogramSearcher(Interval interval, std::weak_ptr<BufferPreprocessor> master, float width = minHistroWidth);
 	std::pair<Interval,IndexFacetVec> search(const IndexFacetVec& inIndeces) override;
+	const std::string getTraceInfo() const override;
 };
+
+
 
 #endif /* FloorSearcher_hpp */

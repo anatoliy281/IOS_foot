@@ -128,10 +128,13 @@ void BufferPreprocessor::separate() {
 	filterFaces(v0, 0.9f);
 
 	auto result = seacher->search(v0);
+	cout << "\tITERATIONS:\n" << *seacher << endl << endl;
+	
 	profiler.measure("floor height level search...   1");
 	
 	seacher = make_unique<HistogramSearcher>(result.first, shared_from_this());
 	result = seacher->search(result.second);
+	cout << "\tHISTOGRAM:\n" << *seacher << endl << endl;
 	profiler.measure("floor height level search...   2");
 
 	auto seachInterval = result.first;
