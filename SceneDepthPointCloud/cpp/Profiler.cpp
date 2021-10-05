@@ -1,4 +1,4 @@
-#include "func.hpp"
+#include "Profiler.hpp"
 
 #include "ShaderTypes.h"
 #include "gsl/gsl.h"

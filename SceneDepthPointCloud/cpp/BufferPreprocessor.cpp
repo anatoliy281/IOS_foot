@@ -12,7 +12,7 @@
 
 #include "gsl.h"
 
-#include "func.hpp"
+#include "Profiler.hpp"
 
 using CGAL::grid_simplify_point_set;
 using CGAL::remove_outliers;

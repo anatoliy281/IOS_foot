@@ -1,5 +1,5 @@
 #import "CPPCaller.h"
-#include "func.hpp"
+#include "Profiler.hpp"
 #include "mtlpp.hpp"
 #include "BufferPreprocessor.hpp"
 #include <memory>
