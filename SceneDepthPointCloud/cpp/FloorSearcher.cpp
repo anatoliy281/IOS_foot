@@ -154,7 +154,7 @@ const string HistogramSearcher::getTraceInfo() const {
 	
 	for (size_t i=0; i < _statistic.size(); ++i) {
 		const auto x = _statistic[i];
-		const auto histoColumn = string(histroLength*(x/maxCount), '=');
+		const auto histoColumn = string( histroLength*(static_cast<float>(x)/maxCount), '=' );
 		os << "|" << histoColumn << " ~ " << round(1000*interpretStatistic(i)) << " (mm)" << endl;
 	}
 	
