@@ -55,7 +55,7 @@ class BisectionFloorSearcher : public FloorSeacher {
 	
 	std::vector<SomeInfo> _information;
 	
-	float maxIntervalWidth {0.1f};
+	float maxIntervalWidth {0.2f};
 	IndexFacetVec lower {};
 	IndexFacetVec higher {};
 	

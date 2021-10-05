@@ -126,6 +126,7 @@ void BufferPreprocessor::separate() {
 
 	IndexFacetVec v0;
 	filterFaces(v0, 0.9f);
+	profiler.measure("filter faces");
 
 	auto result = seacher->search(v0);
 	cout << "\tITERATIONS:\n" << *seacher << endl << endl;

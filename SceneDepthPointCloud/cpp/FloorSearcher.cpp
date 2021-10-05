@@ -5,6 +5,8 @@
 #include <iostream>
 #include <sstream>
 
+#include "Profiler.hpp"
+
 using namespace std;
 
 
@@ -31,7 +33,7 @@ pair<Interval,IndexFacetVec> BisectionFloorSearcher::search(const IndexFacetVec&
 	while (outInterval[2] - outInterval[0] > epsilon) {
 		const auto lowerCount {lower.size()};
 		const auto higherCount {higher.size()};
-
+		
 		auto percentOfCount = static_cast<int>(round( 100*float(min(lowerCount,higherCount))/max(lowerCount,higherCount) ));
 
 		_information.emplace_back( outInterval, percentOfCount, make_pair(lowerCount, higherCount) );
@@ -39,7 +41,6 @@ pair<Interval,IndexFacetVec> BisectionFloorSearcher::search(const IndexFacetVec&
 		if (percentOfCount > stopPercent) {
 			break;
 		}
-		
 		if (lowerCount < higherCount) {
 			outIndeces = higher;
 			outInterval[0] = outInterval[1];
@@ -51,41 +52,43 @@ pair<Interval,IndexFacetVec> BisectionFloorSearcher::search(const IndexFacetVec&
 		fillBigramm(outInterval, outIndeces);
 	}
 	
-	if (outInterval[1] - outInterval[0] > maxIntervalWidth) {	// то самое "узкое" место
-		outInterval[0] = outInterval[1] - maxIntervalWidth;
-		outInterval[2] = outInterval[1] + maxIntervalWidth;
+	if (outInterval[2] - outInterval[0] > maxIntervalWidth) {	// то самое "узкое" место
+		outInterval[0] = outInterval[1] - 0.5*maxIntervalWidth;
+		outInterval[2] = outInterval[1] + 0.5*maxIntervalWidth;
 		
 		auto lastInfo = _information.back();
 		_information.emplace_back( outInterval, lastInfo._percent, lastInfo._counts );
 	}
 	
-	
 	return make_pair(move(outInterval), move(outIndeces));
 }
 
 void BisectionFloorSearcher::fillBigramm(const Interval& interval, const IndexFacetVec& v0) {
-	lower = higher = {};
-	for (const auto& i: v0) {
-		fillForIndex(i, interval[1]);
-	}
-}
-
-void BisectionFloorSearcher::fillForIndex(size_t index, float intervalCenter) {
-	const auto master = _master.lock();
+//	Profiler profiler {"Fill bigram"};
+	lower.clear();
+	higher.clear();
+//	profiler.measure("clear low high");
 	
+	const auto master = _master.lock();
 	if (!master) {
 		cerr << "Что-то пошло не так... Слуга потерял своего хозяина. ( \n";
 		return;
 	}
-	
-	
 	auto facets = master->getAccesToUndefinedFacets();
-	const auto yC = master->getFaceCenter(facets[index]);
-	if (yC < intervalCenter) {
-		lower.push_back(index);
-	} else {
-		higher.push_back(index);
+	for (const auto& index: v0) {
+		const auto yC = master->getFaceCenter(facets[index]);
+		if (yC < interval[1]) {
+			lower.push_back(index);
+		} else {
+			higher.push_back(index);
+		}
 	}
+//	profiler.measure("push low high");
+//	cout << profiler << endl;
+}
+
+void BisectionFloorSearcher::fillForIndex(size_t index, float intervalCenter) {
+	
 }
 
 const string BisectionFloorSearcher::getTraceInfo() const {
@@ -102,11 +105,9 @@ const string BisectionFloorSearcher::getTraceInfo() const {
 
 HistogramSearcher::HistogramSearcher(Interval interval, weak_ptr<BufferPreprocessor> master, float width) :
 	_width {width},
-	_histroCount { static_cast<int>( ceil(interval[2] - interval[0]) / _width ) },
+	_histroCount { static_cast<int>( ceil((interval[2] - interval[0]) / _width) ) },
 	FloorSeacher {interval, master} {
-	
 	_statistic.resize(_histroCount);
-	
 }
 
 
