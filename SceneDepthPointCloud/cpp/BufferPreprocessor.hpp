@@ -24,6 +24,8 @@ using PointVec = std::vector<Point3>;
 
 class BufferPreprocessor : public std::enable_shared_from_this<BufferPreprocessor> {
 
+	static constexpr float maxTrianglePerimeter {0.03};
+	
 private:
 	template <typename T>
 	std::pair<T*,int> returnPointerAndCount(mtlpp::Buffer buffer) const {
@@ -60,6 +62,8 @@ public:
 	// вычисляет координату comp сентра грани faset
 	// comp: 0 == x, 1 == y, 2 == z
 	float getFaceCenter(const Facet& facet, int comp=1) const;
+	
+	float getFacePerimeter(const Facet& facet) const;
 
 	// вычисляет квадрат компоненты comp нормали грани facet. Нормаль предполагается нормированной.
 	float getFaceNormalSquared(const Facet& facet, int comp=1) const;

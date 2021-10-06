@@ -154,6 +154,9 @@ void BufferPreprocessor::writeSeparatedData(Interval floorInterval) {
 	footFaces.clear();
 	
 	for (const auto& fct: allFaces) {
+		
+		if (getFacePerimeter(fct) > maxTrianglePerimeter) continue;
+		
 		const auto pos = getFaceCenter(fct);
 		const auto inFloorInterval = floorInterval[0] < pos && pos < floorInterval[2];
 		const auto underFloor = floorInterval[0] >= pos;
@@ -202,6 +205,20 @@ float BufferPreprocessor::getFaceCenter(const Facet& facet, int comp) const {
 	const auto& p2 = smoothedPoints[facet[2]];
 	
 	return (p0[comp] + p1[comp] + p2[comp]) / 3;
+}
+
+float BufferPreprocessor::getFacePerimeter(const Facet& facet) const {
+	const auto& p0 = smoothedPoints[facet[0]];
+	const auto& p1 = smoothedPoints[facet[1]];
+	const auto& p2 = smoothedPoints[facet[2]];
+	
+	const auto a = p0 - p1;
+	const auto b = p1 - p2;
+	const auto c = p2 - p0;
+	
+	return sqrt(a.squared_length()) +
+			sqrt(b.squared_length()) +
+			sqrt(c.squared_length());
 }
 
 int BufferPreprocessor::writeCoords(Buffer vertecesBuffer, bool isSmoothed) const {
