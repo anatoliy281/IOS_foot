@@ -138,36 +138,38 @@ void BufferPreprocessor::separate() {
 	cout << "\tHISTOGRAM:\n" << *seacher << endl << endl;
 	profiler.measure("floor height level search...   2");
 
-	auto seachInterval = result.first;
-	auto floorHeight = seachInterval[1];
-	auto heightWidth = seachInterval[2] - seachInterval[1];
+	auto floorInterval = result.first;
 	
-	cout << floorHeight << " / " << heightWidth << endl;
-	writeSeparatedData(floorHeight, heightWidth);
+	writeSeparatedData(floorInterval);
 	profiler.measure("facets types save");
 
 	cout << profiler << endl;
 }
 
-void BufferPreprocessor::writeSeparatedData(float floorHeight, float heightWidth) {
+void BufferPreprocessor::writeSeparatedData(Interval floorInterval) {
 	auto& footFaces {faces[Foot]};
 	auto& floorFaces {faces[Floor]};
 	const auto& allFaces {faces[Undefined]};
 	floorFaces.clear();
 	footFaces.clear();
 	
-	const auto a = floorHeight - heightWidth;
-	const auto b = floorHeight + heightWidth;
-	
 	for (const auto& fct: allFaces) {
 		const auto pos = getFaceCenter(fct);
-		auto lowBoundIsOK = a < pos;
-		auto highBoundIsOK = pos < b;
-		if ( lowBoundIsOK && highBoundIsOK) // критерий разделения
-			floorFaces.push_back(fct);
-		else if (!highBoundIsOK)
+		const auto inFloorInterval = floorInterval[0] < pos && pos < floorInterval[2];
+		const auto underFloor = floorInterval[0] >= pos;
+		const auto overTheFloor = floorInterval[2] <= pos;
+		if (inFloorInterval) {	// Зона пола. Требуется анализ ориентации нормалей
+			const auto normal = getFaceNormalSquared(fct);
+			const auto maxOrientation {0.9f*0.9f};
+			const auto minOrientation {0.6f*0.6f};
+			if (normal < minOrientation)	// нормали слабо ориентированы вверх - скорее всего нога
+				footFaces.push_back(fct);
+			else if (normal > maxOrientation) // нормали ориентированны вверх - определённо пол!
+				floorFaces.push_back(fct);
+			
+		} else if (overTheFloor) // определённо нога, т.к. находимся над границей пола
 			footFaces.push_back(fct);
-		else
+		else if (underFloor)	// однозначно мусор, т.к. под полом ничего нет!
 			continue;
 	}
 }

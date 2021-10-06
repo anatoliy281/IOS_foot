@@ -39,7 +39,7 @@ private:
 	
 	void filterFaces(IndexFacetVec& v0, float threshold) const;
 	
-	void writeSeparatedData(float floorHeight, float heightWidth);
+	void writeSeparatedData(Interval floorInterval);
 	
 public:
 	BufferPreprocessor();
