@@ -140,7 +140,7 @@ void BufferPreprocessor::separate() {
 
 	auto seachInterval = result.first;
 	auto floorHeight = seachInterval[1];
-	auto heightWidth = seachInterval[2] - seachInterval[0];
+	auto heightWidth = seachInterval[2] - seachInterval[1];
 	
 	cout << floorHeight << " / " << heightWidth << endl;
 	writeSeparatedData(floorHeight, heightWidth);

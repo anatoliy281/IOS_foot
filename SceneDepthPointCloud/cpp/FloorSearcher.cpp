@@ -125,9 +125,7 @@ pair<Interval,IndexFacetVec> HistogramSearcher::search(const IndexFacetVec& inIn
 		_statistic[i] += 1;
 	}
 
-	const auto c = findIntervalCenter();
-	const Interval outInterval {c - _width, c, c + _width};
-	
+	const auto outInterval {findInterval()};
 	IndexFacetVec outIndeces;
 	for (const auto& indx: inIndeces) {
 		const auto pos = master->getFaceCenter(allFaces[indx]);
@@ -140,22 +138,35 @@ pair<Interval,IndexFacetVec> HistogramSearcher::search(const IndexFacetVec& inIn
 }
 
 
-float HistogramSearcher::findIntervalCenter() const {
+Interval HistogramSearcher::findInterval() const {
 	auto maxIt = max_element(_statistic.cbegin(), _statistic.cend());
-	auto i = maxIt - _statistic.cbegin();
-	return interpretStatistic(i);
+	const auto ic = maxIt - _statistic.cbegin();
+	const auto center {inHeightUnits(ic)};
+	
+	auto zeroIt = find_if(maxIt, _statistic.cend(),
+		[](int n) {
+		return n == 0;
+	});
+	auto ib = zeroIt - _statistic.cbegin();
+	const auto highEdge {inHeightUnits(ib)};
+	const auto w {highEdge-center};
+	
+	cout << "height edge: " << highEdge << endl;
+	cout << "interrval: " << center - w << " " << center << " " <<  center + w << endl;
+	
+	return {center - w, center, center + w};
 }
 
 const string HistogramSearcher::getTraceInfo() const {
 	ostringstream os;
 	
 	const auto maxCount = *max_element(_statistic.cbegin(), _statistic.cend());
-	const auto histroLength {90};
+	const auto histroLengthPercent {100};
 	
 	for (size_t i=0; i < _statistic.size(); ++i) {
-		const auto x = _statistic[i];
-		const auto histoColumn = string( histroLength*(static_cast<float>(x)/maxCount), '=' );
-		os << "|" << histoColumn << " ~ " << round(1000*interpretStatistic(i)) << " (mm)" << endl;
+		const auto count = _statistic[i];
+		const auto histoColumn = string( histroLengthPercent*(static_cast<float>(count)/maxCount), '=' );
+		os << "|" << histoColumn << " ~ " << round(1000*inHeightUnits(i)) << " (mm) " << count << endl;
 	}
 	
 	return os.str();
@@ -163,6 +174,6 @@ const string HistogramSearcher::getTraceInfo() const {
 
 	
 
-float HistogramSearcher::interpretStatistic(size_t i) const {
+float HistogramSearcher::inHeightUnits(size_t i) const {
 	return _width*i + _interval[0];
 }

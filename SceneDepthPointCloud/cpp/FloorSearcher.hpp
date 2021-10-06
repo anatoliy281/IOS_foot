@@ -87,8 +87,8 @@ class HistogramSearcher : public FloorSeacher {
 	std::vector<int> _statistic;
 	
 private:
-	float interpretStatistic(std::size_t i) const;
-	float findIntervalCenter() const;		// more precise method may be impemented here
+	float inHeightUnits(std::size_t i) const;
+	Interval findInterval() const;		// more precise method may be impemented here
 	
 public:
 	HistogramSearcher(Interval interval, std::weak_ptr<BufferPreprocessor> master, float width = minHistroWidth);
