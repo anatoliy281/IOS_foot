@@ -1,11 +1,12 @@
 #include "FloorSearcher.hpp"
 #include "BufferPreprocessor.hpp"
+#include "Profiler.hpp"
 
 #include <cmath>
 #include <iostream>
 #include <sstream>
-
-#include "Profiler.hpp"
+#include <iterator>
+#include <algorithm>
 
 using namespace std;
 
@@ -125,7 +126,9 @@ pair<Interval,IndexFacetVec> HistogramSearcher::search(const IndexFacetVec& inIn
 		_statistic[i] += 1;
 	}
 
-	const auto outInterval {findInterval()};
+	maxStatisticValue = *max_element(_statistic.cbegin(), _statistic.cend());
+	
+	const auto outInterval = findFloorInterval();
 	IndexFacetVec outIndeces;
 	for (const auto& indx: inIndeces) {
 		const auto pos = master->getFaceCenter(allFaces[indx]);
@@ -138,42 +141,49 @@ pair<Interval,IndexFacetVec> HistogramSearcher::search(const IndexFacetVec& inIn
 }
 
 
-Interval HistogramSearcher::findInterval() const {
+Interval HistogramSearcher::findFloorInterval() const {
 	auto maxIt = max_element(_statistic.cbegin(), _statistic.cend());
 	const auto ic = maxIt - _statistic.cbegin();
 	const auto center {inHeightUnits(ic)};
 	
-	auto zeroIt = find_if(maxIt, _statistic.cend(),
-		[](int n) {
-		return n == 0;
+	auto rightZero = find_if(maxIt, _statistic.cend(),
+		[this](int count) {
+		return valueInPercentUnits(count) < 1;
+	}) - _statistic.cbegin();
+	const auto highEdge = inHeightUnits(rightZero);
+	
+	auto leftZero = _statistic.rend() - find_if(make_reverse_iterator(maxIt), _statistic.rend(),
+		[this](int count) {
+		return valueInPercentUnits(count) < 1;
 	});
-	auto ib = zeroIt - _statistic.cbegin();
-	const auto highEdge {inHeightUnits(ib)};
-	const auto w {highEdge-center};
 	
-	cout << "height edge: " << highEdge << endl;
-	cout << "interrval: " << center - w << " " << center << " " <<  center + w << endl;
+	if (leftZero > 0)
+		--leftZero;
 	
-	return {center - w, center, center + w};
+	const auto lowEdge = inHeightUnits(leftZero);
+	cout << "interrval: " << lowEdge << " " << center << " " <<  highEdge << endl;
+	
+	return {lowEdge, center, highEdge};
 }
 
 const string HistogramSearcher::getTraceInfo() const {
 	ostringstream os;
 	
-	const auto maxCount = *max_element(_statistic.cbegin(), _statistic.cend());
-	const auto histroLengthPercent {100};
-	
 	for (size_t i=0; i < _statistic.size(); ++i) {
 		const auto count = _statistic[i];
-		const auto histoColumn = string( histroLengthPercent*(static_cast<float>(count)/maxCount), '=' );
-		os << "|" << histoColumn << " ~ " << round(1000*inHeightUnits(i)) << " (mm) " << count << endl;
+		const auto histoColumn = string( valueInPercentUnits(count), '=' );
+		os << "|" << histoColumn << " ~ " << round(1000*inHeightUnits(i)) << " (mm) " << _statistic[i] << endl;
 	}
 	
 	return os.str();
 }
 
-	
-
 float HistogramSearcher::inHeightUnits(size_t i) const {
 	return _width*i + _interval[0];
+}
+
+int HistogramSearcher::valueInPercentUnits(int count) const {
+	const auto histroLengthPercent {100};
+	const auto res = histroLengthPercent*(static_cast<float>(count)/maxStatisticValue);
+	return static_cast<int>(round(res));
 }
