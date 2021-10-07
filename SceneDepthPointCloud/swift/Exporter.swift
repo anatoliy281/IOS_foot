@@ -8,6 +8,14 @@ class Exporter {
 			 surfaceMesh
 	}
 	
+	var shift:Float3 = .init()
+	var angle:Float = 0
+	
+	public func setTransformInfo(shift:Float3, angle:Float) {
+		self.shift = shift
+		self.angle = angle
+	}
+	
 	typealias FileDescr = (fName:String, data:String)
 	
 	var savedData:[FileDescr] = []
@@ -17,10 +25,11 @@ class Exporter {
 		var vertStr = ""
 		var vertCount = 0
 		for i in 0..<vertexBuffer.count {
-			let vec = vertexBuffer[i].position
-			if length_squared(vec) == 0 { continue }
+			let p = vertexBuffer[i].position
+			if length_squared(p) == 0 { continue }
+			let pTrnsf = transform(point: p)
 			vertCount += 1
-			vertStr.append("\(vec[0]) \(vec[1]) \(vec[2])\n")
+			vertStr.append("\(pTrnsf[0]) \(pTrnsf[1]) \(pTrnsf[2])\n")
 		}
 		// индексы сетки
 		var indecesStr = ""
@@ -32,6 +41,31 @@ class Exporter {
 		}
 		let capStr = "OFF\n\(vertCount) \(indecesCount) 0\n"
 		return capStr + vertStr + indecesStr
+	}
+	
+	func transform(point:simd_float3) -> simd_float3 {
+		
+		let px = point.x
+		let py = point.y
+		let pz = point.z
+		
+		let pShifted = point - shift
+		
+		let psx = pShifted.x
+		let psy = pShifted.y
+		let psz = pShifted.z
+		
+		let p2 = simd_float2(pShifted.x, -pShifted.z);
+		let z = -pShifted.y
+		
+		let m:simd_float2x2 = .init(
+			simd_float2(cos(angle), sin(angle)),
+			simd_float2(-sin(angle), cos(angle))
+		)
+		
+		let p2_rot = m*p2
+		
+		return simd_float3(p2_rot.x, p2_rot.y, z);
 	}
 	
 	public func setBufferData(buffer: MetalBuffer<ParticleUniforms>,
@@ -59,6 +93,7 @@ class Exporter {
 				if length_squared(buffer[i].position) == 0 { continue }
 				if (parameter == .position) {
 					vec = buffer[i].position
+					vec = transform(point: vec)
 				} else {
 					vec = buffer[i].color
 				}

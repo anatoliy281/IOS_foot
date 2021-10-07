@@ -8,16 +8,20 @@
 #include <CGAL/jet_smooth_point_set.h>
 #include <CGAL/Advancing_front_surface_reconstruction.h>
 #include <CGAL/compute_average_spacing.h>
-//#include <CGAL/jet_estimate_normals.h>
+#include <CGAL/linear_least_squares_fitting_2.h>
+#include <CGAL/Aff_transformation_2.h>
 
 #include "gsl.h"
 
 #include "Profiler.hpp"
 
+//using Transformation = Kernel::Aff_transformation_2;
+
 using CGAL::grid_simplify_point_set;
 using CGAL::remove_outliers;
 using CGAL::advancing_front_surface_reconstruction;
 using CGAL::Sequential_tag;
+
 
 using std::vector;
 using std::cout;
@@ -138,15 +142,50 @@ void BufferPreprocessor::separate() {
 	cout << "\tHISTOGRAM:\n" << *seacher << endl << endl;
 	profiler.measure("floor height level search...   2");
 
-	auto floorInterval = result.first;
+	floorInterval = result.first;
 	
-	writeSeparatedData(floorInterval);
+	writeSeparatedData();
 	profiler.measure("facets types save");
 
 	cout << profiler << endl;
 }
 
-void BufferPreprocessor::writeSeparatedData(Interval floorInterval) {
+
+void BufferPreprocessor::findTransformCS() {
+	Profiler profiler {"find transformation"};
+	vector<Point2> points;
+	const auto footFaces = faces.at(Foot);
+	for (const auto& fct: footFaces) {
+		const auto fc = getFaceCenter(fct);
+		if ( floorInterval[1] < fc && fc < floorInterval[2]) {
+			points.emplace_back(getFaceCenter(fct, 0), getFaceCenter(fct, 2));
+		}
+	}
+	profiler.measure("form data");
+	Line xAxes;
+	CGAL::linear_least_squares_fitting_2(points.cbegin(), points.cend(), xAxes, xAxesOrigin, CGAL::Dimension_tag<0>());
+	
+	
+	xAxesDir = xAxes.to_vector();
+	
+	profiler.measure("find angle");
+	
+	cout << profiler << endl;
+}
+
+float BufferPreprocessor::getFloorHeight() const {
+	return floorInterval[1];
+}
+
+Vector2 BufferPreprocessor::getXAxesDir() const {
+	return xAxesDir;
+}
+
+Point2 BufferPreprocessor::getXAxesOrigin() const {
+	return xAxesOrigin;
+}
+
+void BufferPreprocessor::writeSeparatedData() {
 	auto& footFaces {faces[Foot]};
 	auto& floorFaces {faces[Floor]};
 	const auto& allFaces {faces[Undefined]};

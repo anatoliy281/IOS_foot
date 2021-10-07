@@ -37,6 +37,24 @@
 	_bufferPreprocessor->separate();
 }
 
+-(void) findTtransformCoordinateSystem {
+	_bufferPreprocessor->findTransformCS();
+}
+
+-(float) getFloorShift {
+	return _bufferPreprocessor->getFloorHeight();
+}
+
+-(float) getAngle {
+	auto direction = _bufferPreprocessor->getXAxesDir();
+	return acos(direction.x());
+}
+
+-(float) getXYO:(int)component {
+	auto xyo = _bufferPreprocessor->getXAxesOrigin();
+	return xyo[component];
+}
+
 -(int) getIndexBuffer:(id<MTLBuffer>)indexBuffer
 					 :(unsigned int)type {
 	return _bufferPreprocessor->writeFaces( ns::Handle{(__bridge void*)indexBuffer}, type);

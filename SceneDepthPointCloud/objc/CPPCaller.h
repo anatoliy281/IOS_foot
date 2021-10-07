@@ -15,6 +15,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(void) separate;
 
+-(void) findTtransformCoordinateSystem;
+
+-(float) getFloorShift;
+-(float) getAngle;
+-(float) getXYO:(int)component;
+
 -(int) getIndexBuffer:(id<MTLBuffer>)indexBuffer
 					 :(unsigned int)type;
 

@@ -18,7 +18,8 @@ FloorSeacher::FloorSeacher(Interval interval, weak_ptr<BufferPreprocessor> maste
 
 ostream& operator<<(ostream& os, const FloorSeacher& seacher) {
 	
-	return os << seacher.getTraceInfo();
+	return os;
+//	return os << seacher.getTraceInfo();
 }
 
 // ====================== BisectionFloorSearcher ===============================

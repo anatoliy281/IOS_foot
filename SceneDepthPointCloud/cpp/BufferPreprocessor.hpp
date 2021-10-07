@@ -17,6 +17,10 @@ using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
 using FT = Kernel::FT;
 using Point3 = Kernel::Point_3;
 using Vector3 = Kernel::Vector_3;
+using Line = Kernel::Line_2;
+using Point2 = Kernel::Point_2;
+using Vector2 = Kernel::Vector_2;
+
 using Facet = std::array<std::size_t, 3>;
 using FacetMap = std::map<FacetType, std::vector<Facet>>;
 using PointVec = std::vector<Point3>;
@@ -41,7 +45,7 @@ private:
 	
 	void filterFaces(IndexFacetVec& v0, float threshold) const;
 	
-	void writeSeparatedData(Interval floorInterval);
+	void writeSeparatedData();
 	
 public:
 	BufferPreprocessor();
@@ -67,6 +71,14 @@ public:
 
 	// вычисляет квадрат компоненты comp нормали грани facet. Нормаль предполагается нормированной.
 	float getFaceNormalSquared(const Facet& facet, int comp=1) const;
+	
+	// набор методов вычисляющих параметры преобразования СК
+	void findTransformCS();
+//	void cycleAxes(Point3& p) const;
+	
+	float getFloorHeight() const;
+	Vector2 getXAxesDir() const;
+	Point2 getXAxesOrigin() const;
 
 
 private:
@@ -74,6 +86,13 @@ private:
 	int indexBufferSize {0};
 	int capacity {3000};
 	bool isReadyForAcceptionNewChunk {true};
+	
+	Interval floorInterval;
+	
+	// задают преобразования СК
+	Vector2 xAxesDir;
+	Point2 xAxesOrigin;
+	
 	PointVec allPoints;
 	PointVec smoothedPoints;
 	FacetMap faces;

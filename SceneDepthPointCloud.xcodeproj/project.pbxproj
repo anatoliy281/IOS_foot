@@ -14,7 +14,6 @@
 		8A156F4C26EBACEE00B077FB /* libgmp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A156F4A26EBACEE00B077FB /* libgmp.a */; };
 		8A156F4D26EBACEE00B077FB /* libmpfr.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A156F4B26EBACEE00B077FB /* libmpfr.a */; };
 		8A1D960326EF893C004E8140 /* RendererExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D960226EF893C004E8140 /* RendererExtension.swift */; };
-		8A65033A2702FA3A00D62FE8 /* tmp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8A6503392702FA3A00D62FE8 /* tmp.cpp */; };
 		8A7A38A126C14B1A00469FF7 /* Exporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7A38A026C14B1A00469FF7 /* Exporter.swift */; };
 		8AC320C226F1C8D00055AB18 /* Resourses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC320C126F1C8D00055AB18 /* Resourses.swift */; };
 		8AE1F6202706E62E00D78B46 /* FloorSearcher.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8AE1F61E2706E62E00D78B46 /* FloorSearcher.cpp */; };
@@ -54,7 +53,6 @@
 		8A1D960426F0CE37004E8140 /* Perimeter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Perimeter.h; sourceTree = "<group>"; };
 		8A1D960526F0CEA8004E8140 /* FacetAdaptor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FacetAdaptor.h; sourceTree = "<group>"; };
 		8A1D960626F0D9DE004E8140 /* VertexAdaptor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VertexAdaptor.h; sourceTree = "<group>"; };
-		8A6503392702FA3A00D62FE8 /* tmp.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = tmp.cpp; sourceTree = "<group>"; };
 		8A7A38A026C14B1A00469FF7 /* Exporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exporter.swift; sourceTree = "<group>"; };
 		8AC320C126F1C8D00055AB18 /* Resourses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resourses.swift; sourceTree = "<group>"; };
 		8AE1F61E2706E62E00D78B46 /* FloorSearcher.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = FloorSearcher.cpp; sourceTree = "<group>"; };
@@ -102,7 +100,6 @@
 				8A1D960626F0D9DE004E8140 /* VertexAdaptor.h */,
 				8A01001626F4736400297E04 /* BufferPreprocessor.cpp */,
 				8A01001726F4736400297E04 /* BufferPreprocessor.hpp */,
-				8A6503392702FA3A00D62FE8 /* tmp.cpp */,
 				8AE1F61E2706E62E00D78B46 /* FloorSearcher.cpp */,
 				8AE1F61F2706E62E00D78B46 /* FloorSearcher.hpp */,
 			);
@@ -313,7 +310,6 @@
 				8AC320C226F1C8D00055AB18 /* Resourses.swift in Sources */,
 				E73DD13824636FEF00D77039 /* ViewController.swift in Sources */,
 				E73DD13124636FEF00D77039 /* AppDelegate.swift in Sources */,
-				8A65033A2702FA3A00D62FE8 /* tmp.cpp in Sources */,
 				8AE1F6202706E62E00D78B46 /* FloorSearcher.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

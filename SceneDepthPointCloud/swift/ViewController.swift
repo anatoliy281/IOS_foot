@@ -82,10 +82,17 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Undefined.rawValue]!.buffer, Undefined.rawValue)
 		
 		renderer.caller.separate()
+		renderer.caller.findTtransformCoordinateSystem();
 		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Foot.rawValue]!.buffer, Foot.rawValue)
 		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Floor.rawValue]!.buffer, Floor.rawValue)
 		
 		let exporter = Exporter.init()
+		exporter.setTransformInfo(shift: [renderer.caller.getXYO(0),
+										  renderer.caller.getFloorShift(),
+										  renderer.caller.getXYO(1)],
+								  angle: renderer.caller.getAngle())
+		
+		renderer.caller.getVertexBuffer(renderer.particlesBuffer.buffer)	// обновили буфер облака точек (после преобразования СК)
 		exporter.setBufferData(buffer: renderer.particlesBuffer,
 							   parameter: .position, indeces: nil)
 		
