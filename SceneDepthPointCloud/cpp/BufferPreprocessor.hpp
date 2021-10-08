@@ -77,7 +77,7 @@ public:
 //	void cycleAxes(Point3& p) const;
 	
 	float getFloorHeight() const;
-	Vector2 getXAxesDir() const;
+	Vector2 getAxesDir(int axes) const;
 	Point2 getXAxesOrigin() const;
 
 
@@ -91,6 +91,7 @@ private:
 	
 	// задают преобразования СК
 	Vector2 xAxesDir;
+	Vector2 zAxesDir;
 	Point2 xAxesOrigin;
 	
 	PointVec allPoints;

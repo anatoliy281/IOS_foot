@@ -21,6 +21,9 @@ NS_ASSUME_NONNULL_BEGIN
 -(float) getAngle;
 -(float) getXYO:(int)component;
 
+-(float) getDirection:(int)axes
+					 :(int)component;
+
 -(int) getIndexBuffer:(id<MTLBuffer>)indexBuffer
 					 :(unsigned int)type;
 

@@ -6,6 +6,8 @@ class Renderer {
 	
 	var bufferIsFull = false
 	
+	var processLidar = true
+	
     // Maximum number of points we store in the point cloud
     private let maxPoints = 100_000
 	
@@ -174,6 +176,12 @@ class Renderer {
     }
     
     func draw() {
+		
+		if !processLidar {
+//			print("stopped")
+			return
+		}
+		
         guard let currentFrame = session.currentFrame,
             let renderDescriptor = renderDestination.currentRenderPassDescriptor,
             let commandBuffer = commandQueue.makeCommandBuffer(),

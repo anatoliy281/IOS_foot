@@ -45,14 +45,22 @@
 	return _bufferPreprocessor->getFloorHeight();
 }
 
+// depricated
 -(float) getAngle {
-	auto direction = _bufferPreprocessor->getXAxesDir();
+	auto direction = _bufferPreprocessor->getAxesDir(0);
 	return acos(direction.x());
 }
 
 -(float) getXYO:(int)component {
 	auto xyo = _bufferPreprocessor->getXAxesOrigin();
 	return xyo[component];
+}
+
+-(float) getDirection:(int)axes
+					 :(int)component {
+	
+	auto dir = _bufferPreprocessor->getAxesDir(axes);
+	return dir[component];
 }
 
 -(int) getIndexBuffer:(id<MTLBuffer>)indexBuffer

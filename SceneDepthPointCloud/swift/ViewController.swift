@@ -77,29 +77,43 @@ final class ViewController: UIViewController, ARSessionDelegate {
     func buttonAction(_ sender: UIButton!) {
         session.pause()
 		
+		renderer.processLidar = false
 		
-		renderer.caller.triangulate()
-		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Undefined.rawValue]!.buffer, Undefined.rawValue)
+		let rc = renderer.caller
 		
-		renderer.caller.separate()
-		renderer.caller.findTtransformCoordinateSystem();
-		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Foot.rawValue]!.buffer, Foot.rawValue)
-		renderer.caller.getIndexBuffer(renderer.indecesBuffer[Floor.rawValue]!.buffer, Floor.rawValue)
+		rc.triangulate()
+		rc.getIndexBuffer(renderer.indecesBuffer[Undefined.rawValue]!.buffer, Undefined.rawValue)
+		
+		
+		
+		rc.separate()
+		rc.findTtransformCoordinateSystem();
+		rc.getIndexBuffer(renderer.indecesBuffer[Foot.rawValue]!.buffer, Foot.rawValue)
+		rc.getIndexBuffer(renderer.indecesBuffer[Floor.rawValue]!.buffer, Floor.rawValue)
 		
 		let exporter = Exporter.init()
-		exporter.setTransformInfo(shift: [renderer.caller.getXYO(0),
-										  renderer.caller.getFloorShift(),
-										  renderer.caller.getXYO(1)],
-								  angle: renderer.caller.getAngle())
 		
-		renderer.caller.getVertexBuffer(renderer.particlesBuffer.buffer)	// обновили буфер облака точек (после преобразования СК)
+		print("~~~~~~~~~~~~~ O:[\(rc.getXYO(0)) \(rc.getFloorShift()) \(rc.getXYO(1))] alpha:\(180*(rc.getAngle()/Float.pi))")
+		
+		exporter.setTransformInfo(shift: [rc.getXYO(0),
+										  rc.getFloorShift(),
+										  rc.getXYO(1)],
+								  angle: rc.getAngle(),
+								  axes: [[rc.getDirection(0,0),rc.getDirection(0,1)],
+											  [rc.getDirection(1,0),rc.getDirection(1,1)]] )
+		
+		rc.getVertexBuffer(renderer.particlesBuffer.buffer)	// обновили буфер облака точек (после преобразования СК)
 		exporter.setBufferData(buffer: renderer.particlesBuffer,
 							   parameter: .position, indeces: nil)
 		
-		renderer.caller.getVertexBuffer(renderer.vertecesBuffer.buffer)	// обновили узловую сетку перед экспортом поверхности
+		rc.getVertexBuffer(renderer.vertecesBuffer.buffer)	// обновили узловую сетку перед экспортом поверхности
 		exporter.setBufferData(buffer: renderer.vertecesBuffer,
 							   parameter: .surfaceMesh,
 							   indeces: renderer.indecesBuffer)
+		
+		exporter.writeAxis(comp:0)	// отладка преобразования СК
+		exporter.writeAxis(comp:1)	// отладка преобразования СК
+		
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "edge", parameter: .position)
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "floorColor", parameter: .color)
 		guard let activity = exporter.sendAllData() else { return }

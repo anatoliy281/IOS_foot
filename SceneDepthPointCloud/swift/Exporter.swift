@@ -9,10 +9,12 @@ class Exporter {
 	}
 	
 	var shift:Float3 = .init()
+	var axes:[Float2] = .init()
 	var angle:Float = 0
 	
-	public func setTransformInfo(shift:Float3, angle:Float) {
+	public func setTransformInfo(shift:Float3, angle:Float, axes:[Float2]) {
 		self.shift = shift
+		self.axes = axes
 		self.angle = angle
 	}
 	
@@ -21,13 +23,13 @@ class Exporter {
 	var savedData:[FileDescr] = []
 	
 	private func writeSubmesh(vertexBuffer: MetalBuffer<ParticleUniforms>,
-							  sumMeshIndeces: MetalBuffer<UInt32>) -> String {
+							  sumMeshIndeces: MetalBuffer<UInt32>, doTransform:Bool = false) -> String {
 		var vertStr = ""
 		var vertCount = 0
 		for i in 0..<vertexBuffer.count {
 			let p = vertexBuffer[i].position
 			if length_squared(p) == 0 { continue }
-			let pTrnsf = transform(point: p)
+			let pTrnsf = transform(point: p, doTransform: doTransform)
 			vertCount += 1
 			vertStr.append("\(pTrnsf[0]) \(pTrnsf[1]) \(pTrnsf[2])\n")
 		}
@@ -43,7 +45,7 @@ class Exporter {
 		return capStr + vertStr + indecesStr
 	}
 	
-	func transform(point:simd_float3) -> simd_float3 {
+	func transform2(point:simd_float3) -> simd_float3 {
 		
 		let px = point.x
 		let py = point.y
@@ -55,17 +57,59 @@ class Exporter {
 		let psy = pShifted.y
 		let psz = pShifted.z
 		
-		let p2 = simd_float2(pShifted.x, -pShifted.z);
-		let z = -pShifted.y
+		let p2 = simd_float2(pShifted.x, pShifted.z);
+		let z = pShifted.y
+		
+		let ex = axes[0]
+		let ey = axes[1]
+		
+		let m:simd_float2x2 = .init( rows: [simd_float2(ex[0], ex[1]),
+										    simd_float2(ey[0], ey[1])] )
+		
+		let p2_rot = m*p2
+		
+		return simd_float3(p2_rot.x, p2_rot.y, z)
+	
+	}
+	
+	func transform(point:simd_float3, doTransform:Bool) -> simd_float3 {
+		
+		let px = point.x
+		let py = point.y
+		let pz = point.z
+		
+		let pShifted = point - shift
+		
+		let psx = pShifted.x
+		let psy = pShifted.y
+		let psz = pShifted.z
+		
+		let p2 = simd_float2(pShifted.x, pShifted.z);
+		let z = pShifted.y
 		
 		let m:simd_float2x2 = .init(
 			simd_float2(cos(angle), sin(angle)),
 			simd_float2(-sin(angle), cos(angle))
 		)
 		
-		let p2_rot = m*p2
+		let p2_rot = m*p2 
 		
-		return simd_float3(p2_rot.x, p2_rot.y, z);
+		if doTransform {
+			return simd_float3(p2_rot.x, p2_rot.y, z)
+		} else {
+			return point
+		}
+	}
+	
+	public func writeAxis(comp:Int) {
+		var content = ""
+		
+		let e = axes[comp]
+		let ep = shift + simd_float3(e[0], 0, e[1])
+		content.append("v \(shift[0]) \(shift[1]) \(shift[2])\n")
+		content.append("v \(ep[0]) \(ep[1]) \(ep[2])\n")
+		
+		savedData.append(FileDescr("debugAxesTransform_\(comp).obj", content))
 	}
 	
 	public func setBufferData(buffer: MetalBuffer<ParticleUniforms>,
@@ -84,7 +128,7 @@ class Exporter {
 			savedData.append( FileDescr(fileName, fileContent) )
 			fileName = "foot.off";
 			fileContent = writeSubmesh(vertexBuffer: buffer,
-									   sumMeshIndeces:indeces![Foot.rawValue]!)
+									   sumMeshIndeces:indeces![Foot.rawValue]!, doTransform: true)
 			savedData.append( FileDescr(fileName, fileContent) )
 		} else {
 			fileName = (parameter == .position) ? "cloud.obj" : "color.obj"
@@ -93,7 +137,8 @@ class Exporter {
 				if length_squared(buffer[i].position) == 0 { continue }
 				if (parameter == .position) {
 					vec = buffer[i].position
-					vec = transform(point: vec)
+					let vecTrnsf = transform2(point: vec)
+					vec = vecTrnsf
 				} else {
 					vec = buffer[i].color
 				}

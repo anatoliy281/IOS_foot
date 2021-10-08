@@ -167,8 +167,11 @@ void BufferPreprocessor::findTransformCS() {
 	
 	
 	xAxesDir = xAxes.to_vector();
+	zAxesDir = xAxes.perpendicular(xAxesOrigin).to_vector();
 	
-	profiler.measure("find angle");
+	profiler.measure(string("~~~~~~~~~~~~~axes direction\n") +
+					 "xAxes: " + to_string(xAxesDir[0]) + " " + to_string(xAxesDir[1]) + "\n" +
+					 "zAxes: " + to_string(zAxesDir[0]) + " " + to_string(zAxesDir[1]) );
 	
 	cout << profiler << endl;
 }
@@ -177,8 +180,8 @@ float BufferPreprocessor::getFloorHeight() const {
 	return floorInterval[1];
 }
 
-Vector2 BufferPreprocessor::getXAxesDir() const {
-	return xAxesDir;
+Vector2 BufferPreprocessor::getAxesDir(int axes) const {
+	return (axes == 0)? xAxesDir: zAxesDir;
 }
 
 Point2 BufferPreprocessor::getXAxesOrigin() const {
@@ -200,7 +203,13 @@ void BufferPreprocessor::writeSeparatedData() {
 		const auto inFloorInterval = floorInterval[0] < pos && pos < floorInterval[2];
 		const auto underFloor = floorInterval[0] >= pos;
 		const auto overTheFloor = floorInterval[2] <= pos;
-		if (inFloorInterval) {	// Зона пола. Требуется анализ ориентации нормалей
+		
+		
+		if (overTheFloor) { // определённо нога, т.к. находимся над границей пола
+			footFaces.push_back(fct);
+		} else if (underFloor) {	// однозначно мусор, т.к. под полом ничего нет!
+			continue;
+		} else if (inFloorInterval) {	// Зона пола. Требуется анализ ориентации нормалей
 			const auto normal = getFaceNormalSquared(fct);
 			const auto maxOrientation {0.9f*0.9f};
 			const auto minOrientation {0.6f*0.6f};
@@ -209,10 +218,7 @@ void BufferPreprocessor::writeSeparatedData() {
 			else if (normal > maxOrientation) // нормали ориентированны вверх - определённо пол!
 				floorFaces.push_back(fct);
 			
-		} else if (overTheFloor) // определённо нога, т.к. находимся над границей пола
-			footFaces.push_back(fct);
-		else if (underFloor)	// однозначно мусор, т.к. под полом ничего нет!
-			continue;
+		}
 	}
 }
 
