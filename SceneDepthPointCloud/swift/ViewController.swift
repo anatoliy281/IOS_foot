@@ -93,12 +93,10 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		
 		let exporter = Exporter.init()
 		
-		print("~~~~~~~~~~~~~ O:[\(rc.getXYO(0)) \(rc.getFloorShift()) \(rc.getXYO(1))] alpha:\(180*(rc.getAngle()/Float.pi))")
 		
 		exporter.setTransformInfo(shift: [rc.getXYO(0),
 										  rc.getFloorShift(),
 										  rc.getXYO(1)],
-								  angle: rc.getAngle(),
 								  axes: [[rc.getDirection(0,0),rc.getDirection(0,1)],
 											  [rc.getDirection(1,0),rc.getDirection(1,1)]] )
 		

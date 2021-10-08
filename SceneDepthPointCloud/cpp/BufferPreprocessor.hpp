@@ -74,7 +74,6 @@ public:
 	
 	// набор методов вычисляющих параметры преобразования СК
 	void findTransformCS();
-//	void cycleAxes(Point3& p) const;
 	
 	float getFloorHeight() const;
 	Vector2 getAxesDir(int axes) const;

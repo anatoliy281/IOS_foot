@@ -165,7 +165,7 @@ void BufferPreprocessor::findTransformCS() {
 	Line xAxes;
 	CGAL::linear_least_squares_fitting_2(points.cbegin(), points.cend(), xAxes, xAxesOrigin, CGAL::Dimension_tag<0>());
 	
-	
+	// новые оси координат
 	xAxesDir = xAxes.to_vector();
 	zAxesDir = xAxes.perpendicular(xAxesOrigin).to_vector();
 	

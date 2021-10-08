@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 -(void) findTtransformCoordinateSystem;
 
 -(float) getFloorShift;
--(float) getAngle;
+
 -(float) getXYO:(int)component;
 
 -(float) getDirection:(int)axes
