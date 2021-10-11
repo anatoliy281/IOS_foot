@@ -17,6 +17,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(void) findTtransformCoordinateSystem;
 
+-(void) polishFoot;
+
 -(float) getFloorShift;
 
 -(float) getXYO:(int)component;

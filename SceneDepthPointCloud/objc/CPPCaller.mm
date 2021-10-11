@@ -14,7 +14,13 @@
 
 - (id)init {
    if( self = [super init] ) {
-	   _bufferPreprocessor = std::make_shared<BufferPreprocessor>();
+	   
+	   auto deleter = [](auto p) {
+		   std::cout << "____________________~BufferPreprocessor" << std::endl;
+		   delete p;
+	   };
+	   _bufferPreprocessor = std::shared_ptr<BufferPreprocessor>(new BufferPreprocessor, deleter);
+//	   _bufferPreprocessor = std::make_shared<BufferPreprocessor>();
    }
    
    return self;
@@ -39,6 +45,10 @@
 
 -(void) findTtransformCoordinateSystem {
 	_bufferPreprocessor->findTransformCS();
+}
+
+-(void) polishFoot {
+	_bufferPreprocessor->polishFoot();
 }
 
 -(float) getFloorShift {
