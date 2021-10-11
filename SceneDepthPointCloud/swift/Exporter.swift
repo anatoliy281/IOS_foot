@@ -27,7 +27,7 @@ class Exporter {
 		for i in 0..<vertexBuffer.count {
 			let p = vertexBuffer[i].position
 			if length_squared(p) == 0 { continue }
-			let pTrnsf = transform2(point: p)
+			let pTrnsf = transform(point: p)
 			vertCount += 1
 			vertStr.append("\(pTrnsf[0]) \(pTrnsf[1]) \(pTrnsf[2])\n")
 		}
@@ -43,17 +43,9 @@ class Exporter {
 		return capStr + vertStr + indecesStr
 	}
 	
-	func transform2(point:simd_float3) -> simd_float3 {
-		
-		let px = point.x
-		let py = point.y
-		let pz = point.z
+	func transform(point:simd_float3) -> simd_float3 {
 		
 		let pShifted = point - shift
-		
-		let psx = pShifted.x
-		let psy = pShifted.y
-		let psz = pShifted.z
 		
 		let p2 = simd_float2(pShifted.x, pShifted.z);
 		let z = pShifted.y
@@ -106,7 +98,7 @@ class Exporter {
 				if length_squared(buffer[i].position) == 0 { continue }
 				if (parameter == .position) {
 					vec = buffer[i].position
-					let vecTrnsf = transform2(point: vec)
+					let vecTrnsf = transform(point: vec)
 					vec = vecTrnsf
 				} else {
 					vec = buffer[i].color

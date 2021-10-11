@@ -13,6 +13,10 @@
 #include <map>
 #include <memory>
 
+enum class PhoneCS : int {
+	X = 0, Y, Z
+};
+
 using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
 using FT = Kernel::FT;
 using Point3 = Kernel::Point_3;
@@ -43,7 +47,7 @@ private:
 	int writePointsCoordsToBuffer(mtlpp::Buffer vertecesBuffer, const PointVec& points) const;
 	
 	
-	void filterFaces(IndexFacetVec& v0, float threshold) const;
+	void chooseUpOrientedFaces(IndexFacetVec& v0, float threshold) const;
 	
 	void writeSeparatedData();
 	
@@ -62,15 +66,16 @@ public:
 	
 	void triangulate();
 	void separate();
+	void polishFoot();
 	
 	// вычисляет координату comp сентра грани faset
 	// comp: 0 == x, 1 == y, 2 == z
-	float getFaceCenter(const Facet& facet, int comp=1) const;
+	float getFaceCenter(const Facet& facet, PhoneCS comp=PhoneCS::Y) const;
 	
 	float getFacePerimeter(const Facet& facet) const;
 
 	// вычисляет квадрат компоненты comp нормали грани facet. Нормаль предполагается нормированной.
-	float getFaceNormalSquared(const Facet& facet, int comp=1) const;
+	float getFaceNormalSquared(const Facet& facet, PhoneCS comp=PhoneCS::Y) const;
 	
 	// набор методов вычисляющих параметры преобразования СК
 	void findTransformCS();
@@ -91,7 +96,7 @@ private:
 	// задают преобразования СК
 	Vector2 xAxesDir;
 	Vector2 zAxesDir;
-	Point2 xAxesOrigin;
+	Point2 xzAxesOrigin;
 	
 	PointVec allPoints;
 	PointVec smoothedPoints;

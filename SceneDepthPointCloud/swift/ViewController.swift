@@ -88,11 +88,11 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		
 		rc.separate()
 		rc.findTtransformCoordinateSystem();
+		rc.polishFoot();
 		rc.getIndexBuffer(renderer.indecesBuffer[Foot.rawValue]!.buffer, Foot.rawValue)
 		rc.getIndexBuffer(renderer.indecesBuffer[Floor.rawValue]!.buffer, Floor.rawValue)
 		
 		let exporter = Exporter.init()
-		
 		
 		exporter.setTransformInfo(shift: [rc.getXYO(0),
 										  rc.getFloorShift(),

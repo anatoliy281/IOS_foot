@@ -1,6 +1,7 @@
 #include "BufferPreprocessor.hpp"
 #include <iostream>
 #include <algorithm>
+#include <iterator>
 #include "ShaderTypes.h"
 
 #include <CGAL/remove_outliers.h>
@@ -14,8 +15,6 @@
 #include "gsl.h"
 
 #include "Profiler.hpp"
-
-//using Transformation = Kernel::Aff_transformation_2;
 
 using CGAL::grid_simplify_point_set;
 using CGAL::remove_outliers;
@@ -129,7 +128,7 @@ void BufferPreprocessor::separate() {
 	seacher = make_unique<BisectionFloorSearcher>(yInterval, shared_from_this());
 
 	IndexFacetVec v0;
-	filterFaces(v0, 0.9f);
+	chooseUpOrientedFaces(v0, 0.9f);
 	profiler.measure("filter faces");
 
 	auto result = seacher->search(v0);
@@ -150,42 +149,14 @@ void BufferPreprocessor::separate() {
 	cout << profiler << endl;
 }
 
-
-void BufferPreprocessor::findTransformCS() {
-	Profiler profiler {"find transformation"};
-	vector<Point2> points;
-	const auto footFaces = faces.at(Foot);
-	for (const auto& fct: footFaces) {
-		const auto fc = getFaceCenter(fct);
-		if ( floorInterval[1] < fc && fc < floorInterval[2]) {
-			points.emplace_back(getFaceCenter(fct, 0), getFaceCenter(fct, 2));
-		}
+void BufferPreprocessor::chooseUpOrientedFaces(IndexFacetVec& v0, float threshold) const {
+	const auto& allFaces = faces.at(Undefined);
+	const auto nsq = threshold*threshold;
+	for (size_t i=0; i < allFaces.size(); ++i) {
+		const auto& fct = allFaces[i];
+		if ( getFaceNormalSquared(fct) > nsq )
+			v0.push_back(i);
 	}
-	profiler.measure("form data");
-	Line xAxes;
-	CGAL::linear_least_squares_fitting_2(points.cbegin(), points.cend(), xAxes, xAxesOrigin, CGAL::Dimension_tag<0>());
-	
-	// новые оси координат
-	xAxesDir = xAxes.to_vector();
-	zAxesDir = xAxes.perpendicular(xAxesOrigin).to_vector();
-	
-	profiler.measure(string("~~~~~~~~~~~~~axes direction\n") +
-					 "xAxes: " + to_string(xAxesDir[0]) + " " + to_string(xAxesDir[1]) + "\n" +
-					 "zAxes: " + to_string(zAxesDir[0]) + " " + to_string(zAxesDir[1]) );
-	
-	cout << profiler << endl;
-}
-
-float BufferPreprocessor::getFloorHeight() const {
-	return floorInterval[1];
-}
-
-Vector2 BufferPreprocessor::getAxesDir(int axes) const {
-	return (axes == 0)? xAxesDir: zAxesDir;
-}
-
-Point2 BufferPreprocessor::getXAxesOrigin() const {
-	return xAxesOrigin;
 }
 
 void BufferPreprocessor::writeSeparatedData() {
@@ -222,34 +193,145 @@ void BufferPreprocessor::writeSeparatedData() {
 	}
 }
 
-void BufferPreprocessor::filterFaces(IndexFacetVec& v0, float threshold) const {
-	const auto& allFaces = faces.at(Undefined);
-	const auto nsq = threshold*threshold;
-	for (size_t i=0; i < allFaces.size(); ++i) {
-		const auto& fct = allFaces[i];
-		if ( getFaceNormalSquared(fct) > nsq )
-			v0.push_back(i);
+
+
+void BufferPreprocessor::polishFoot() {
+	Profiler profiler {"polish foot"};
+	
+	const auto component = PhoneCS::X;
+	auto locateFace = [this, component](const Facet& facet) {
+		return getFaceCenter(facet, component);
+	};
+	
+	auto toRoundMm = [](float pos) {
+		return static_cast<int>( round(1000*pos) );
+	};
+	
+	map<int, size_t> histogram;
+	auto& footFaces = faces[Foot];
+	for (size_t i=0; i < footFaces.size(); ++i) {
+		const auto face = footFaces[i];
+		const auto pos = toRoundMm( locateFace(face) );
+		histogram[pos] += 1;
 	}
+	profiler.measure(string("form histro ") + to_string(histogram.size()));
+	
+	
+	const auto amplitude = max_element(histogram.cbegin(), histogram.cend(), [](const auto& p1, const auto& p2) {
+		return p1.second < p2.second;
+	})->second;
+	
+	auto ff = [percent=0.1, amplitude](const auto& pair) {
+		const auto relativeAmp = static_cast<float>(pair.second) / amplitude;
+		return relativeAmp > percent;
+	};
+	auto leftBoundIt = find_if(histogram.cbegin(), histogram.cend(), ff);
+	auto rightBoundIt = find_if(histogram.rbegin(), histogram.rend(), ff);
+	
+	if ( leftBoundIt == histogram.cend() ||
+		 rightBoundIt == histogram.rend() ) {
+		cout << "Плохи дела. " << endl;
+		return;
+	}
+	
+	cout << "(" << leftBoundIt->first << ", " << rightBoundIt->first << ")" << endl;
+	profiler.measure("seach extremums");
+	
+	
+	// show search results in histogramm...
+	
+	auto show = [amplitude,
+				 a = leftBoundIt->first,
+				 b = rightBoundIt->first,
+				 &os = cout] (const auto& p) {
+		const auto relativeAmplitude = static_cast<size_t>( round(100.f*p.second/amplitude) );
+		const auto column = string(relativeAmplitude, '*');
+		auto marker = "";
+		if ((a == p.first) || (b == p.first)) {
+			marker = " - !!! Border !!!";
+		}
+		const auto pos = p.first;
+		os << pos << ": " << column << marker << endl;
+	};
+	for_each(histogram.cbegin(), histogram.cend(), show);
+	profiler.measure("show histro");
+	
+	// removing from indecs from foot
+	auto newEndIt = remove_if(footFaces.begin(), footFaces.end(),
+			  [locateFace, toRoundMm,
+			   a=leftBoundIt->first,
+			   b=rightBoundIt->first](auto& facet) {
+		const auto pos = toRoundMm( locateFace(facet) );
+		return (pos < a || b < pos);
+	});
+	footFaces.erase(newEndIt, footFaces.end());
+	profiler.measure("removing indeces");
+	
+	cout << profiler << endl;
+	
 }
 
-float BufferPreprocessor::getFaceNormalSquared(const Facet& facet, int comp) const {
+
+
+
+void BufferPreprocessor::findTransformCS() {
+	Profiler profiler {"find transformation"};
+	vector<Point2> points;
+	const auto footFaces = faces.at(Foot);
+	for (const auto& fct: footFaces) {
+		const auto fc = getFaceCenter(fct);
+		if ( floorInterval[1] < fc && fc < floorInterval[2] ) {
+			points.emplace_back(getFaceCenter(fct, PhoneCS::X), getFaceCenter(fct, PhoneCS::Z));
+		}
+	}
+	profiler.measure("form data");
+	Line xAxes;
+	CGAL::linear_least_squares_fitting_2(points.cbegin(), points.cend(), xAxes, xzAxesOrigin, CGAL::Dimension_tag<0>());
+	
+	// новые оси координат
+	xAxesDir = xAxes.to_vector();
+	zAxesDir = xAxes.perpendicular(xzAxesOrigin).to_vector();
+	
+	profiler.measure(string("axes direction: ") +
+					 "xAxes: (" + to_string(xAxesDir[0]) + ", " + to_string(xAxesDir[1]) + ") and " +
+					 "zAxes: (" + to_string(zAxesDir[0]) + ", " + to_string(zAxesDir[1]) + ")" );
+	
+	cout << profiler << endl;
+}
+
+float BufferPreprocessor::getFloorHeight() const {
+	return floorInterval[1];
+}
+
+Vector2 BufferPreprocessor::getAxesDir(int axes) const {
+	return (axes == 0)? xAxesDir: zAxesDir;
+}
+
+Point2 BufferPreprocessor::getXAxesOrigin() const {
+	return xzAxesOrigin;
+}
+
+
+float BufferPreprocessor::getFaceNormalSquared(const Facet& facet, PhoneCS comp) const {
 	const auto& p0 = smoothedPoints[facet[0]];
 	const auto& p1 = smoothedPoints[facet[1]];
 	const auto& p2 = smoothedPoints[facet[2]];
 	
 	const auto& n = CGAL::cross_product(p1 - p0, p2 - p0);
 	auto lsq = n.squared_length();
-	return n[comp]*n[comp] / lsq;
+	const auto cmp = static_cast<int>(comp);
+	return n[cmp]*n[cmp] / lsq;
 }
 
 
 
-float BufferPreprocessor::getFaceCenter(const Facet& facet, int comp) const {
+float BufferPreprocessor::getFaceCenter(const Facet& facet, PhoneCS comp) const {
 	const auto& p0 = smoothedPoints[facet[0]];
 	const auto& p1 = smoothedPoints[facet[1]];
 	const auto& p2 = smoothedPoints[facet[2]];
 	
-	return (p0[comp] + p1[comp] + p2[comp]) / 3;
+	const auto c = static_cast<int>(comp);
+	return (p0[c] + p1[c] + p2[c]) / 3;
 }
 
 float BufferPreprocessor::getFacePerimeter(const Facet& facet) const {
