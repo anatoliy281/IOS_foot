@@ -58,7 +58,7 @@ class Exporter {
 		
 		let p2_rot = m*p2
 		
-		return simd_float3(p2_rot.x, p2_rot.y, z)
+		return simd_float3(p2_rot.x, -p2_rot.y, z)
 	
 	}
 	

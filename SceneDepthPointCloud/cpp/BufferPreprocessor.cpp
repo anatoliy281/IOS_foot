@@ -11,6 +11,7 @@
 #include <CGAL/compute_average_spacing.h>
 #include <CGAL/linear_least_squares_fitting_2.h>
 #include <CGAL/Aff_transformation_2.h>
+#include <CGAL/Aff_transformation_3.h>
 
 #include "gsl.h"
 
@@ -26,6 +27,8 @@ using std::vector;
 using std::cout;
 using std::endl;
 using std::tie;
+
+using Transformation2 = Kernel::Aff_transformation_2;
 
 using namespace std;
 
@@ -193,12 +196,9 @@ void BufferPreprocessor::writeSeparatedData() {
 	}
 }
 
-
-
 void BufferPreprocessor::polishFoot() {
 	Profiler profiler {"polish foot"};
 	
-	const auto component = PhoneCS::X;
 	auto alpha = 0.f;
 	auto locateFace = [this, &alpha](const Facet& facet) {
 		const auto posInCam = getFaceCenter(facet);
@@ -225,23 +225,20 @@ void BufferPreprocessor::polishFoot() {
 	
 	// Поиск границы обрезания гистограммы
 	size_t amplitude {0};
-	auto checkupBound = [percent=0.1, &amplitude](const auto& pair) {
+	auto checkupBound = [percent=0.05, &amplitude](const auto& pair) {
 		const auto relativeAmp = static_cast<float>(pair.second) / amplitude;
 		return relativeAmp > percent;
 	};
 	
-	const auto pi = static_cast<float>(M_PI);
-	while ( alpha < pi ) {
+	const auto angle_final = static_cast<float>(2*M_PI);
+	while ( alpha < angle_final ) {
 		populateHistogram(locateFace, toRoundMm);
-		profiler.measure(string("form histro ") + to_string(histogram.size()));
-		
 		// одного поиска достаточно, т.к. процедура инвариантна относительно поворотов в плоскости пола
 		if (!amplitude) {	// поиск амплитуды (максимального значения гистограммы)
 			amplitude = max_element(histogram.cbegin(), histogram.cend(),
 									[](const auto& p1, const auto& p2) {
 				return p1.second < p2.second;
 			})->second;
-			profiler.measure("search amplitude");
 		}
 	
 		auto leftBoundIt = find_if(histogram.cbegin(), histogram.cend(), checkupBound);
@@ -253,9 +250,6 @@ void BufferPreprocessor::polishFoot() {
 			return;
 		}
 		
-		cout << "(" << leftBoundIt->first << ", " << rightBoundIt->first << ")" << endl;
-		profiler.measure(string("seach extremums") + to_string(alpha));
-		
 		// очистка индексов не прошедших выборку
 		auto newEndIt = remove_if(footFaces.begin(), footFaces.end(),
 				  [locateFace, toRoundMm,
@@ -265,20 +259,10 @@ void BufferPreprocessor::polishFoot() {
 			return (pos < a || b < pos);
 		});
 		footFaces.erase(newEndIt, footFaces.end());
-		profiler.measure("removing indeces");
 		
-		alpha += pi/8;
+		profiler.measure( "alpha: " + to_string(alpha/M_PI*180) + " (" + to_string(leftBoundIt->first) + ", " + to_string(rightBoundIt->first) + ")");
+		alpha += angle_final/72;
 	}
-	
-	
-	
-	
-	
-
-	
-
-	
-	
 //	// просмотр гистограммы
 //	auto show = [amplitude,
 //				 a = leftBoundIt->first,
@@ -296,18 +280,38 @@ void BufferPreprocessor::polishFoot() {
 //	for_each(histogram.cbegin(), histogram.cend(), show);
 //	profiler.measure("show histro");
 	
-	
-	
+	profiler.measure("rotation on 360");
 	cout << profiler << endl;
 	
 }
 
 Vector3 BufferPreprocessor::toFootCoordinate(const Vector3& pos) const {
-	return {};
+	
+//	let pShifted = point - shift
+	const auto r0 = pos - Vector3(xzAxesOrigin[0], getFloorHeight(), xzAxesOrigin[1]);
+//	let p2 = simd_float2(pShifted.x, pShifted.z);
+	const auto rho = Vector2(r0.x(), r0.z());
+//	let z = pShifted.y
+	const auto z = r0.y();
+//
+//	let ex = axes[0]
+//	let ey = axes[1]
+//	let m:simd_float2x2 = .init( rows: [simd_float2(ex[0], ex[1]), simd_float2(ey[0], ey[1])] )
+	Transformation2 m(CGAL::Rotation(), xAxesDir.y(), xAxesDir.x());
+	
+//	let p2_rot = m*p2
+	const auto rho_rot = m(rho);
+
+//	return simd_float3(p2_rot.x, -p2_rot.y, z)
+	
+	return Vector3(rho_rot.x(), -rho_rot.y(), z);
 }
 
 void BufferPreprocessor::rotate(Vector3& pos, float alpha) const {
-	
+	Transformation2 m(CGAL::Rotation(), sin(alpha), cos(alpha));
+	const auto p2 = Vector2(pos.x(), pos.y());
+	const auto p2_rot = m(p2);
+	pos = Vector3(p2_rot.x(), p2_rot.y(), pos.z());
 }
 
 
