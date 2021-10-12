@@ -17,6 +17,10 @@ enum PhoneCS : int {
 	X = 0, Y, Z
 };
 
+enum FootCS : int {
+	x = 0, y, z
+};
+
 using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
 using FT = Kernel::FT;
 using Point3 = Kernel::Point_3;
@@ -52,8 +56,8 @@ private:
 	// polishFoot использует их:
 	// трансформирует координаты в соответствии с xAxesDir, zAxisDir, xzAxesOrigin
 	Vector3 toFootCoordinate(const Vector3& pos) const;
-	// вращает координыт в плоскости пола на угол dAlpha
-	void rotate(Vector3& pos, float dAlpha) const;
+	// вращает координыт в плоскости пола на угол alpha
+	void rotate(Vector3& pos, float alpha) const;
 	
 	void writeSeparatedData();
 	

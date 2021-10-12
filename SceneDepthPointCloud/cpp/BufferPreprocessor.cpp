@@ -199,8 +199,12 @@ void BufferPreprocessor::polishFoot() {
 	Profiler profiler {"polish foot"};
 	
 	const auto component = PhoneCS::X;
-	auto locateFace = [this, component](const Facet& facet) {
-		return getFaceCenter(facet)[PhoneCS::Y];
+	auto alpha = 0.f;
+	auto locateFace = [this, &alpha](const Facet& facet) {
+		const auto posInCam = getFaceCenter(facet);
+		auto posInFoot = toFootCoordinate(posInCam);
+		rotate(posInFoot, alpha);
+		return posInFoot[FootCS::x];
 	};
 	
 	auto toRoundMm = [](float pos) {
@@ -210,73 +214,101 @@ void BufferPreprocessor::polishFoot() {
 	// построение частнотной гистограммы
 	map<int, size_t> histogram;
 	auto& footFaces = faces[Foot];
-	for (size_t i=0; i < footFaces.size(); ++i) {
-		const auto face = footFaces[i];
-		const auto pos = toRoundMm( locateFace(face) );
-		histogram[pos] += 1;
-	}
-	profiler.measure(string("form histro ") + to_string(histogram.size()));
-	
-	// поиск амплитуды (максимального значения гистограммы)
-	const auto amplitude = max_element(histogram.cbegin(), histogram.cend(), [](const auto& p1, const auto& p2) {
-		return p1.second < p2.second;
-	})->second;
-	
-	
-	
-	
+	auto populateHistogram = [&histogram, &footFaces](auto lfFunc, auto rFunc) {
+		histogram.clear();
+		for (size_t i=0; i < footFaces.size(); ++i) {
+			const auto face = footFaces[i];
+			const auto pos = rFunc( lfFunc(face) );
+			histogram[pos] += 1;
+		}
+	};
 	
 	// Поиск границы обрезания гистограммы
-	auto checkupBound = [percent=0.1, amplitude](const auto& pair) {
+	size_t amplitude {0};
+	auto checkupBound = [percent=0.1, &amplitude](const auto& pair) {
 		const auto relativeAmp = static_cast<float>(pair.second) / amplitude;
 		return relativeAmp > percent;
 	};
-	auto leftBoundIt = find_if(histogram.cbegin(), histogram.cend(), checkupBound);
-	auto rightBoundIt = find_if(histogram.rbegin(), histogram.rend(), checkupBound);
 	
-	if ( leftBoundIt == histogram.cend() ||
-		 rightBoundIt == histogram.rend() ) {
-		cout << "Плохи дела. " << endl;
-		return;
+	const auto pi = static_cast<float>(M_PI);
+	while ( alpha < pi ) {
+		populateHistogram(locateFace, toRoundMm);
+		profiler.measure(string("form histro ") + to_string(histogram.size()));
+		
+		// одного поиска достаточно, т.к. процедура инвариантна относительно поворотов в плоскости пола
+		if (!amplitude) {	// поиск амплитуды (максимального значения гистограммы)
+			amplitude = max_element(histogram.cbegin(), histogram.cend(),
+									[](const auto& p1, const auto& p2) {
+				return p1.second < p2.second;
+			})->second;
+			profiler.measure("search amplitude");
+		}
+	
+		auto leftBoundIt = find_if(histogram.cbegin(), histogram.cend(), checkupBound);
+		auto rightBoundIt = find_if(histogram.rbegin(), histogram.rend(), checkupBound);
+		
+		if ( leftBoundIt == histogram.cend() ||
+			 rightBoundIt == histogram.rend() ) {
+			cout << "Плохи дела. " << endl;
+			return;
+		}
+		
+		cout << "(" << leftBoundIt->first << ", " << rightBoundIt->first << ")" << endl;
+		profiler.measure(string("seach extremums") + to_string(alpha));
+		
+		// очистка индексов не прошедших выборку
+		auto newEndIt = remove_if(footFaces.begin(), footFaces.end(),
+				  [locateFace, toRoundMm,
+				   a=leftBoundIt->first,
+				   b=rightBoundIt->first](auto& facet) {
+			const auto pos = toRoundMm( locateFace(facet) );
+			return (pos < a || b < pos);
+		});
+		footFaces.erase(newEndIt, footFaces.end());
+		profiler.measure("removing indeces");
+		
+		alpha += pi/8;
 	}
 	
-	cout << "(" << leftBoundIt->first << ", " << rightBoundIt->first << ")" << endl;
-	profiler.measure("seach extremums");
 	
 	
-	// просмотр гистограммы
-	auto show = [amplitude,
-				 a = leftBoundIt->first,
-				 b = rightBoundIt->first,
-				 &os = cout] (const auto& p) {
-		const auto relativeAmplitude = static_cast<size_t>( round(100.f*p.second/amplitude) );
-		const auto column = string(relativeAmplitude, '*');
-		auto marker = "";
-		if ((a == p.first) || (b == p.first)) {
-			marker = " - !!! Border !!!";
-		}
-		const auto pos = p.first;
-		os << pos << ": " << column << marker << endl;
-	};
-	for_each(histogram.cbegin(), histogram.cend(), show);
-	profiler.measure("show histro");
 	
-	// очистка индексов не прошедших выборку
-	auto newEndIt = remove_if(footFaces.begin(), footFaces.end(),
-			  [locateFace, toRoundMm,
-			   a=leftBoundIt->first,
-			   b=rightBoundIt->first](auto& facet) {
-		const auto pos = toRoundMm( locateFace(facet) );
-		return (pos < a || b < pos);
-	});
-	footFaces.erase(newEndIt, footFaces.end());
-	profiler.measure("removing indeces");
+	
+
+	
+
+	
+	
+//	// просмотр гистограммы
+//	auto show = [amplitude,
+//				 a = leftBoundIt->first,
+//				 b = rightBoundIt->first,
+//				 &os = cout] (const auto& p) {
+//		const auto relativeAmplitude = static_cast<size_t>( round(100.f*p.second/amplitude) );
+//		const auto column = string(relativeAmplitude, '*');
+//		auto marker = "";
+//		if ((a == p.first) || (b == p.first)) {
+//			marker = " - !!! Border !!!";
+//		}
+//		const auto pos = p.first;
+//		os << pos << ": " << column << marker << endl;
+//	};
+//	for_each(histogram.cbegin(), histogram.cend(), show);
+//	profiler.measure("show histro");
+	
+	
 	
 	cout << profiler << endl;
 	
 }
 
+Vector3 BufferPreprocessor::toFootCoordinate(const Vector3& pos) const {
+	return {};
+}
 
+void BufferPreprocessor::rotate(Vector3& pos, float alpha) const {
+	
+}
 
 
 void BufferPreprocessor::findTransformCS() {
