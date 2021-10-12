@@ -76,7 +76,7 @@ void BisectionFloorSearcher::fillBigramm(const Interval& interval, const IndexFa
 	}
 	auto facets = master->getAccesToUndefinedFacets();
 	for (const auto& index: v0) {
-		const auto yC = master->getFaceCenter(facets[index]);
+		const auto yC = master->getFaceCenter(facets[index])[PhoneCS::Y];
 		if (yC < interval[1]) {
 			lower.push_back(index);
 		} else {
@@ -120,7 +120,7 @@ pair<Interval,IndexFacetVec> HistogramSearcher::search(const IndexFacetVec& inIn
 	auto allFaces = master->getAccesToUndefinedFacets();
 	const auto minPos = _interval[0];
 	for (const auto& indx: inIndeces) {
-		const auto pos = master->getFaceCenter(allFaces[indx]);
+		const auto pos = master->getFaceCenter(allFaces[indx])[PhoneCS::Y];
 		const auto i = round((pos - minPos) / _width);
 		_statistic[i] += 1;
 	}
@@ -130,7 +130,7 @@ pair<Interval,IndexFacetVec> HistogramSearcher::search(const IndexFacetVec& inIn
 	const auto outInterval = findFloorInterval();
 	IndexFacetVec outIndeces;
 	for (const auto& indx: inIndeces) {
-		const auto pos = master->getFaceCenter(allFaces[indx]);
+		const auto pos = master->getFaceCenter(allFaces[indx])[PhoneCS::Y];
 		if (outInterval[0] <= pos && pos <= outInterval[2]) {
 			outIndeces.push_back(indx);
 		}

@@ -170,7 +170,7 @@ void BufferPreprocessor::writeSeparatedData() {
 		
 		if (getFacePerimeter(fct) > maxTrianglePerimeter) continue;
 		
-		const auto pos = getFaceCenter(fct);
+		const auto pos = getFaceCenter(fct)[PhoneCS::Y];
 		const auto inFloorInterval = floorInterval[0] < pos && pos < floorInterval[2];
 		const auto underFloor = floorInterval[0] >= pos;
 		const auto overTheFloor = floorInterval[2] <= pos;
@@ -200,13 +200,14 @@ void BufferPreprocessor::polishFoot() {
 	
 	const auto component = PhoneCS::X;
 	auto locateFace = [this, component](const Facet& facet) {
-		return getFaceCenter(facet, component);
+		return getFaceCenter(facet)[PhoneCS::Y];
 	};
 	
 	auto toRoundMm = [](float pos) {
 		return static_cast<int>( round(1000*pos) );
 	};
 	
+	// построение частнотной гистограммы
 	map<int, size_t> histogram;
 	auto& footFaces = faces[Foot];
 	for (size_t i=0; i < footFaces.size(); ++i) {
@@ -216,17 +217,22 @@ void BufferPreprocessor::polishFoot() {
 	}
 	profiler.measure(string("form histro ") + to_string(histogram.size()));
 	
-	
+	// поиск амплитуды (максимального значения гистограммы)
 	const auto amplitude = max_element(histogram.cbegin(), histogram.cend(), [](const auto& p1, const auto& p2) {
 		return p1.second < p2.second;
 	})->second;
 	
-	auto ff = [percent=0.1, amplitude](const auto& pair) {
+	
+	
+	
+	
+	// Поиск границы обрезания гистограммы
+	auto checkupBound = [percent=0.1, amplitude](const auto& pair) {
 		const auto relativeAmp = static_cast<float>(pair.second) / amplitude;
 		return relativeAmp > percent;
 	};
-	auto leftBoundIt = find_if(histogram.cbegin(), histogram.cend(), ff);
-	auto rightBoundIt = find_if(histogram.rbegin(), histogram.rend(), ff);
+	auto leftBoundIt = find_if(histogram.cbegin(), histogram.cend(), checkupBound);
+	auto rightBoundIt = find_if(histogram.rbegin(), histogram.rend(), checkupBound);
 	
 	if ( leftBoundIt == histogram.cend() ||
 		 rightBoundIt == histogram.rend() ) {
@@ -238,8 +244,7 @@ void BufferPreprocessor::polishFoot() {
 	profiler.measure("seach extremums");
 	
 	
-	// show search results in histogramm...
-	
+	// просмотр гистограммы
 	auto show = [amplitude,
 				 a = leftBoundIt->first,
 				 b = rightBoundIt->first,
@@ -256,7 +261,7 @@ void BufferPreprocessor::polishFoot() {
 	for_each(histogram.cbegin(), histogram.cend(), show);
 	profiler.measure("show histro");
 	
-	// removing from indecs from foot
+	// очистка индексов не прошедших выборку
 	auto newEndIt = remove_if(footFaces.begin(), footFaces.end(),
 			  [locateFace, toRoundMm,
 			   a=leftBoundIt->first,
@@ -280,8 +285,8 @@ void BufferPreprocessor::findTransformCS() {
 	const auto footFaces = faces.at(Foot);
 	for (const auto& fct: footFaces) {
 		const auto fc = getFaceCenter(fct);
-		if ( floorInterval[1] < fc && fc < floorInterval[2] ) {
-			points.emplace_back(getFaceCenter(fct, PhoneCS::X), getFaceCenter(fct, PhoneCS::Z));
+		if ( floorInterval[1] < fc[PhoneCS::Y] && fc[PhoneCS::Y] < floorInterval[2] ) {
+			points.emplace_back(fc[PhoneCS::X], fc[PhoneCS::Z]);
 		}
 	}
 	profiler.measure("form data");
@@ -325,13 +330,12 @@ float BufferPreprocessor::getFaceNormalSquared(const Facet& facet, PhoneCS comp)
 
 
 
-float BufferPreprocessor::getFaceCenter(const Facet& facet, PhoneCS comp) const {
-	const auto& p0 = smoothedPoints[facet[0]];
-	const auto& p1 = smoothedPoints[facet[1]];
-	const auto& p2 = smoothedPoints[facet[2]];
+Vector3 BufferPreprocessor::getFaceCenter(const Facet& facet) const {
+	const auto p0 = smoothedPoints[facet[0]] - CGAL::ORIGIN;
+	const auto p1 = smoothedPoints[facet[1]] - CGAL::ORIGIN;
+	const auto p2 = smoothedPoints[facet[2]] - CGAL::ORIGIN;
 	
-	const auto c = static_cast<int>(comp);
-	return (p0[c] + p1[c] + p2[c]) / 3;
+	return (p0 + p1 + p2) / 3;
 }
 
 float BufferPreprocessor::getFacePerimeter(const Facet& facet) const {

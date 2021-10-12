@@ -13,7 +13,7 @@
 #include <map>
 #include <memory>
 
-enum class PhoneCS : int {
+enum PhoneCS : int {
 	X = 0, Y, Z
 };
 
@@ -49,6 +49,12 @@ private:
 	
 	void chooseUpOrientedFaces(IndexFacetVec& v0, float threshold) const;
 	
+	// polishFoot использует их:
+	// трансформирует координаты в соответствии с xAxesDir, zAxisDir, xzAxesOrigin
+	Vector3 toFootCoordinate(const Vector3& pos) const;
+	// вращает координыт в плоскости пола на угол dAlpha
+	void rotate(Vector3& pos, float dAlpha) const;
+	
 	void writeSeparatedData();
 	
 public:
@@ -70,7 +76,7 @@ public:
 	
 	// вычисляет координату comp сентра грани faset
 	// comp: 0 == x, 1 == y, 2 == z
-	float getFaceCenter(const Facet& facet, PhoneCS comp=PhoneCS::Y) const;
+	Vector3 getFaceCenter(const Facet& facet) const;
 	
 	float getFacePerimeter(const Facet& facet) const;
 
