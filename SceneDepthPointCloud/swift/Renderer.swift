@@ -115,9 +115,13 @@ class Renderer {
 		pointChunkBuffer = .init(device: device, count: pointsChunkLength, index: kCurrentChunk.rawValue)
 		vertecesBuffer = .init(device: device, count: maxPoints, index: kVerteces.rawValue)
 		indecesBuffer = [:]
-		indecesBuffer[Foot.rawValue] = .init(device: device, count: 3*maxPoints, index: 0)
-		indecesBuffer[Floor.rawValue] = .init(device: device, count: 3*maxPoints, index: 1)
-		indecesBuffer[Undefined.rawValue] = .init(device: device, count: 3*maxPoints, index: 2)
+		
+		// TODO ...
+		indecesBuffer[Foot.rawValue] = .init(device: device, count: 3*maxPoints, index: Foot.rawValue)
+		indecesBuffer[Floor.rawValue] = .init(device: device, count: 3*maxPoints, index: Floor.rawValue)
+		indecesBuffer[Undefined.rawValue] = .init(device: device, count: 3*maxPoints, index: Undefined.rawValue)
+		indecesBuffer[PolishedFoot.rawValue] = .init(device: device, count: 3*maxPoints, index: PolishedFoot.rawValue)
+		
         // rbg does not need to read/write depth
         let relaxedStateDescriptor = MTLDepthStencilDescriptor()
         relaxedStencilState = device.makeDepthStencilState(descriptor: relaxedStateDescriptor)!

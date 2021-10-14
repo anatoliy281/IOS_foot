@@ -13,6 +13,10 @@
 
 #include "gsl.h"
 
+#include <CGAL/Simple_cartesian.h>
+#include <CGAL/Monge_via_jet_fitting.h>
+
+
 #include "Profiler.hpp"
 
 //using Transformation = Kernel::Aff_transformation_2;
@@ -150,6 +154,37 @@ void BufferPreprocessor::separate() {
 	cout << profiler << endl;
 }
 
+void BufferPreprocessor::polishFoot() {
+	// .................................... нахождение контура...
+	// 1 получение 2-вектора: (XYZ) -> (xz)
+	
+	// 2 получение проекций a_l и a_n
+	
+	// 3 вычисление номера h гистограммы и позиции заполнения k
+	
+	// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
+	
+	// вычисление пиков гисограмм: (hk) -> (a_l a_n) -> (xz) -> (XYZ)
+	
+	// сохранение контура следа стопы в (XYZ) координатах
+	// (экспорт данных следа?)
+	
+	
+	// .................................... очищение всех граней, центры которых лежат вне контура...
+	
+	// либо повторить процедуру проецирования 1 - 3 и сравнивать k(h) и (K(h)) (выкидывать k > K )
+	
+	// !либо данные в k хранят вектор (Nl,i)
+	// i - номер грани, Nl - вклад нормали в направлении плоскости
+	// т.е. перейти от хранения скаляра к хранению вектора, сворачивая вектор определяем его вклад (определяем скаляр)
+	// после этого можно:
+	// a) пройтись по оставшимся векторам с координатой k > K и подчистить все грани сетки
+	// b) !завести вектор polishedFoot и записать туда все данные с k <= K для всех h (экспорт дополнительных данных polishedFoot?!)
+	
+	
+	// универсальный механизм экспорта данных
+	// vector<ExportedData> ExportedData: (string caption, string) anyExportedData -> string
+}
 
 void BufferPreprocessor::findTransformCS() {
 	Profiler profiler {"find transformation"};
@@ -295,6 +330,9 @@ int BufferPreprocessor::writePointsCoordsToBuffer(Buffer vertecesBuffer, const P
 }
 
 int BufferPreprocessor::writeFaces(Buffer indexBuffer, unsigned int type) const {
+	
+	// TODO связать буферы на этапе конструктора класса с типом type и не передавать его явным образом
+	
 	Profiler profiler {"Writing faces..."};
 	const auto fc = faces.at(FacetType(type));
 	for (size_t i=0; i < fc.size(); ++i) {

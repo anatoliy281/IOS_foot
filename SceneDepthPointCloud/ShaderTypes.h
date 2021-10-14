@@ -45,7 +45,7 @@ struct ParticleUniforms {
 };
 
 enum FacetType {
-	Foot, Floor, Undefined
+	PolishedFoot, Foot, Floor, Undefined
 };
 
 #endif /* ShaderTypes_h */

@@ -98,6 +98,9 @@ class Exporter {
 			fileName = "foot.off";
 			fileContent = writeSubmesh(vertexBuffer: buffer,
 									   sumMeshIndeces:indeces![Foot.rawValue]!)
+			fileName = "polished_foot.off";
+			fileContent = writeSubmesh(vertexBuffer: buffer,
+									   sumMeshIndeces:indeces![PolishedFoot.rawValue]!)
 			savedData.append( FileDescr(fileName, fileContent) )
 		} else {
 			fileName = (parameter == .position) ? "cloud.obj" : "color.obj"

@@ -88,8 +88,9 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		
 		rc.separate()
 		rc.findTtransformCoordinateSystem();
+		rc.polishFoot();
 		rc.getIndexBuffer(renderer.indecesBuffer[Foot.rawValue]!.buffer, Foot.rawValue)
-		rc.getIndexBuffer(renderer.indecesBuffer[Floor.rawValue]!.buffer, Floor.rawValue)
+		rc.getIndexBuffer(renderer.indecesBuffer[PolishedFoot.rawValue]!.buffer, PolishedFoot.rawValue)
 		
 		let exporter = Exporter.init()
 		

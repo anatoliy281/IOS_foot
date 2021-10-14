@@ -62,6 +62,7 @@ public:
 	
 	void triangulate();
 	void separate();
+	void polishFoot();
 	
 	// вычисляет координату comp сентра грани faset
 	// comp: 0 == x, 1 == y, 2 == z
