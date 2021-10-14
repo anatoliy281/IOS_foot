@@ -21,6 +21,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 -(float) getFloorShift;
 
+-(int) getContourSize;
+
+-(float) getContourPoint:(int)point
+					  :(int)component;
+
 -(float) getXYO:(int)component;
 
 -(float) getDirection:(int)axes

@@ -81,6 +81,8 @@ public:
 	Point2 getXAxesOrigin() const;
 
 
+	PointVec footContour;
+	
 private:
 	int pointBufferSize {0};
 	int indexBufferSize {0};

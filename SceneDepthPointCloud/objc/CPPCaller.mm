@@ -55,6 +55,16 @@
 	return _bufferPreprocessor->getFloorHeight();
 }
 
+-(int) getContourSize {
+	return static_cast<int>(_bufferPreprocessor->footContour.size());
+}
+
+-(float) getContourPoint:(int)point
+					    :(int)component {
+	const auto p = _bufferPreprocessor->footContour[point];
+	return p[component];
+}
+
 // depricated
 -(float) getAngle {
 	auto direction = _bufferPreprocessor->getAxesDir(0);

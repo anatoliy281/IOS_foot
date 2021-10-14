@@ -94,12 +94,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		
 		let exporter = Exporter.init()
 		
-		
-		exporter.setTransformInfo(shift: [rc.getXYO(0),
-										  rc.getFloorShift(),
-										  rc.getXYO(1)],
-								  axes: [[rc.getDirection(0,0),rc.getDirection(0,1)],
-											  [rc.getDirection(1,0),rc.getDirection(1,1)]] )
+		exporter.setTransformInfo(cppCaller:rc)
+		exporter.setFootContour(cppCaller:rc)
 		
 		rc.getVertexBuffer(renderer.particlesBuffer.buffer)	// обновили буфер облака точек (после преобразования СК)
 		exporter.setBufferData(buffer: renderer.particlesBuffer,
@@ -110,8 +106,8 @@ final class ViewController: UIViewController, ARSessionDelegate {
 							   parameter: .surfaceMesh,
 							   indeces: renderer.indecesBuffer)
 		
-		exporter.writeAxis(comp:0)	// отладка преобразования СК
-		exporter.writeAxis(comp:1)	// отладка преобразования СК
+		exporter.writeAxis()	// отладка преобразования СК
+		exporter.writeFootContour() // отладка контура ноги
 		
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "edge", parameter: .position)
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "floorColor", parameter: .color)

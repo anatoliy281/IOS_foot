@@ -10,10 +10,12 @@ class Exporter {
 	
 	var shift:Float3 = .init()
 	var axes:[Float2] = .init()
+	var footContour:[Float3] = []
 	
-	public func setTransformInfo(shift:Float3, axes:[Float2]) {
-		self.shift = shift
-		self.axes = axes
+	public func setTransformInfo(cppCaller caller:CPPCaller) {
+		shift = [caller.getXYO(0),caller.getFloorShift(),caller.getXYO(1)]
+		axes = [[caller.getDirection(0,0), caller.getDirection(0,1)],
+					 [caller.getDirection(1,0), caller.getDirection(1,1)]]
 	}
 	
 	typealias FileDescr = (fName:String, data:String)
@@ -70,15 +72,18 @@ class Exporter {
 	
 	}
 	
-	public func writeAxis(comp:Int) {
-		var content = ""
+	public func writeAxis() {
 		
-		let e = axes[comp]
-		let ep = shift + simd_float3(e[0], 0, e[1])
-		content.append("v \(shift[0]) \(shift[1]) \(shift[2])\n")
-		content.append("v \(ep[0]) \(ep[1]) \(ep[2])\n")
-		
-		savedData.append(FileDescr("debugAxesTransform_\(comp).obj", content))
+		for comp in 0..<axes.count {
+			var content = ""
+
+			let e = axes[comp]
+			let ep = shift + simd_float3(e[0], 0, e[1])
+			content.append("v \(shift[0]) \(shift[1]) \(shift[2])\n")
+			content.append("v \(ep[0]) \(ep[1]) \(ep[2])\n")
+			
+			savedData.append(FileDescr("debugAxesTransform_\(comp).obj", content))
+		}
 	}
 	
 	public func setBufferData(buffer: MetalBuffer<ParticleUniforms>,
@@ -139,6 +144,23 @@ class Exporter {
 		let activity = UIActivityViewController(activityItems: urls, applicationActivities: .none)
 		activity.isModalInPresentation = true
 		return activity
+	}
+	
+	public func setFootContour(cppCaller caller:CPPCaller) {
+		for i in 0..<caller.getContourSize() {
+			let p = Float3(caller.getContourPoint(i, 0),
+						   caller.getContourPoint(i, 1),
+						   caller.getContourPoint(i, 2))
+			footContour.append(p)
+		}
+	}
+	
+	public func writeFootContour() {
+		var content = ""
+		for p in footContour {
+			content.append("v \(p[0]) \(p[1]) \(p[2])\n")
+		}
+		savedData.append(FileDescr("footContour.obj", content))
 	}
 	
 }
