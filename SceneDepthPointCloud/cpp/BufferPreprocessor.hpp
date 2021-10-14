@@ -13,6 +13,14 @@
 #include <map>
 #include <memory>
 
+enum PhoneCS {
+	X = 0, Y = 1, Z = 2
+};
+
+enum FootCS {
+	x = 0, y = 1, z = 2
+};
+
 using Kernel = CGAL::Exact_predicates_inexact_constructions_kernel;
 using FT = Kernel::FT;
 using Point3 = Kernel::Point_3;
@@ -66,12 +74,12 @@ public:
 	
 	// вычисляет координату comp сентра грани faset
 	// comp: 0 == x, 1 == y, 2 == z
-	float getFaceCenter(const Facet& facet, int comp=1) const;
+	Vector3 getFaceCenter(const Facet& facet) const;
 	
 	float getFacePerimeter(const Facet& facet) const;
 
 	// вычисляет квадрат компоненты comp нормали грани facet. Нормаль предполагается нормированной.
-	float getFaceNormalSquared(const Facet& facet, int comp=1) const;
+	Vector3 getFaceNormal(const Facet& facet) const;
 	
 	// набор методов вычисляющих параметры преобразования СК
 	void findTransformCS();

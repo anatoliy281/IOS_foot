@@ -156,13 +156,68 @@ void BufferPreprocessor::separate() {
 
 void BufferPreprocessor::polishFoot() {
 	// .................................... нахождение контура...
-	// 1 получение 2-вектора: (XYZ) -> (xz)
+	// Все гистограммы организованы в набор.
+	// Отдельные гистограммы доступны из данного набра и хранят не скаляры, а вектора, сворачивая которые можно определять интересующие скаляры
+	using Index = size_t;	// i - номер грани
+	using PlaneNormalSquared = float;	// Nl - вклад нормали в направлении плоскости
+	using IndexedNormalVec = vector<pair<Index,PlaneNormalSquared>>; // вектор (i,Nl)
+	using Histogram = map<int, IndexedNormalVec>;	// отдельна гистограмма - данные в k хранят вектор
+	map<int,Histogram> allHistograms;	// список гистограмм
 	
-	// 2 получение проекций a_l и a_n
+	// заполнение набора гистограмм
+	const auto allFaces = faces.at(Undefined);
+	for (Index faceIndex=0; faceIndex < allFaces.size(); ++faceIndex) {
+		const auto face = allFaces[faceIndex];
+		// получение 2-вектора: (XYZ) -> (xz)
+		const auto c = getFaceCenter(face);
+		const auto p2 = Vector2(c.x(), c.z());
+		
+		// получение проекций a_l и a_n
+		const auto a_l = CGAL::scalar_product(p2, xAxesDir);
+		const auto a_n = CGAL::scalar_product(p2, zAxesDir);
+		
+		// вычисление номера h гистограммы и позиции заполнения k
+		const auto h = static_cast<int>(1000*round(a_l / 2));
+		const auto k = static_cast<int>(1000*round(a_n / 2));
+		
+		// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
+		const auto normal = getFaceNormal(face);
+		const auto planeNormal = Vector2(normal.x(), normal.z());
+		auto& histo = allHistograms[h];
+		histo[k].emplace_back( faceIndex, sqrt(planeNormal.squared_length()) );
+	}
 	
-	// 3 вычисление номера h гистограммы и позиции заполнения k
+	cout << "========================= HISTOGRAMS STATISTIC ============================" << endl;
+	for_each(allHistograms.cbegin(), allHistograms.cend(), [](const auto& pair) {
+		const auto& key = pair.first;
+		const auto& innerHisto = pair.second;
+		cout << key << ": " << innerHisto.size() << endl;
+	});
 	
-	// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
+	using LeftPeak = int;
+	using RightPeak = int;
+	vector<pair<LeftPeak,RightPeak>> peaks(allHistograms.size());	// положения пиков гистограмм
+	for_each(allHistograms.begin(), allHistograms.end(), [&peaks](auto& pair) {	// перебор всех гистограмм
+		auto& innerHisto = pair.second;
+		
+		// поиск нуля гистограммы
+		auto firstPositiveCoordIt = find_if(innerHisto.begin(), innerHisto.end(), [](const auto& pair) {
+			return pair.first >= 0;
+		});
+		if (firstPositiveCoordIt == innerHisto.end()) {
+			cout << "		" << pair.first << "		!проблемы поиска нуля гистограммы" << endl;
+			return;
+		}
+		
+		const auto rightPeak = max_element(innerHisto.begin(), innerHisto.end(), [](const auto& p1, const auto& p2) {
+			return p1.second.size() < p2.second.size();
+		});
+		
+		const auto leftPeak = max_element( make_reverse_iterator(innerHisto.begin()), innerHisto.rend(), [](const auto& p1, const auto& p2) {
+			return p1.second.size() < p2.second.size();
+		} );
+		peaks[pair.first] = make_pair(leftPeak->first, rightPeak->first);
+	});
 	
 	// вычисление пиков гисограмм: (hk) -> (a_l a_n) -> (xz) -> (XYZ)
 	
@@ -170,20 +225,9 @@ void BufferPreprocessor::polishFoot() {
 	// (экспорт данных следа?)
 	
 	
-	// .................................... очищение всех граней, центры которых лежат вне контура...
+	// .................................... запись граней, центры которых лежат вне контура...
+	// запись вектор индексов polishedFoot и записать туда все данные с k <= K для всех h
 	
-	// либо повторить процедуру проецирования 1 - 3 и сравнивать k(h) и (K(h)) (выкидывать k > K )
-	
-	// !либо данные в k хранят вектор (Nl,i)
-	// i - номер грани, Nl - вклад нормали в направлении плоскости
-	// т.е. перейти от хранения скаляра к хранению вектора, сворачивая вектор определяем его вклад (определяем скаляр)
-	// после этого можно:
-	// a) пройтись по оставшимся векторам с координатой k > K и подчистить все грани сетки
-	// b) !завести вектор polishedFoot и записать туда все данные с k <= K для всех h (экспорт дополнительных данных polishedFoot?!)
-	
-	
-	// универсальный механизм экспорта данных
-	// vector<ExportedData> ExportedData: (string caption, string) anyExportedData -> string
 }
 
 void BufferPreprocessor::findTransformCS() {
@@ -192,8 +236,8 @@ void BufferPreprocessor::findTransformCS() {
 	const auto footFaces = faces.at(Foot);
 	for (const auto& fct: footFaces) {
 		const auto fc = getFaceCenter(fct);
-		if ( floorInterval[1] < fc && fc < floorInterval[2]) {
-			points.emplace_back(getFaceCenter(fct, 0), getFaceCenter(fct, 2));
+		if ( floorInterval[1] < fc[PhoneCS::Y] && fc[PhoneCS::Y] < floorInterval[2]) {
+			points.emplace_back( fc[PhoneCS::X], fct[PhoneCS::Z] );
 		}
 	}
 	profiler.measure("form data");
@@ -234,10 +278,10 @@ void BufferPreprocessor::writeSeparatedData() {
 		
 		if (getFacePerimeter(fct) > maxTrianglePerimeter) continue;
 		
-		const auto pos = getFaceCenter(fct);
-		const auto inFloorInterval = floorInterval[0] < pos && pos < floorInterval[2];
-		const auto underFloor = floorInterval[0] >= pos;
-		const auto overTheFloor = floorInterval[2] <= pos;
+		const auto y_pos = getFaceCenter(fct)[PhoneCS::Y];
+		const auto inFloorInterval = floorInterval[0] < y_pos && y_pos < floorInterval[2];
+		const auto underFloor = floorInterval[0] >= y_pos;
+		const auto overTheFloor = floorInterval[2] <= y_pos;
 		
 		
 		if (overTheFloor) { // определённо нога, т.к. находимся над границей пола
@@ -245,12 +289,12 @@ void BufferPreprocessor::writeSeparatedData() {
 		} else if (underFloor) {	// однозначно мусор, т.к. под полом ничего нет!
 			continue;
 		} else if (inFloorInterval) {	// Зона пола. Требуется анализ ориентации нормалей
-			const auto normal = getFaceNormalSquared(fct);
-			const auto maxOrientation {0.9f*0.9f};
-			const auto minOrientation {0.6f*0.6f};
-			if (normal < minOrientation)	// нормали слабо ориентированы вверх - скорее всего нога
+			const auto normal_y = getFaceNormal(fct)[1];
+			const auto maxOrientation = 0.9f;
+			const auto minOrientation = 0.6f;
+			if (normal_y < minOrientation)	// нормали слабо ориентированы вверх - скорее всего нога
 				footFaces.push_back(fct);
-			else if (normal > maxOrientation) // нормали ориентированны вверх - определённо пол!
+			else if (normal_y > maxOrientation) // нормали ориентированны вверх - определённо пол!
 				floorFaces.push_back(fct);
 			
 		}
@@ -259,32 +303,29 @@ void BufferPreprocessor::writeSeparatedData() {
 
 void BufferPreprocessor::filterFaces(IndexFacetVec& v0, float threshold) const {
 	const auto& allFaces = faces.at(Undefined);
-	const auto nsq = threshold*threshold;
 	for (size_t i=0; i < allFaces.size(); ++i) {
 		const auto& fct = allFaces[i];
-		if ( getFaceNormalSquared(fct) > nsq )
+		if ( getFaceNormal(fct)[1] > threshold )
 			v0.push_back(i);
 	}
 }
 
-float BufferPreprocessor::getFaceNormalSquared(const Facet& facet, int comp) const {
+Vector3 BufferPreprocessor::getFaceNormal(const Facet& facet) const {
 	const auto& p0 = smoothedPoints[facet[0]];
 	const auto& p1 = smoothedPoints[facet[1]];
 	const auto& p2 = smoothedPoints[facet[2]];
 	
-	const auto& n = CGAL::cross_product(p1 - p0, p2 - p0);
-	auto lsq = n.squared_length();
-	return n[comp]*n[comp] / lsq;
+	return CGAL::normal(p0, p1, p2);
 }
 
 
 
-float BufferPreprocessor::getFaceCenter(const Facet& facet, int comp) const {
-	const auto& p0 = smoothedPoints[facet[0]];
-	const auto& p1 = smoothedPoints[facet[1]];
-	const auto& p2 = smoothedPoints[facet[2]];
+Vector3 BufferPreprocessor::getFaceCenter(const Facet& facet) const {
+	const auto p0 = smoothedPoints[facet[0]] - CGAL::ORIGIN;
+	const auto p1 = smoothedPoints[facet[1]] - CGAL::ORIGIN;
+	const auto p2 = smoothedPoints[facet[2]] - CGAL::ORIGIN;
 	
-	return (p0[comp] + p1[comp] + p2[comp]) / 3;
+	return (p0 + p1 + p2) / 3;
 }
 
 float BufferPreprocessor::getFacePerimeter(const Facet& facet) const {
