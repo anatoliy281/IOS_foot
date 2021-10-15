@@ -155,7 +155,15 @@ void BufferPreprocessor::separate() {
 }
 
 void BufferPreprocessor::polishFoot() {
-	// .................................... нахождение контура...
+	const auto step = 2;	// шак гистограммы в мм
+	auto toHistCoord = [step](float x) { // преобразование в координаты гистограммы
+		return static_cast<int>(round(1000.f*x/step));
+	};
+	
+	auto fromHistCoord = [step](int n) {
+		return static_cast<float>(step*n)/1000.f;
+	};
+	
 	// Все гистограммы организованы в набор.
 	// Отдельные гистограммы доступны из данного набра и хранят не скаляры, а вектора, сворачивая которые можно определять интересующие скаляры
 	using Index = size_t;	// i - номер грани
@@ -164,7 +172,7 @@ void BufferPreprocessor::polishFoot() {
 	using Histogram = map<int, IndexedNormalVec>;	// отдельна гистограмма - данные в k хранят вектор
 	map<int,Histogram> allHistograms;	// список гистограмм
 	
-	// заполнение набора гистограмм
+	// ----------------- заполнение гистограмм ---------------------
 	const auto allFaces = faces.at(Undefined);
 	for (Index faceIndex=0; faceIndex < allFaces.size(); ++faceIndex) {
 		const auto face = allFaces[faceIndex];
@@ -177,8 +185,8 @@ void BufferPreprocessor::polishFoot() {
 		const auto a_n = CGAL::scalar_product(p2, zAxesDir);
 		
 		// вычисление номера h гистограммы и позиции заполнения k
-		const auto h = static_cast<int>(1000*round(a_l / 2));
-		const auto k = static_cast<int>(1000*round(a_n / 2));
+		const auto h = toHistCoord(a_l);
+		const auto k = toHistCoord(a_n);
 		
 		// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
 		const auto normal = getFaceNormal(face);
@@ -188,46 +196,97 @@ void BufferPreprocessor::polishFoot() {
 	}
 	
 	cout << "========================= HISTOGRAMS STATISTIC ============================" << endl;
-	for_each(allHistograms.cbegin(), allHistograms.cend(), [](const auto& pair) {
-		const auto& key = pair.first;
-		const auto& innerHisto = pair.second;
+	auto showBriefHisto = [](const auto& innerHistoPair) {
+		const auto& key = innerHistoPair.first;
+		const auto& innerHisto = innerHistoPair.second;
 		cout << key << ": " << innerHisto.size() << endl;
-	});
+	};
 	
-	using LeftPeak = int;
-	using RightPeak = int;
-	vector<pair<LeftPeak,RightPeak>> peaks(allHistograms.size());	// положения пиков гистограмм
-	for_each(allHistograms.begin(), allHistograms.end(), [&peaks](auto& pair) {	// перебор всех гистограмм
-		auto& innerHisto = pair.second;
+	for_each(allHistograms.cbegin(), allHistograms.cend(), showBriefHisto);
+	
+	// ----------------- заполнение контура стопы ---------------------
+	
+	auto seachKClosestToZero = [](const auto& innerHistoPair1, const auto& innerHistoPair2) {
+		return abs(innerHistoPair1.first) < abs(innerHistoPair2.first);
+	};
+	
+	auto accumulateStatistic = [](auto sum, auto faceindexNormalPair) {
+		return sum + faceindexNormalPair.second;
+	};
+
+	auto compareStatistics = [accumulateStatistic](const auto& innerHistoPair1, const auto& innerHistoPair2) {
 		
-		// поиск нуля гистограммы
-		auto firstPositiveCoordIt = find_if(innerHisto.begin(), innerHisto.end(), [](const auto& pair) {
-			return pair.first >= 0;
+		const auto vec1 = innerHistoPair1.second;
+		const auto n1 = accumulate(vec1.begin(), vec1.end(), 0.f, accumulateStatistic);
+		const auto vec2 = innerHistoPair1.second;
+		const auto n2 = accumulate(vec2.begin(), vec2.end(), 0.f, accumulateStatistic);
+		return n1 < n2;
+	};
+	
+	auto saveToFootContour = [this, fromHistCoord](auto h, auto k) {
+		const auto x = fromHistCoord(h);
+		const auto z = fromHistCoord(k);
+		const auto p = z*zAxesDir + x*xAxesDir;
+		const auto y = getFloorHeight();
+		footContour.emplace_back(p[0], y, p[1]);
+	};
+	
+	auto& polishedFaces = faces[PolishedFoot];
+	auto copyFaces = [this, &polishedFaces, &allFaces](const auto& indexNormalPair) {
+		const auto faceIndex = indexNormalPair.first;
+		polishedFaces.push_back(allFaces[faceIndex]);
+	};
+	auto fillPolishFaces = [copyFaces](const auto& indexStatisticPair) {
+		const auto& statistic = indexStatisticPair.second;
+		for_each(statistic.cbegin(), statistic.cend(), copyFaces);
+	};
+	
+	auto findDropPos = [accumulateStatistic, compareStatistics]
+	(auto startInnerHistoSearchIt, auto endInnerHistoSerchIt) {
+		auto innerHistoPeakIt = max_element(startInnerHistoSearchIt, endInnerHistoSerchIt, compareStatistics);
+		auto peakStatistic = innerHistoPeakIt->second;
+		auto amplitude = accumulate(peakStatistic.cbegin(), peakStatistic.cend(), 0.f, accumulateStatistic);
+		
+		return find_if(innerHistoPeakIt, endInnerHistoSerchIt,
+										[percent = 0.1, amplitude, accumulateStatistic](const auto& indexVectorPair) {
+			const auto& statistic = indexVectorPair.second;
+			auto amp = accumulate(statistic.cbegin(), statistic.cend(), 0.f, accumulateStatistic);
+			return amp/amplitude < percent;
 		});
-		if (firstPositiveCoordIt == innerHisto.end()) {
-			cout << "		" << pair.first << "		!проблемы поиска нуля гистограммы" << endl;
-			return;
-		}
-		
-		const auto rightPeak = max_element(innerHisto.begin(), innerHisto.end(), [](const auto& p1, const auto& p2) {
-			return p1.second.size() < p2.second.size();
+	};
+	
+	auto showFullHisto = [accumulateStatistic](const auto& innerHistoPair) {
+		const auto& key = innerHistoPair.first;
+		const auto& innerHisto = innerHistoPair.second;
+		cout << key << ": ";
+		for_each(innerHisto.cbegin(), innerHisto.cend(), [accumulateStatistic](const auto& indexStaticticPair) {
+			const auto& statistic = indexStaticticPair.second;
+			cout << accumulate(statistic.cbegin(), statistic.cend(), 0.f, accumulateStatistic)
+				 << "  ";
 		});
+		cout << endl;
+	};
+	
+	auto doAllWork = [fillPolishFaces, saveToFootContour, seachKClosestToZero, findDropPos](const auto& innerHistoPair) {	// перебор всех гистограмм
+		auto h = innerHistoPair.first;
+		const auto& innerHisto = innerHistoPair.second;
 		
-		const auto leftPeak = max_element( make_reverse_iterator(innerHisto.begin()), innerHisto.rend(), [](const auto& p1, const auto& p2) {
-			return p1.second.size() < p2.second.size();
-		} );
-		peaks[pair.first] = make_pair(leftPeak->first, rightPeak->first);
-	});
+		// поиск "нуля" гистограммы
+		auto firstPositiveCoordIt = min_element(innerHisto.cbegin(), innerHisto.cend(), seachKClosestToZero);
+		
+		
+		auto rightPeakDropPos = findDropPos(firstPositiveCoordIt, innerHisto.cend());
+		auto leftPeakDropPos = findDropPos(make_reverse_iterator(firstPositiveCoordIt), innerHisto.rend());
+		
+		saveToFootContour(h, leftPeakDropPos->first);
+		saveToFootContour(h, rightPeakDropPos->first);
+		
+		for_each(make_reverse_iterator(rightPeakDropPos), leftPeakDropPos, fillPolishFaces);
+		
+	};
 	
-	// вычисление пиков гисограмм: (hk) -> (a_l a_n) -> (xz) -> (XYZ)
-	
-	// сохранение контура следа стопы в (XYZ) координатах
-	// (экспорт данных следа?)
-	
-	
-	// .................................... запись граней, центры которых лежат вне контура...
-	// запись вектор индексов polishedFoot и записать туда все данные с k <= K для всех h
-	
+//	for_each(allHistograms.begin(), allHistograms.end(), showFullHisto);
+
 }
 
 void BufferPreprocessor::findTransformCS() {
