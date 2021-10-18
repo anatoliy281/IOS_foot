@@ -166,16 +166,15 @@ void BufferPreprocessor::polishFoot() {
 	
 	// Все гистограммы организованы в набор.
 	// Отдельные гистограммы доступны из данного набра и хранят не скаляры, а вектора, сворачивая которые можно определять интересующие скаляры
-	using Index = size_t;	// i - номер грани
-	using PlaneNormalSquared = float;	// Nl - вклад нормали в направлении плоскости
-	using IndexedNormalVec = vector<pair<Index,PlaneNormalSquared>>; // вектор (i,Nl)
+	using IndexedNormalVec = vector<pair<size_t,float>>; // вектор (номер грани ,вклад нормали в направлении плоскости)
 	using Histogram = map<int, IndexedNormalVec>;	// отдельна гистограмма - данные в k хранят вектор
 	map<int,Histogram> allHistograms;	// список гистограмм
 	
 	// ----------------- заполнение гистограмм ---------------------
 	const auto allFaces = faces.at(Undefined);
-	for (Index faceIndex=0; faceIndex < allFaces.size(); ++faceIndex) {
-		const auto face = allFaces[faceIndex];
+	auto faceIndex = size_t(0);
+	auto createHistograms = [this, &allFaces, &allHistograms, &faceIndex, toHistCoord](const auto& face) {
+//		const auto face = allFaces[faceIndex];
 		// получение 2-вектора: (XYZ) -> (xz)
 		const auto c = getFaceCenter(face);
 		const auto p2 = Vector2(c.x(), c.z());
@@ -192,8 +191,30 @@ void BufferPreprocessor::polishFoot() {
 		const auto normal = getFaceNormal(face);
 		const auto planeNormal = Vector2(normal.x(), normal.z());
 		auto& histo = allHistograms[h];
-		histo[k].emplace_back( faceIndex, sqrt(planeNormal.squared_length()) );
-	}
+		histo[k].emplace_back( faceIndex++, sqrt(planeNormal.squared_length()) );
+	};
+	for_each(allFaces.cbegin(), allFaces.cend(), createHistograms);
+	
+//	for (Index faceIndex=0; faceIndex < allFaces.size(); ++faceIndex) {
+//		const auto face = allFaces[faceIndex];
+//		// получение 2-вектора: (XYZ) -> (xz)
+//		const auto c = getFaceCenter(face);
+//		const auto p2 = Vector2(c.x(), c.z());
+//
+//		// получение проекций a_l и a_n
+//		const auto a_l = CGAL::scalar_product(p2, xAxesDir);
+//		const auto a_n = CGAL::scalar_product(p2, zAxesDir);
+//
+//		// вычисление номера h гистограммы и позиции заполнения k
+//		const auto h = toHistCoord(a_l);
+//		const auto k = toHistCoord(a_n);
+//
+//		// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
+//		const auto normal = getFaceNormal(face);
+//		const auto planeNormal = Vector2(normal.x(), normal.z());
+//		auto& histo = allHistograms[h];
+//		histo[k].emplace_back( faceIndex, sqrt(planeNormal.squared_length()) );
+//	}
 	
 	cout << "========================= HISTOGRAMS STATISTIC ============================" << endl;
 	auto showBriefHisto = [](const auto& innerHistoPair) {
