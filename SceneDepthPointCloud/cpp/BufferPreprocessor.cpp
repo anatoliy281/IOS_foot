@@ -315,20 +315,21 @@ void BufferPreprocessor::findTransformCS() {
 	vector<Point2> points;
 	const auto footFaces = faces.at(Foot);
 	for (const auto& fct: footFaces) {
-		const auto fc = getFaceCenter(fct);
-		if ( floorInterval[1] < fc[PhoneCS::Y] && fc[PhoneCS::Y] < floorInterval[2]) {
-			points.emplace_back( fc[PhoneCS::X], fct[PhoneCS::Z] );
+		const auto center = getFaceCenter(fct);
+		if ( floorInterval[1] < center[PhoneCS::Y] && center[PhoneCS::Y] < floorInterval[2]) {
+			points.emplace_back( center[PhoneCS::X], center[PhoneCS::Z] );
 		}
 	}
 	profiler.measure("form data");
 	Line xAxes;
-	CGAL::linear_least_squares_fitting_2(points.cbegin(), points.cend(), xAxes, xAxesOrigin, CGAL::Dimension_tag<0>());
+	CGAL::linear_least_squares_fitting_2(points.cbegin(), points.cend(), xAxes, xzAxesOrigin, CGAL::Dimension_tag<0>());
 	
 	// новые оси координат
 	xAxesDir = xAxes.to_vector();
-	zAxesDir = xAxes.perpendicular(xAxesOrigin).to_vector();
+	zAxesDir = xAxes.perpendicular(xzAxesOrigin).to_vector();
 	
 	profiler.measure(string("~~~~~~~~~~~~~axes direction\n") +
+					 "origin: " + to_string(xzAxesOrigin[0]) + " " + to_string(xzAxesOrigin[1]) + "\n" +
 					 "xAxes: " + to_string(xAxesDir[0]) + " " + to_string(xAxesDir[1]) + "\n" +
 					 "zAxes: " + to_string(zAxesDir[0]) + " " + to_string(zAxesDir[1]) );
 	
@@ -343,8 +344,8 @@ Vector2 BufferPreprocessor::getAxesDir(int axes) const {
 	return (axes == 0)? xAxesDir: zAxesDir;
 }
 
-Point2 BufferPreprocessor::getXAxesOrigin() const {
-	return xAxesOrigin;
+Point2 BufferPreprocessor::getXZAxesOrigin() const {
+	return xzAxesOrigin;
 }
 
 void BufferPreprocessor::writeSeparatedData() {
@@ -394,8 +395,9 @@ Vector3 BufferPreprocessor::getFaceNormal(const Facet& facet) const {
 	const auto& p0 = smoothedPoints[facet[0]];
 	const auto& p1 = smoothedPoints[facet[1]];
 	const auto& p2 = smoothedPoints[facet[2]];
+	const auto& n = CGAL::normal(p0, p1, p2);
 	
-	return CGAL::normal(p0, p1, p2);
+	return n / sqrt(n.squared_length());
 }
 
 

@@ -65,14 +65,8 @@
 	return p[component];
 }
 
-// depricated
--(float) getAngle {
-	auto direction = _bufferPreprocessor->getAxesDir(0);
-	return acos(direction.x());
-}
-
 -(float) getXYO:(int)component {
-	auto xyo = _bufferPreprocessor->getXAxesOrigin();
+	auto xyo = _bufferPreprocessor->getXZAxesOrigin();
 	return xyo[component];
 }
 

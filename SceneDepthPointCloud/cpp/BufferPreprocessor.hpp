@@ -86,7 +86,7 @@ public:
 	
 	float getFloorHeight() const;
 	Vector2 getAxesDir(int axes) const;
-	Point2 getXAxesOrigin() const;
+	Point2 getXZAxesOrigin() const;
 
 
 	PointVec footContour;
@@ -102,7 +102,7 @@ private:
 	// задают преобразования СК
 	Vector2 xAxesDir;
 	Vector2 zAxesDir;
-	Point2 xAxesOrigin;
+	Point2 xzAxesOrigin;
 	
 	PointVec allPoints;
 	PointVec smoothedPoints;
