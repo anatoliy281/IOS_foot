@@ -117,10 +117,11 @@ void BufferPreprocessor::triangulate() {
 	const auto nAfter = smoothedPoints.size();
 	profiler.measure(string("simplify(") + to_string(nBefore) + "/" + to_string(nAfter) + ")");
 	
-	faces[Undefined].clear();
+	auto& allFaces = faces[Undefined];
+	allFaces.clear();
 	advancing_front_surface_reconstruction( smoothedPoints.cbegin(),
 										   smoothedPoints.cend(),
-										   back_inserter(faces[Undefined]) );
+										   back_inserter(allFaces) );
 	profiler.measure("reconstruction");
 
 	cout << profiler << endl;
@@ -313,7 +314,7 @@ void BufferPreprocessor::polishFoot() {
 void BufferPreprocessor::findTransformCS() {
 	Profiler profiler {"find transformation"};
 	vector<Point2> points;
-	const auto footFaces = faces.at(Foot);
+	const auto& footFaces = faces.at(Foot);
 	for (const auto& fct: footFaces) {
 		const auto center = getFaceCenter(fct);
 		if ( floorInterval[1] < center[PhoneCS::Y] && center[PhoneCS::Y] < floorInterval[2]) {

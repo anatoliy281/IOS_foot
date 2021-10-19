@@ -22,8 +22,9 @@ class Exporter {
 	
 	var savedData:[FileDescr] = []
 	
-	private func writeSubmesh(vertexBuffer: MetalBuffer<ParticleUniforms>,
-							  sumMeshIndeces: MetalBuffer<UInt32>) -> String {
+	private func writeSubmesh(fileName: String,
+							  vertexBuffer: MetalBuffer<ParticleUniforms>,
+							  sumMeshIndeces: MetalBuffer<UInt32>) -> FileDescr {
 		var vertStr = ""
 		var vertCount = 0
 		for i in 0..<vertexBuffer.count {
@@ -42,7 +43,8 @@ class Exporter {
 			indecesStr.append("3 \(sumMeshIndeces[i]) \(sumMeshIndeces[i+1]) \(sumMeshIndeces[i+2])\n")
 		}
 		let capStr = "OFF\n\(vertCount) \(indecesCount) 0\n"
-		return capStr + vertStr + indecesStr
+		let content = capStr + vertStr + indecesStr
+		return (fileName, content)
 	}
 	
 	func transform2(point:simd_float3) -> simd_float3 {
@@ -92,21 +94,25 @@ class Exporter {
 		var fileName = ""
 		var fileContent = ""
 		if (parameter == .surfaceMesh) {
-			fileName = "mesh.off";
-			fileContent = writeSubmesh(vertexBuffer: buffer,
+			let meshDesc = writeSubmesh(fileName: "mesh.off",
+									   vertexBuffer: buffer,
 									   sumMeshIndeces:indeces![Undefined.rawValue]!)
-			savedData.append( FileDescr(fileName, fileContent) )
-			fileName = "floor.off";
-			fileContent = writeSubmesh(vertexBuffer: buffer,
+			savedData.append(meshDesc)
+			
+			let floorDesc = writeSubmesh(fileName: "floor.off",
+									   vertexBuffer: buffer,
 									   sumMeshIndeces:indeces![Floor.rawValue]!)
-			savedData.append( FileDescr(fileName, fileContent) )
-			fileName = "foot.off";
-			fileContent = writeSubmesh(vertexBuffer: buffer,
+			savedData.append(floorDesc)
+			
+			let footDesc = writeSubmesh(fileName: "foot.off",
+									   vertexBuffer: buffer,
 									   sumMeshIndeces:indeces![Foot.rawValue]!)
-			fileName = "polished_foot.off";
-			fileContent = writeSubmesh(vertexBuffer: buffer,
+			savedData.append(footDesc)
+			
+			let polisheDesc = writeSubmesh(fileName: "polished_foot.off",
+									   vertexBuffer: buffer,
 									   sumMeshIndeces:indeces![PolishedFoot.rawValue]!)
-			savedData.append( FileDescr(fileName, fileContent) )
+			savedData.append(polisheDesc)
 		} else {
 			fileName = (parameter == .position) ? "cloud.obj" : "color.obj"
 			for i in 0..<buffer.count {
