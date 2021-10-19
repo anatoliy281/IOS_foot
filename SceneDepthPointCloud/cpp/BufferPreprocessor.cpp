@@ -327,11 +327,11 @@ void BufferPreprocessor::findTransformCS() {
 	// новые оси координат
 	xAxesDir = xAxes.to_vector();
 	zAxesDir = xAxes.perpendicular(xzAxesOrigin).to_vector();
-	
-	profiler.measure(string("~~~~~~~~~~~~~axes direction\n") +
-					 "origin: " + to_string(xzAxesOrigin[0]) + " " + to_string(xzAxesOrigin[1]) + "\n" +
-					 "xAxes: " + to_string(xAxesDir[0]) + " " + to_string(xAxesDir[1]) + "\n" +
-					 "zAxes: " + to_string(zAxesDir[0]) + " " + to_string(zAxesDir[1]) );
+
+//	const auto csInfo = string("origin: ") + to_string(xzAxesOrigin[0]) + " " + to_string(xzAxesOrigin[1]) + "\n" +
+//						"xAxes: " + to_string(xAxesDir[0]) + " " + to_string(xAxesDir[1]) + "\n" +
+//						"zAxes: " + to_string(zAxesDir[0]) + " " + to_string(zAxesDir[1]);
+	profiler.measure("find foot CS (origin, axes)");
 	
 	cout << profiler << endl;
 }
@@ -370,12 +370,12 @@ void BufferPreprocessor::writeSeparatedData() {
 		} else if (underFloor) {	// однозначно мусор, т.к. под полом ничего нет!
 			continue;
 		} else if (inFloorInterval) {	// Зона пола. Требуется анализ ориентации нормалей
-			const auto normal_y = getFaceNormal(fct)[1];
+			const auto normal_y = getFaceNormal(fct)[PhoneCS::Y];
 			const auto maxOrientation = 0.9f;
 			const auto minOrientation = 0.6f;
-			if (normal_y < minOrientation)	// нормали слабо ориентированы вверх - скорее всего нога
+			if (abs(normal_y) < minOrientation)	// нормали слабо ориентированы вверх - скорее всего нога
 				footFaces.push_back(fct);
-			else if (normal_y > maxOrientation) // нормали ориентированны вверх - определённо пол!
+			else if (abs(normal_y) > maxOrientation) // нормали ориентированны вверх - определённо пол!
 				floorFaces.push_back(fct);
 			
 		}
@@ -386,7 +386,7 @@ void BufferPreprocessor::filterFaces(IndexFacetVec& v0, float threshold) const {
 	const auto& allFaces = faces.at(Undefined);
 	for (size_t i=0; i < allFaces.size(); ++i) {
 		const auto& fct = allFaces[i];
-		if ( getFaceNormal(fct)[1] > threshold )
+		if ( abs(getFaceNormal(fct)[PhoneCS::Y]) > threshold )
 			v0.push_back(i);
 	}
 }
