@@ -169,4 +169,19 @@ class Exporter {
 		savedData.append(FileDescr("footContour.obj", content))
 	}
 	
+	
+	public func write2DHistogram(cppCaller caller:CPPCaller) {
+		
+		var content = ""
+		
+		for i in 0..<caller.get2DHistoSize() {
+			let p = Float3(caller.get2DHistoPoint(i, 0),
+						   caller.get2DHistoPoint(i, 1),
+						   caller.get2DHistoPoint(i, 2))
+			content.append("v \(p[0]) \(p[1]) \(p[2])\n")
+		}
+		savedData.append(FileDescr("foot2DHistogram.obj", content))
+	}
+	
+	
 }

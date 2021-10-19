@@ -65,6 +65,18 @@
 	return p[component];
 }
 
+
+-(int) get2DHistoSize {
+	return static_cast<int>(_bufferPreprocessor->histogram2DMap.size());
+}
+
+-(float) get2DHistoPoint:(int)point
+						:(int)component {
+	const auto p = _bufferPreprocessor->histogram2DMap[point];
+	return p[component];
+}
+
+
 -(float) getXYO:(int)component {
 	auto xyo = _bufferPreprocessor->getXZAxesOrigin();
 	return xyo[component];

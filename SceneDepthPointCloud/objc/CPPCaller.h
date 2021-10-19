@@ -26,6 +26,12 @@ NS_ASSUME_NONNULL_BEGIN
 -(float) getContourPoint:(int)point
 					  :(int)component;
 
+// вывод 2D-гистограммы
+-(int) get2DHistoSize;
+
+-(float) get2DHistoPoint:(int)point
+					  :(int)component;
+
 -(float) getXYO:(int)component;
 
 -(float) getDirection:(int)axes

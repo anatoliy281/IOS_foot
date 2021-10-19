@@ -178,21 +178,26 @@ void BufferPreprocessor::polishFoot() {
 //		const auto face = allFaces[faceIndex];
 		// получение 2-вектора: (XYZ) -> (xz)
 		const auto c = getFaceCenter(face);
-		const auto p2 = Vector2(c.x(), c.z());
 		
-		// получение проекций a_l и a_n
-		const auto a_l = CGAL::scalar_product(p2, xAxesDir);
-		const auto a_n = CGAL::scalar_product(p2, zAxesDir);
-		
-		// вычисление номера h гистограммы и позиции заполнения k
-		const auto h = toHistCoord(a_l);
-		const auto k = toHistCoord(a_n);
-		
-		// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
-		const auto normal = getFaceNormal(face);
-		const auto planeNormal = Vector2(normal.x(), normal.z());
-		auto& histo = allHistograms[h];
-		histo[k].emplace_back( faceIndex++, sqrt(planeNormal.squared_length()) );
+		if (abs(c[PhoneCS::Y] - getFloorHeight()) < 0.03) {
+			
+			const auto p2 = Vector2(c.x(), c.z()) - (xzAxesOrigin - CGAL::ORIGIN);
+			
+			// получение проекций a_l и a_n
+			const auto a_l = CGAL::scalar_product(p2, xAxesDir);
+			const auto a_n = CGAL::scalar_product(p2, zAxesDir);
+			
+			// вычисление номера h гистограммы и позиции заполнения k
+			const auto h = toHistCoord(a_l);
+			const auto k = toHistCoord(a_n);
+			
+			// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
+			const auto normal = getFaceNormal(face);
+			const auto planeNormal = Vector2(normal[PhoneCS::X], normal[PhoneCS::Z]);
+			auto& histo = allHistograms[h];
+			histo[k].emplace_back( faceIndex, sqrt(planeNormal.squared_length()) );
+		}
+		++faceIndex;
 	};
 	for_each(allFaces.cbegin(), allFaces.cend(), createHistograms);
 	
@@ -216,15 +221,6 @@ void BufferPreprocessor::polishFoot() {
 //		auto& histo = allHistograms[h];
 //		histo[k].emplace_back( faceIndex, sqrt(planeNormal.squared_length()) );
 //	}
-	
-	cout << "========================= HISTOGRAMS STATISTIC ============================" << endl;
-	auto showBriefHisto = [](const auto& innerHistoPair) {
-		const auto& key = innerHistoPair.first;
-		const auto& innerHisto = innerHistoPair.second;
-		cout << key << ": " << innerHisto.size() << endl;
-	};
-	
-	for_each(allHistograms.cbegin(), allHistograms.cend(), showBriefHisto);
 	
 	// ----------------- заполнение контура стопы ---------------------
 	
@@ -277,16 +273,15 @@ void BufferPreprocessor::polishFoot() {
 		});
 	};
 	
-	auto showFullHisto = [accumulateStatistic](const auto& innerHistoPair) {
-		const auto& key = innerHistoPair.first;
+	auto saveFullHisto = [this, accumulateStatistic, fromHistCoord](const auto& innerHistoPair) {
+		const auto& h = innerHistoPair.first;
 		const auto& innerHisto = innerHistoPair.second;
-		cout << key << ": ";
-		for_each(innerHisto.cbegin(), innerHisto.cend(), [accumulateStatistic](const auto& indexStaticticPair) {
+		for_each(innerHisto.cbegin(), innerHisto.cend(), [this, fromHistCoord, accumulateStatistic, h](const auto& indexStaticticPair) {
 			const auto& statistic = indexStaticticPair.second;
-			cout << accumulate(statistic.cbegin(), statistic.cend(), 0.f, accumulateStatistic)
-				 << "  ";
+			const auto k = indexStaticticPair.first;
+			const auto value = accumulate(statistic.cbegin(), statistic.cend(), 0.f, accumulateStatistic);
+			histogram2DMap.emplace_back(h, k, value);
 		});
-		cout << endl;
 	};
 	
 	auto doAllWork = [fillPolishFaces, saveToFootContour, seachKClosestToZero, findDropPos](const auto& innerHistoPair) {	// перебор всех гистограмм
@@ -306,8 +301,8 @@ void BufferPreprocessor::polishFoot() {
 		for_each(make_reverse_iterator(rightPeakDropPos), leftPeakDropPos, fillPolishFaces);
 		
 	};
-	
-//	for_each(allHistograms.begin(), allHistograms.end(), showFullHisto);
+	cout << "~~~~~~~~~~~~~ FULL HISTOGRAM ~~~~~~~~~~~~~" << endl;
+	for_each(allHistograms.begin(), allHistograms.end(), saveFullHisto);
 
 }
 

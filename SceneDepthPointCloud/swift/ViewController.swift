@@ -109,6 +109,7 @@ final class ViewController: UIViewController, ARSessionDelegate {
 		
 		exporter.writeAxis()	// отладка преобразования СК
 		exporter.writeFootContour() // отладка контура ноги
+		exporter.write2DHistogram(cppCaller:rc) // отладка 2D-гистограммы
 		
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "edge", parameter: .position)
 //		exporter.setBufferData(buffer: renderer.pointChunkBuffer, key: "floorColor", parameter: .color)

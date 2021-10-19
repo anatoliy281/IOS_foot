@@ -90,6 +90,7 @@ public:
 
 
 	PointVec footContour;
+	PointVec histogram2DMap;
 	
 private:
 	int pointBufferSize {0};
