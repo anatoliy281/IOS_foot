@@ -276,7 +276,8 @@ void BufferPreprocessor::polishFoot() {
 		return abs(innerHistoPair1.first) < abs(innerHistoPair2.first);
 	};
 	
-	auto doAllWork = [fillPolishFaces, saveToFootContour, seachKClosestToZero, findDropPos](const auto& innerHistoPair) {	// перебор всех гистограмм
+	map<int,pair<int,int>> contourIndeces;
+	auto doAllWork = [&contourIndeces, fillPolishFaces, saveToFootContour, seachKClosestToZero, findDropPos](const auto& innerHistoPair) {	// перебор всех гистограмм
 		auto h = innerHistoPair.first;
 		const auto& innerHisto = innerHistoPair.second;
 		
@@ -291,13 +292,52 @@ void BufferPreprocessor::polishFoot() {
 			saveToFootContour(h, rightPeakDropPos->first);
 		if (leftPeakDropPos != innerHisto.rend())
 			saveToFootContour(h, leftPeakDropPos->first);
-		
-		for_each(make_reverse_iterator(rightPeakDropPos), leftPeakDropPos, fillPolishFaces);
-		
+		if (rightPeakDropPos != innerHisto.cend() && leftPeakDropPos != innerHisto.rend())
+			contourIndeces[h] = make_pair(leftPeakDropPos->first, rightPeakDropPos->first);
+//		for_each(rightPeakDropPos, leftPeakDropPos, fillPolishFaces);
+//		for_each(make_reverse_iterator(rightPeakDropPos), leftPeakDropPos, fillPolishFaces);
 	};
-	
+	profiler.measure("find contour");
 	for_each(allHistograms.begin(), allHistograms.end(), doAllWork);
-	profiler.measure("find contour and polish foot");
+	
+	auto contourStatement = [this, &contourIndeces, toHistCoord, fromHistCoord](const auto& facet) {
+		if ( getFacePerimeter(facet) > maxTrianglePerimeter ) {
+			return false;
+		}
+		const auto c = getFaceCenter(facet);
+		const auto p2 = Vector2(c.x(), c.z()) - (xzAxesOrigin - CGAL::ORIGIN);
+		
+		// получение проекций a_l и a_n
+		const auto a_l = CGAL::scalar_product(p2, xAxesDir);
+		const auto a_n = CGAL::scalar_product(p2, zAxesDir);
+		
+		// вычисление номера h гистограммы и позиции заполнения k
+		const auto h = toHistCoord(a_l);
+		const auto k = toHistCoord(a_n);
+		const auto it = contourIndeces.find(h);
+		if ( it == contourIndeces.cend()) {
+			return false;
+		}
+		const auto lrP = it->second;
+		assert(lrP.first < lrP.second);
+		
+		if ( lrP.first < k && k < lrP.second ) {
+			return true;
+		} else {
+			const auto dK = min( abs(lrP.first - k), abs(lrP.second - k) );
+			const auto dY = fromHistCoord(dK);
+			const auto dZ = c.y() - getFloorHeight();
+			if (dZ < 0)	// пол уплыл ниже контура и оставил расплытый переход нога-пол (его добавлять не стоит)
+				return false;
+			return dZ > dY;
+		}
+			
+	};
+	polishedFaces.clear();
+//	const auto footFaces = faces[Foot];
+//	copy_if(footFaces.cbegin(), footFaces.cend(), back_inserter(polishedFaces), contourStatement);
+	copy_if(allFaces.cbegin(), allFaces.cend(), back_inserter(polishedFaces), contourStatement);
+	profiler.measure("fill polish foot");
 	
 	cout << profiler << endl;
 }
