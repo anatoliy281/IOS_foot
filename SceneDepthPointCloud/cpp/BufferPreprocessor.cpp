@@ -189,25 +189,24 @@ void BufferPreprocessor::polishFoot() {
 		// получение 2-вектора: (XYZ) -> (xz)
 		const auto c = getFaceCenter(face);
 		
-		if (abs(c[PhoneCS::Y] - getFloorHeight()) < 0.03) {
-			
-			const auto p2 = Vector2(c.x(), c.z()) - (xzAxesOrigin - CGAL::ORIGIN);
-			
-			// получение проекций a_l и a_n
-			const auto a_l = CGAL::scalar_product(p2, xAxesDir);
-			const auto a_n = CGAL::scalar_product(p2, zAxesDir);
-			
-			// вычисление номера h гистограммы и позиции заполнения k
-			const auto h = toHistCoord(a_l);
-			const auto k = toHistCoord(a_n);
+		const auto p2 = Vector2(c.x(), c.z()) - (xzAxesOrigin - CGAL::ORIGIN);
+		
+		// получение проекций a_l и a_n
+		const auto a_l = CGAL::scalar_product(p2, xAxesDir);
+		const auto a_n = CGAL::scalar_product(p2, zAxesDir);
+		
+		// вычисление номера h гистограммы и позиции заполнения k
+		const auto h = toHistCoord(a_l);
+		const auto k = toHistCoord(a_n);
 
-			if ( abs(h) < maxNx && abs(k) < maxNz ) {
-				// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
-				const auto normal = getFaceNormal(face);
-				const auto planeNormal = Vector2(normal[PhoneCS::X], normal[PhoneCS::Z]);
-				auto& histo = allHistograms[h];
-				histo[k].emplace_back( faceIndex, sqrt(planeNormal.squared_length()) );
-			}
+		if ( abs(h) < maxNx && abs(k) < maxNz ) {
+			// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
+			const auto normal = getFaceNormal(face);
+			const auto planeNormal = Vector2(normal[PhoneCS::X], normal[PhoneCS::Z]);
+			auto& histo = allHistograms[h];
+			const auto value = ( abs(c[PhoneCS::Y] - getFloorHeight()) < 0.03 ) ?
+				sqrt(planeNormal.squared_length()) : 0;
+			histo[k].emplace_back( faceIndex, value );
 		}
 		++faceIndex;
 	};
@@ -270,9 +269,6 @@ void BufferPreprocessor::polishFoot() {
 	auto saveToFootContour = [this, fromHistCoord](auto h, auto k) {
 		const auto x = fromHistCoord(h);
 		const auto z = fromHistCoord(k);
-//		const auto p = z*zAxesDir + x*xAxesDir;
-//		const auto y = getFloorHeight();
-//		footContour.emplace_back(p[0], y, p[1]);
 		footContour.emplace_back(x, z, 0);
 	};
 	
