@@ -257,14 +257,6 @@ void BufferPreprocessor::polishFoot() {
 	};
 	
 	auto& polishedFaces = faces[PolishedFoot];
-	auto copyFaces = [this, &polishedFaces, &allFaces](const auto& indexNormalPair) {
-		const auto faceIndex = indexNormalPair.first;
-		polishedFaces.push_back(allFaces[faceIndex]);
-	};
-	auto fillPolishFaces = [copyFaces](const auto& indexStatisticPair) {
-		const auto& statistic = indexStatisticPair.second;
-		for_each(statistic.cbegin(), statistic.cend(), copyFaces);
-	};
 	
 	auto saveToFootContour = [this, fromHistCoord](auto h, auto k) {
 		const auto x = fromHistCoord(h);
@@ -272,17 +264,17 @@ void BufferPreprocessor::polishFoot() {
 		footContour.emplace_back(x, z, 0);
 	};
 	
-	auto seachKClosestToZero = [](const auto& innerHistoPair1, const auto& innerHistoPair2) {
+	auto searchKClosestToZero = [](const auto& innerHistoPair1, const auto& innerHistoPair2) {
 		return abs(innerHistoPair1.first) < abs(innerHistoPair2.first);
 	};
 	
 	map<int,pair<int,int>> contourIndeces;
-	auto doAllWork = [&contourIndeces, fillPolishFaces, saveToFootContour, seachKClosestToZero, findDropPos](const auto& innerHistoPair) {	// перебор всех гистограмм
+	auto findContourIndeces = [&contourIndeces, saveToFootContour, searchKClosestToZero, findDropPos](const auto& innerHistoPair) {	// перебор всех гистограмм
 		auto h = innerHistoPair.first;
 		const auto& innerHisto = innerHistoPair.second;
 		
 		// поиск "нуля" гистограммы
-		auto firstPositiveCoordIt = min_element(innerHisto.cbegin(), innerHisto.cend(), seachKClosestToZero);
+		auto firstPositiveCoordIt = min_element(innerHisto.cbegin(), innerHisto.cend(), searchKClosestToZero);
 		
 		
 		auto rightPeakDropPos = findDropPos(firstPositiveCoordIt, innerHisto.cend());
@@ -294,11 +286,9 @@ void BufferPreprocessor::polishFoot() {
 			saveToFootContour(h, leftPeakDropPos->first);
 		if (rightPeakDropPos != innerHisto.cend() && leftPeakDropPos != innerHisto.rend())
 			contourIndeces[h] = make_pair(leftPeakDropPos->first, rightPeakDropPos->first);
-//		for_each(rightPeakDropPos, leftPeakDropPos, fillPolishFaces);
-//		for_each(make_reverse_iterator(rightPeakDropPos), leftPeakDropPos, fillPolishFaces);
 	};
 	profiler.measure("find contour");
-	for_each(allHistograms.begin(), allHistograms.end(), doAllWork);
+	for_each(allHistograms.begin(), allHistograms.end(), findContourIndeces);
 	
 	auto contourStatement = [this, &contourIndeces, toHistCoord, fromHistCoord](const auto& facet) {
 		if ( getFacePerimeter(facet) > maxTrianglePerimeter ) {
