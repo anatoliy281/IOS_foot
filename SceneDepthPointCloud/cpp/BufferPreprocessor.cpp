@@ -344,6 +344,10 @@ void BufferPreprocessor::findTransformCS() {
 	}
 	profiler.measure("form data");
 	Line xAxes;
+	if (points.empty()) {
+		cout << "Not foot points to find Foot CS!!!" << endl;
+		return;
+	}
 	CGAL::linear_least_squares_fitting_2(points.cbegin(), points.cend(), xAxes, xzAxesOrigin, CGAL::Dimension_tag<0>());
 	
 	// новые оси координат
