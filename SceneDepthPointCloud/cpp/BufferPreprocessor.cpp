@@ -167,64 +167,107 @@ void BufferPreprocessor::polishFoot() {
 
 	const auto& footFaces = faces.at(Foot);
 	Clusters clusters;
+
+	array<size_t, 4> callingNumber {0, 0, 0, 0};	// хранит информацию о кластеризации
 	
 	// Конструируем новый кластер по грани face и её уникальному индексу
-	auto makeCluster = [](const auto& face, auto faceIndex) -> FacetsCluster {
+	auto toCluster = [](const auto& face, auto faceIndex) -> FacetsCluster {
 		VertexIdSet vertexIdSet {face[0], face[1], face[2]};
 		FacetIdVec faceIdVec {faceIndex};
 		return {vertexIdSet, faceIdVec};
 	};
 	
-	// Конструируем и добавляем новый кластер в набор
-	auto newCluster = [makeCluster](auto& clusters, const auto& face, auto faceIndex) {
-		clusters.push_back( makeCluster(face, faceIndex) );
+	// Объединяем кластер cluster1 и cluster2
+	auto mergeClusters = [](auto& cluster1, auto& cluster2) {
+		auto& vSet1 = cluster1.first;
+		auto& vSet2 = cluster2.first;
+		vSet1.merge(vSet2);
+		
+		auto& fVec1 = cluster1.second;
+		auto& fVec2 = cluster2.second;
+		copy(fVec2.cbegin(), fVec2.cend(), back_inserter(fVec1));
+		
+		//  чистим данные объединяемого кластера
+		vSet2.clear();
+		fVec2.clear();
 	};
 	
-	// Расширяем текущий кластер cluster за счёт грани face и индекса faceIndex
-	auto addToCluster = [makeCluster](auto& cluster, const auto& face, auto faceIndex) {
-		cluster.first.insert(face.cbegin(), face.cend());
-		cluster.second.push_back(faceIndex);
-	};
-	
-//	size_t faceIndex {0};	// индексы граней
-	auto clusterFace = [&clusters, addToCluster, newCluster](const auto& face) {	// кластеризуем грань face
+	auto clusterFace = [&callingNumber, &clusters, mergeClusters, toCluster](const auto& face) {	// кластеризуем грань face
 		static size_t faceIndex {0};	// индексы граней
-		auto findCondition = [face](const auto& cluster) {	// поиск вхождения любой из вершины face в множество вершин кластера
+		// формируем кластер из одной единственной грани
+		auto newCluster = toCluster(face, faceIndex);
+		auto findCondition = [newSet=newCluster.first](const auto& cluster) {	// поиск вхождения любой из вершины face в множество вершин кластера
 			const auto& clSet = cluster.first;
-			const auto endIt = clSet.cend();
-			return clSet.find(face[0]) != endIt || clSet.find(face[1]) != endIt || clSet.find(face[2]) != endIt;
+			vector<size_t> res;
+			set_intersection(clSet.cbegin(), clSet.cend(), newSet.cbegin(), newSet.cend(), back_inserter(res));
+			return !res.empty();
 		};
-		auto clusterIt = find_if(clusters.begin(), clusters.end(), findCondition);	// поиск по кластерам
-		if (clusterIt == clusters.end()) {	// грань face в кластерах не присутсвует
-			newCluster(clusters, face, faceIndex);
-		} else {	// грань присутсвует в кластере *clasterIt
-			addToCluster(*clusterIt, face, faceIndex);
+		
+		// поиск кластеров которые содержат грань face
+		auto clIt = find_if(clusters.begin(), clusters.end(), findCondition);
+		vector<decltype(clIt)> foundClusters;
+		while (clIt != clusters.end()) {
+			foundClusters.push_back(clIt++);
+			clIt = find_if(clIt, clusters.end(), findCondition);
+		}
+
+		const auto clustFoundNum = foundClusters.size();
+		callingNumber[clustFoundNum]++;		// отмечаем тип операции
+		if (foundClusters.empty()) {	//   добавляем новый кластер к списку кластеров
+			clusters.push_back(newCluster);
+		} else {	// объединяем кластеры
+			auto fcl = foundClusters.front();
+			// вначале все кластеры имеющие общую грань
+			for_each(foundClusters.cbegin() + 1, foundClusters.cend(), [&fcl, mergeClusters](const auto& cluster) {
+				return mergeClusters(*fcl, *cluster);
+			});
+			mergeClusters( *fcl, newCluster );	//  ... и завершаем объединения добавляя саму грань
 		}
 		++faceIndex;
 	};
 	for_each(footFaces.cbegin(), footFaces.cend(), clusterFace);
 	profiler.measure("make clusters");
 	
+	clusters.erase( remove_if(clusters.begin(), clusters.end(), [](const auto& cluster) {
+		return cluster.first.empty();
+	}), clusters.end() );
+	profiler.measure("clear clusters");
+	
 	sort(clusters.begin(), clusters.end(), [](const auto& c1, const auto& c2) {
 		return c1.first.size() > c2.first.size();
 	});
 	profiler.measure("sorting");
 	
-//	size_t c {0};
-//	cout << "clusters count " << clusters.size() << endl;
-//	for(const auto& cl : clusters) {
-//		cout << "cluster_" << c++ << " has " << cl.first.size() << " verteces and " << cl.second.size() << " faces\n";
-//	}
+
+	
+
+
+	const auto largestClustersFaces = clusters.front().second;
+	
 	auto& polishedFaces = faces[PolishedFoot];
+	polishedFaces.reserve(largestClustersFaces.size());
+	
+	for_each(largestClustersFaces.cbegin(), largestClustersFaces.cend(), [&polishedFaces, &footFaces](const auto& faceIndex) {
+		polishedFaces.push_back(footFaces[faceIndex]);
+	});
 	// fill holes in foot cluster
 	cout << profiler << endl;
+	cout << "new cluster:" << callingNumber[0] << endl
+		 << "add to cluster: " << callingNumber[1] << endl
+		 << "merging 2 clusers: " << callingNumber[2] << endl
+		 << "merging 3 clusters: " << callingNumber[3] << endl;
+	size_t c {0};
+	cout << "clusters count " << clusters.size() << endl;
+	for(const auto& cl : clusters) {
+		cout << "cluster(" << c++ << ") vertex/face (" << cl.first.size() << " / " << cl.second.size() << ")\n";
+	}
 }
 
 //void BufferPreprocessor::polishFoot() {
 //
 //	Profiler profiler {"Polishing"};
 //
-//	const auto step = 2;	// шак гистограммы в мм
+//	const auto step = 2;	// шаг гистограммы в мм
 //	auto toHistCoord = [step](float x) { // преобразование в координаты гистограммы
 //		return static_cast<int>(round(1000.f*x/step));
 //	};
