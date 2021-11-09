@@ -49,28 +49,16 @@ class Exporter {
 	
 	func transform2(point:simd_float3) -> simd_float3 {
 		
-		let px = point.x
-		let py = point.y
-		let pz = point.z
-		
 		let pShifted = point - shift
-		
-		let psx = pShifted.x
-		let psy = pShifted.y
-		let psz = pShifted.z
 		
 		let p2 = simd_float2(pShifted.x, pShifted.z);
 		let z = pShifted.y
-		
-		let ex = axes[0]
-		let ey = axes[1]
-		
-		let m:simd_float2x2 = .init( rows: [simd_float2(ex[0], ex[1]),
-										    simd_float2(ey[0], ey[1])] )
+        
+        let m:simd_float2x2 = .init( rows: axes )
 		
 		let p2_rot = m*p2
 		
-		return simd_float3(p2_rot.x, p2_rot.y, z)
+		return simd_float3(p2_rot.x, -p2_rot.y, z)
 	
 	}
 	
