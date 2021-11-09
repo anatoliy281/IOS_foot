@@ -196,12 +196,25 @@ void BufferPreprocessor::polishFoot() {
 		static size_t faceIndex {0};	// индексы граней
 		// формируем кластер из одной единственной грани
 		auto newCluster = toCluster(face, faceIndex);
-		auto findCondition = [newSet=newCluster.first](const auto& cluster) {	// поиск вхождения любой из вершины face в множество вершин кластера
-			const auto& clSet = cluster.first;
-			vector<size_t> res;
-			set_intersection(clSet.cbegin(), clSet.cend(), newSet.cbegin(), newSet.cend(), back_inserter(res));
-			return !res.empty();
-		};
+        
+        auto findCondition = [face](const auto& cluster) {    // поиск вхождения любой из вершины face в множество вершин кластера
+            const auto& clSet = cluster.first;
+            const auto endIt = clSet.cend();
+            // количество найденных/ненайденных вершин
+            short plus {0};
+            short minus {0};
+            for (size_t i=0; i < face.size(); ++i) {
+                const auto faceIsFound = clSet.find(face[i]) != endIt;
+                if ( faceIsFound ) {    // исход определяем по последней грани
+                    ++plus;
+                } else {
+                    ++minus;
+                }
+                if (plus == 2 || minus == 2)
+                    break;
+            }
+            return plus >= 2;
+        };
 		
 		// поиск кластеров которые содержат грань face
 		auto clIt = find_if(clusters.begin(), clusters.end(), findCondition);
@@ -263,182 +276,6 @@ void BufferPreprocessor::polishFoot() {
 	}
 }
 
-//void BufferPreprocessor::polishFoot() {
-//
-//	Profiler profiler {"Polishing"};
-//
-//	const auto step = 2;	// шаг гистограммы в мм
-//	auto toHistCoord = [step](float x) { // преобразование в координаты гистограммы
-//		return static_cast<int>(round(1000.f*x/step));
-//	};
-//
-//	auto fromHistCoord = [step](int n) {
-//		return static_cast<float>(step*n)/1000.f;
-//	};
-//
-//	// Все гистограммы организованы в набор.
-//	// Отдельные гистограммы доступны из данного набра и хранят не скаляры, а вектора, сворачивая которые можно определять интересующие скаляры
-//	using IndexedNormalVec = vector<pair<size_t,float>>; // вектор (номер грани ,вклад нормали в направлении плоскости)
-//	using Histogram = map<int, IndexedNormalVec>;	// отдельна гистограмма - данные в k хранят вектор
-//	map<int,Histogram> allHistograms;	// список гистограмм
-//
-//	// ----------------- заполнение гистограмм ---------------------
-//	const auto allFaces = faces.at(Undefined);
-//	const auto maxNz = 153 / (2*step);
-//	const auto maxNx = 351 / (2*step);
-//
-//	for (int h=-maxNx; h < maxNx; ++h)
-//		for (int k=-maxNz; k < maxNz; ++k)
-//			allHistograms[h][k] = {};
-//
-//	auto faceIndex = size_t(0);
-//	auto createHistograms = [this, &allFaces, &allHistograms, &faceIndex, toHistCoord, maxNx, maxNz](const auto& face) {
-////		const auto face = allFaces[faceIndex];
-//		// получение 2-вектора: (XYZ) -> (xz)
-//		const auto c = getFaceCenter(face);
-//
-//		const auto p2 = Vector2(c.x(), c.z()) - (xzAxesOrigin - CGAL::ORIGIN);
-//
-//		// получение проекций a_l и a_n
-//		const auto a_l = CGAL::scalar_product(p2, xAxesDir);
-//		const auto a_n = CGAL::scalar_product(p2, zAxesDir);
-//
-//		// вычисление номера h гистограммы и позиции заполнения k
-//		const auto h = toHistCoord(a_l);
-//		const auto k = toHistCoord(a_n);
-//
-//		if ( abs(h) < maxNx && abs(k) < maxNz ) {
-//			// получение вектора нормали N, вычисление компоненты вдоль плоскости Nl
-//			const auto normal = getFaceNormal(face);
-//			const auto planeNormal = Vector2(normal[PhoneCS::X], normal[PhoneCS::Z]);
-//			auto& histo = allHistograms[h];
-//			const auto value = ( abs(c[PhoneCS::Y] - getFloorHeight()) < 0.03 ) ?
-//				sqrt(planeNormal.squared_length()) : 0;
-//			histo[k].emplace_back( faceIndex, value );
-//		}
-//		++faceIndex;
-//	};
-//	for_each(allFaces.cbegin(), allFaces.cend(), createHistograms);
-//	profiler.measure("create histogram");
-//
-//	auto accumulateStatistic = [](auto sum, auto faceindexNormalPair) {
-//		return sum + faceindexNormalPair.second;
-//	};
-//
-//	// ----------------- сохранение гистограммы ---------------------
-//	auto saveFullHisto = [this, accumulateStatistic, fromHistCoord](const auto& innerHistoPair) {
-//		const auto& h = innerHistoPair.first;
-//		const auto& innerHisto = innerHistoPair.second;
-//		for_each(innerHisto.cbegin(), innerHisto.cend(), [this, fromHistCoord, accumulateStatistic, h](const auto& indexStaticticPair) {
-//			const auto& statistic = indexStaticticPair.second;
-//			const auto k = indexStaticticPair.first;
-//			const auto value = accumulate(statistic.cbegin(), statistic.cend(), 0.f, accumulateStatistic);
-//			histogram2DMap.emplace_back(h, k, value);
-//		});
-//	};
-//	for_each(allHistograms.begin(), allHistograms.end(), saveFullHisto);
-//	profiler.measure("save histogram");
-//
-//
-//	// ----------------- заполнение контура стопы ---------------------
-//	auto compareStatistics = [accumulateStatistic](const auto& innerHistoPair1, const auto& innerHistoPair2) {
-//
-//		const auto vec1 = innerHistoPair1.second;
-//		const auto n1 = accumulate(vec1.begin(), vec1.end(), 0.f, accumulateStatistic);
-//		const auto vec2 = innerHistoPair2.second;
-//		const auto n2 = accumulate(vec2.begin(), vec2.end(), 0.f, accumulateStatistic);
-//		return n1 < n2;
-//	};
-//
-//	auto findDropPos = [accumulateStatistic, compareStatistics]
-//	(auto startInnerHistoSearchIt, auto endInnerHistoSerchIt) {
-//		auto innerHistoPeakIt = max_element(startInnerHistoSearchIt, endInnerHistoSerchIt, compareStatistics);
-//		auto peakStatistic = innerHistoPeakIt->second;
-//		auto amplitude = accumulate(peakStatistic.cbegin(), peakStatistic.cend(), 0.f, accumulateStatistic);
-//
-//		return find_if(innerHistoPeakIt, endInnerHistoSerchIt,
-//										[percent = 0.9, amplitude, accumulateStatistic](const auto& indexVectorPair) {
-//			const auto& statistic = indexVectorPair.second;
-//			auto amp = accumulate(statistic.cbegin(), statistic.cend(), 0.f, accumulateStatistic);
-//			return amp/amplitude < percent;
-//		});
-//	};
-//
-//	auto& polishedFaces = faces[PolishedFoot];
-//
-//	auto saveToFootContour = [this, fromHistCoord](auto h, auto k) {
-//		const auto x = fromHistCoord(h);
-//		const auto z = fromHistCoord(k);
-//		footContour.emplace_back(x, z, 0);
-//	};
-//
-//	auto searchKClosestToZero = [](const auto& innerHistoPair1, const auto& innerHistoPair2) {
-//		return abs(innerHistoPair1.first) < abs(innerHistoPair2.first);
-//	};
-//
-//	map<int,pair<int,int>> contourIndeces;
-//	auto findContourIndeces = [&contourIndeces, saveToFootContour, searchKClosestToZero, findDropPos](const auto& innerHistoPair) {	// перебор всех гистограмм
-//		auto h = innerHistoPair.first;
-//		const auto& innerHisto = innerHistoPair.second;
-//
-//		// поиск "нуля" гистограммы
-//		auto firstPositiveCoordIt = min_element(innerHisto.cbegin(), innerHisto.cend(), searchKClosestToZero);
-//
-//
-//		auto rightPeakDropPos = findDropPos(firstPositiveCoordIt, innerHisto.cend());
-//		auto leftPeakDropPos = findDropPos(make_reverse_iterator(firstPositiveCoordIt), innerHisto.rend());
-//
-//		if (rightPeakDropPos != innerHisto.cend())
-//			saveToFootContour(h, rightPeakDropPos->first);
-//		if (leftPeakDropPos != innerHisto.rend())
-//			saveToFootContour(h, leftPeakDropPos->first);
-//		if (rightPeakDropPos != innerHisto.cend() && leftPeakDropPos != innerHisto.rend())
-//			contourIndeces[h] = make_pair(leftPeakDropPos->first, rightPeakDropPos->first);
-//	};
-//	profiler.measure("find contour");
-//	for_each(allHistograms.begin(), allHistograms.end(), findContourIndeces);
-//
-//	auto contourStatement = [this, &contourIndeces, toHistCoord, fromHistCoord](const auto& facet) {
-//		if ( getFacePerimeter(facet) > maxTrianglePerimeter ) {
-//			return false;
-//		}
-//		const auto c = getFaceCenter(facet);
-//		const auto p2 = Vector2(c.x(), c.z()) - (xzAxesOrigin - CGAL::ORIGIN);
-//
-//		// получение проекций a_l и a_n
-//		const auto a_l = CGAL::scalar_product(p2, xAxesDir);
-//		const auto a_n = CGAL::scalar_product(p2, zAxesDir);
-//
-//		// вычисление номера h гистограммы и позиции заполнения k
-//		const auto h = toHistCoord(a_l);
-//		const auto k = toHistCoord(a_n);
-//		const auto it = contourIndeces.find(h);
-//		if ( it == contourIndeces.cend()) {
-//			return false;
-//		}
-//		const auto lrP = it->second;
-//		assert(lrP.first < lrP.second);
-//
-//		if ( lrP.first < k && k < lrP.second ) {
-//			return true;
-//		} else {
-//			const auto dK = min( abs(lrP.first - k), abs(lrP.second - k) );
-//			const auto dY = fromHistCoord(dK);
-//			const auto dZ = c.y() - getFloorHeight();
-//			if (dZ < 0)	// пол уплыл ниже контура и оставил расплытый переход нога-пол (его добавлять не стоит)
-//				return false;
-//			return dZ > dY;
-//		}
-//
-//	};
-//	polishedFaces.clear();
-////	const auto footFaces = faces[Foot];
-////	copy_if(footFaces.cbegin(), footFaces.cend(), back_inserter(polishedFaces), contourStatement);
-//	copy_if(allFaces.cbegin(), allFaces.cend(), back_inserter(polishedFaces), contourStatement);
-//	profiler.measure("fill polish foot");
-//
-//	cout << profiler << endl;
-//}
 
 void BufferPreprocessor::findTransformCS() {
 	Profiler profiler {"find transformation"};
