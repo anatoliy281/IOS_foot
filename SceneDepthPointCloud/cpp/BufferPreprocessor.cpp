@@ -5,6 +5,7 @@
 
 #include <CGAL/remove_outliers.h>
 #include <CGAL/grid_simplify_point_set.h>
+#include <CGAL/pca_estimate_normals.h>
 #include <CGAL/jet_smooth_point_set.h>
 #include <CGAL/Advancing_front_surface_reconstruction.h>
 #include <CGAL/compute_average_spacing.h>
@@ -25,12 +26,6 @@ using CGAL::grid_simplify_point_set;
 using CGAL::remove_outliers;
 using CGAL::advancing_front_surface_reconstruction;
 using CGAL::Sequential_tag;
-
-
-using std::vector;
-using std::cout;
-using std::endl;
-using std::tie;
 
 using namespace std;
 
@@ -62,39 +57,79 @@ void BufferPreprocessor::newPortion(Buffer buffer) {
 	
 	if (!isReadyForAcceptionNewChunk)
 		return;
-	
-	Profiler profiler {"New portion of points"};
-	int count;
-	ParticleUniforms* contents;
-	tie(contents, count) = returnPointerAndCount<ParticleUniforms>(buffer);
+    using vec3 = array<double, 3>;
+    using PointNormalPair = pair<Point3, Vector3>;
+    static const size_t chunkMaxCount {20};
+    static size_t chunkCount {0};
+    static array<vector<PointNormalPair>, chunkMaxCount> framesChunks;
+    static array<pair<Vector3, Vector3>, chunkMaxCount> meanParams;
+    
+    Profiler profiler {"New portion of points"};
+    
+    if ( chunkCount == chunkMaxCount ) {    // буферы снимков накоплены, производим коррекцию снимков
+        // средние нормали и положения центра масс
+        Vector3 meanNormInChunks;
+        Vector3 meanMassCenterInChunks;
+        for (const auto& pnp: meanParams) {
+            meanMassCenterInChunks += pnp.first;
+            meanNormInChunks += pnp.second;
+        }
+        meanMassCenterInChunks /= chunkMaxCount;
+        meanNormInChunks /= chunkMaxCount;
+        profiler.measure("mean in frames: center and normal");
+        
+        array<Vector3, chunkMaxCount> shifts;
+        for (size_t i=0; i < chunkMaxCount; ++i) {
+            const auto c = meanParams[i].first;
+            Vector3 dc {c[0] - meanMassCenterInChunks[0], c[1] - meanMassCenterInChunks[1], c[2] - meanMassCenterInChunks[2]};
+            Vector3 n {meanNormInChunks[0], meanNormInChunks[1], meanNormInChunks[2]};
+            const auto shiftDist = CGAL::scalar_product(n, dc);
+            shifts[i] = n*shiftDist;    //  корректирующий вектор определяющий сдвиг вдоль нормали
+        }
+        profiler.measure("shift vector per each frame");
+        
+        
+        chunkCount = 0;
+        for (auto& chunk: framesChunks) chunk.clear();
+    } else {    // продолжаем накапливать буферы
+        auto& chunk = framesChunks[chunkCount];
+        int count;
+        ParticleUniforms* contents;
+        tie(contents, count) = returnPointerAndCount<ParticleUniforms>(buffer);
 
-	vector<Point3> pointsVec;
-	pointsVec.reserve(count);
-	for (int i=0; i < count; ++i) {
-		const auto point = contents[i].position;
-		if (simd_length_squared(point) != 0) {
-			pointsVec.emplace_back( Point3(point.x, point.y, point.z) );
-		}
-	}
-	
-	const auto poinsCount = pointsVec.size();
-	if (poinsCount <= 24)
-		return;
-	profiler.measure(string("form point set(")
-					 + to_string(poinsCount) + ")");
-	
-	auto itRmv = remove_outliers<Sequential_tag>(pointsVec, 24);
-	pointsVec.erase(itRmv, pointsVec.end());
-	profiler.measure("remove outliers");
+        for (int i=0; i < count; ++i) {
+            const auto point = contents[i].position;
+            if (simd_length_squared(point) != 0) {
+                chunk.emplace_back(Point3(point.x, point.y, point.z), Vector3());
+            }
+        }
+        profiler.measure("form new chunk");
+        
+        // вычисление ориентаций нормалей для каждой точки по ближайшим соседям
+        CGAL::pca_estimate_normals<Sequential_tag>(chunk, 8,
+                                                   CGAL::parameters::point_map(CGAL::First_of_pair_property_map<PointNormalPair>()).
+                                                                    normal_map(CGAL::Second_of_pair_property_map<PointNormalPair>()) );
+        
+        // вычисление центра и средней ориентации куска данных и занесение их в массивы
+        auto& cm = meanParams[chunkCount].first;   // центр масс
+        auto& nm = meanParams[chunkCount].second;  // средняя нормаль
+        profiler.measure("estimate normals");
+        for (int i=0; i < count; ++i) {
+            const auto& point = chunk[i].first;
+            const auto& norm = chunk[i].second;
+            
+            cm += (point - CGAL::ORIGIN);
+            nm += Vector3(abs(norm.x()), abs(norm.y()), abs(norm.z()));
+        }
+        nm /= count;
+        cm /= count;
+ 
+        profiler.measure("mean pos and norm");
+        ++chunkCount;
+    }
 
-	copy( pointsVec.cbegin(), pointsVec.cend(), back_inserter(allPoints) );
-	profiler.measure("join");
-	
-	simplifyPointCloud(allPoints);
-	profiler.measure("simplify joined");
-
-	cout << profiler << endl;
-	cout << "size: " << allPoints.size() << endl;
+    cout << profiler << endl;
+    cout << "cur chunk num: " << chunkCount << endl;
 }
 
 void BufferPreprocessor::simplifyPointCloud(PointVec& points) {
@@ -109,7 +144,14 @@ void BufferPreprocessor::triangulate() {
 	smoothedPoints.clear();
 	copy(allPoints.cbegin(), allPoints.cend(), back_inserter(smoothedPoints));
 	profiler.measure("form smoothed array");
-	jet_smooth_point_set<Sequential_tag> (smoothedPoints, 192);
+    function<bool(double)> f = [](double p) -> bool {
+        cout << p << endl;
+        return true;
+    };
+    jet_smooth_point_set<Sequential_tag> (smoothedPoints, 92,
+                                          CGAL::parameters::neighbor_radius(0).
+                                          callback(f));
+    
 	profiler.measure("smooth");
 	
 	const auto nBefore = smoothedPoints.size();
