@@ -54,6 +54,12 @@ private:
 	void filterFaces(IndexFacetVec& v0, float threshold) const;
 	
 	void writeSeparatedData();
+    
+    simd::float3 toSIMD3(const Point3& pos) const;
+    simd::float3 toSIMD3(const Vector3& pos) const;
+    Point3 toPoint3(const simd::float3& x) const;
+    Vector3 toVector3(const simd::float3& x) const;
+    Vector3 toVector3(const Point3& point) const;
 	
 public:
 	BufferPreprocessor();
