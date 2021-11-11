@@ -13,6 +13,7 @@
 #include <CGAL/linear_least_squares_fitting_2.h>
 #include <CGAL/Aff_transformation_2.h>
 
+#include <boost/iterator/transform_iterator.hpp>
 
 #include "gsl.h"
 
@@ -97,7 +98,37 @@ void BufferPreprocessor::newPortion(Buffer buffer) {
         }
         profiler.measure("shift coords in each frame");
         
+        PointVec joinedFrames;
+//        cout << "________" << accumulate(framesChunks.cbegin(), framesChunks.cend(), 0, [](auto n, const auto& frame) {
+//            return n + frame.size();
+//        });
+//        accumulate(framesChunks.cbegin(), framesChunks.cend(), joinedFrames, [](auto vec, const auto& frame) {
+//            for (const auto& pvp: frame)
+//                vec.push_back(pvp.first);
+//            return vec;
+//        });
+        auto projectFunc = [](const auto& pvp) {
+            return pvp.first;
+        };
+        for (const auto& chunk: framesChunks) {
+            auto chunkBegin = boost::make_transform_iterator(chunk.begin(), projectFunc);
+            auto chunkEnd = boost::make_transform_iterator(chunk.end(), projectFunc);
+            copy(chunkBegin, chunkEnd, back_inserter(joinedFrames));
+        }
         
+        simplifyPointCloud(joinedFrames);
+        profiler.measure(string("join frames and simpify joined (") + to_string(joinedFrames.size()) + ")");
+        
+        allPoints.resize(writeToAllPointsPos);
+        profiler.measure("@@@resize allPoints");
+        move(joinedFrames.begin(), joinedFrames.end(), back_inserter(allPoints));
+        profiler.measure("@@@move to allPoints");
+        size_t n1 {allPoints.size()};
+        simplifyPointCloud(allPoints);
+        size_t n2 {allPoints.size()};
+        profiler.measure(string("@@@simpify allPoints (") + to_string(n1) + "/" + to_string(n2) + ")");
+        writeToAllPointsPos = allPoints.size();
+        profiler.measure("@@@save to allPoints");
         
         chunkCount = 0;
         for (auto& chunk: framesChunks) chunk.clear();
@@ -114,12 +145,16 @@ void BufferPreprocessor::newPortion(Buffer buffer) {
             }
         }
         profiler.measure("form new chunk");
+        const auto nb_neighbors = 8;
+        if (chunk.size() < nb_neighbors) {
+            return;
+        }
         
         // вычисление ориентаций нормалей для каждой точки по ближайшим соседям
         using PointNormalPair = pair<Point3, Vector3>;
         using pointPart = CGAL::First_of_pair_property_map<PointNormalPair>;
         using normalPart = CGAL::Second_of_pair_property_map<PointNormalPair>;
-        const auto nb_neighbors = 8;
+        
         const auto parameters = CGAL::parameters::point_map(pointPart()).normal_map(normalPart());
         CGAL::pca_estimate_normals<Sequential_tag>(chunk, nb_neighbors, parameters);
         auto unoriented = CGAL::mst_orient_normals(chunk, nb_neighbors, parameters);
@@ -137,6 +172,14 @@ void BufferPreprocessor::newPortion(Buffer buffer) {
         curParams.second /= chunkCount;
  
         profiler.measure("mean pos and norm");
+        
+        auto projectFunc = [](const auto& pvp) {
+            return pvp.first;
+        };
+        auto chunkBegin = boost::make_transform_iterator(chunk.begin(), projectFunc);
+        auto chunkEnd = boost::make_transform_iterator(chunk.end(), projectFunc);
+        copy(chunkBegin, chunkEnd, back_inserter(allPoints));
+        
         ++chunkCount;
     }
 

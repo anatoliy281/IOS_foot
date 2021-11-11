@@ -101,7 +101,7 @@ public:
 private:
 	int pointBufferSize {0};
 	int indexBufferSize {0};
-	int capacity {3000};
+	int capacity {60000};
 	bool isReadyForAcceptionNewChunk {true};
 	
 	Interval floorInterval;
@@ -112,6 +112,7 @@ private:
 	Point2 xzAxesOrigin;
 	
 	PointVec allPoints;
+    size_t writeToAllPointsPos {0};
 	PointVec smoothedPoints;
 	FacetMap faces;
 	
