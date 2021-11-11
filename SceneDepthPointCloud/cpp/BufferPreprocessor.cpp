@@ -89,9 +89,10 @@ void BufferPreprocessor::newPortion(Buffer buffer) {
 
 	copy( pointsVec.cbegin(), pointsVec.cend(), back_inserter(allPoints) );
 	profiler.measure("join");
-	
+    const auto n1 {allPoints.size()};
 	simplifyPointCloud(allPoints);
-	profiler.measure("simplify joined");
+    const auto n2 {allPoints.size()};
+	profiler.measure("simplify joined (" + to_string(n1) + "/" + to_string(n2) + ")");
 
 	cout << profiler << endl;
 	cout << "size: " << allPoints.size() << endl;
@@ -107,15 +108,18 @@ void BufferPreprocessor::triangulate() {
 	isReadyForAcceptionNewChunk = false;
 	
 	smoothedPoints.clear();
+    smoothedPoints.reserve(40000);
 	copy(allPoints.cbegin(), allPoints.cend(), back_inserter(smoothedPoints));
 	profiler.measure("form smoothed array");
 	jet_smooth_point_set<Sequential_tag> (smoothedPoints, 192);
 	profiler.measure("smooth");
 	
 	const auto nBefore = smoothedPoints.size();
+    const auto nCapacity1 = smoothedPoints.capacity();
 	simplifyPointCloud(smoothedPoints);
 	const auto nAfter = smoothedPoints.size();
-	profiler.measure(string("simplify(") + to_string(nBefore) + "/" + to_string(nAfter) + ")");
+    const auto nCapacity2 = smoothedPoints.capacity();
+	profiler.measure(string("simplify(") + to_string(nBefore) + "[" + to_string(nCapacity1) + "]/" + to_string(nAfter) + "[" + to_string(nCapacity2) + "])");
 	
 	auto& allFaces = faces[Undefined];
 	allFaces.clear();
